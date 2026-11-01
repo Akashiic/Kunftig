@@ -16,7 +16,5 @@
     "nametag.ScorePlayerTeamMixin",
     "particle.NetHandlerPlayClientParticleMixin"
   ],
-  "server": [
-    "crucible.BukkitWorldDescriptorMixin"
-  ]
+  "server": []
 }

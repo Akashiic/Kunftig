@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "minVersion": "0.8.5-GTNH",
+  "package": "com.akashic.kunftig.mixin.crucible",
+  "plugin": "com.akashic.kunftig.mixin.crucible.CrucibleMixinPlugin",
+  "target": "@env(PREINIT)",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": [],
+  "server": []
+}

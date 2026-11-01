@@ -145,12 +145,19 @@ ofuscado do `WorldServer` e não existe em tempo de execução. O código-fonte 
 **Correção provisória no Kunftig.** O jar do Crucible traz o Minecraft com nomes deobfuscados, então o FML pula a
 deobfuscação em tempo de execução (`FMLDeobfTweaker` só registra o `DeobfuscationTransformer` fora de ambiente
 deobfuscado) e nada renomeia o `mt`. Com o Kunftig em `mods/`, um mixin vazio em `org.bukkit.World` leva a classe até o
-`KunftigMixinPlugin`, que troca o descritor de `getWorldServer` de `()Lmt;` para `()Lnet/minecraft/world/WorldServer;`
+`CrucibleMixinPlugin`, que troca o descritor de `getWorldServer` de `()Lmt;` para `()Lnet/minecraft/world/WorldServer;`
 enquanto ela carrega (`crucible.WorldDescriptorFix`). Com isso, a chamada direta, o `findVirtual` na interface e o
 `getMethods` voltam a funcionar. Só age se o método tiver exatamente o descritor quebrado, se `WorldServer` existir e se
-não existir classe `mt`; num Crucible corrigido, no Thermos ou no Paper não faz nada. Só servidor dedicado. No log:
+não existir classe `mt`; num Crucible corrigido, no Thermos ou no Paper não faz nada. No log:
 `Kunftig: fixed org.bukkit.World#getWorldServer()...`. Desligar: `-Dkunftig.crucible.worldFix.disable=true`. Os 30
 membros internos do `org.spigotmc` não são mexidos: são código do próprio servidor, e plugins não devem usá-los.
+
+**Nunca derruba o servidor.** A correção vive numa config de mixin própria e opcional (`mixins.kunftig.crucible.json`,
+`required: false`, fase PREINIT), e o mixin só é oferecido se o `World` ainda não tiver sido carregado. Coremods que
+detectam o Bukkit com `Class.forName("org.bukkit.World")` (o PlayerContainerFix 2.0.0 faz isso) carregam a classe cedo.
+Se isso acontecer antes de a correção estar pronta, ela é pulada com o aviso
+`org.bukkit.World was loaded before mixins could apply...` e tudo segue como sem ela. O build `8a18b84` tinha o mixin na
+config obrigatória e derrubava esses servidores: não usar.
 
 Mesmo com a correção, para código que precisa rodar também em servidores **sem** o Kunftig continua valendo:
 
