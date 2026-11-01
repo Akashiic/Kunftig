@@ -1,0 +1,17 @@
+/*
+ * Dependencies of the Forge 1.7.10 mod (root project).
+ * The GTNH convention adds Minecraft, Forge and the UniMixins/Mixin annotation processor.
+ * Kunftig deliberately has no hard runtime dependency besides a Mixin provider (UniMixins).
+ */
+dependencies {
+    // Shared protocol + text code, embedded into the mod jar.
+    // The jar variant is requested explicitly: RFG's consumer attributes otherwise match several variants.
+    shadowImplementation(project(":common")) {
+        attributes {
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+        }
+    }
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
+}
