@@ -154,6 +154,10 @@ lista campos). Para `getWorldServer`, procure o método no `world.getClass()`, n
 regra em todo o código (`CraftBridge`, `ItemDataBridge`, `VanillaTeamOptions`), e um teste reproduz o defeito com uma
 classe gerada (`ObfuscatedSignatureReflectionTest`).
 
+No Crucible, o PlayerContainerFix nem é necessário: o Crucible já corrige o mesmo `ClassCastException` do
+BetterQuesting no próprio `ContainerPlayer`. Recomendação: tirá-lo (veja "Mods que atrapalham no Crucible" no
+[README.pt-BR.md](../README.pt-BR.md)).
+
 O Kunftig **não** corrige isso em tempo de execução. As tentativas por mixin (`8a18b84`, `8c59b6c`) partiam de uma
 premissa errada e não tinham como funcionar: o `World` já está carregado antes de qualquer mixin agir. **Não usar o
 `8a18b84`**, que derrubava o servidor; o `8c59b6c` era inofensivo, mas não fazia nada. O conserto certo é no PlayerContainerFix: detectar o Bukkit sem carregar a classe.

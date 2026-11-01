@@ -57,6 +57,36 @@ E `KunftigPlayers.getPing(player)`, o `Player#getPing` do 1.17+.
 | Servidor | `Kunftig-Bukkit-<versão>.jar` em `plugins/` | Thermos/Crucible 1.7.10 ou Spigot/Paper 1.8+; Java 8+ |
 | Proxy (Velocity) | nada | — |
 
+## Mods que atrapalham no Crucible
+
+### PlayerContainerFix (BQ3-Thermos-patch): remover no Crucible
+
+O [PlayerContainerFix](https://github.com/GTNewHorizons/BQ3-Thermos-patch) 2.0.0 corrige o `ClassCastException` do
+BetterQuesting no **Thermos** ([BetterQuesting#605](https://github.com/Funwayguy/BetterQuesting/issues/605)): o
+`ContainerPlayer.onCraftMatrixChanged` do CraftBukkit converte `crafters.get(0)` para `EntityPlayerMP` sem conferir.
+**O Crucible já traz essa correção no próprio patch do `ContainerPlayer`** (`//Crucible start - Fix ClassCastException
+(see .../BetterQuesting/issues/605)`, com o mesmo `instanceof EntityPlayerMP`). No Crucible o mod não acrescenta nada.
+
+E ele atrapalha. O coremod detecta o Bukkit com `Class.forName("org.bukkit.World")` enquanto os coremods carregam,
+antes de o FML ligar a deobfuscação. O `org.bukkit.World` fica então com nomes ofuscados: `world.getWorldServer()` dá
+`NoSuchMethodError` e qualquer reflexão em `World` dá `NoClassDefFoundError: mt`, para todos os plugins (issue #3).
+O Kunftig avisa no log quando isso acontece.
+
+**Recomendação: tirar o `PlayerContainerFix-2.0.0.jar` do `mods/` do Crucible.** Antes de tirar em produção, confira:
+
+1. Que o `ContainerPlayer` do seu `server.jar` tem a correção. No jar ele se chama `aap`, o método é `a(rb)` e o
+   `EntityPlayerMP` é `mw`; a saída deve ter `instanceof` com `class mw` (no vanilla esse método não tem nenhum):
+
+   ```bash
+   javap -c -cp server.jar aap | sed -n '/public void a(rb);/,/^$/p' | grep instanceof
+   ```
+2. Sem o mod, com o BetterQuesting: entrar, abrir o inventário e montar uma receita na grade 2x2 (tirar e pôr o
+   resultado algumas vezes). Não deve aparecer `ClassCastException` em `ContainerPlayer` no log, e o resultado da
+   receita deve atualizar normalmente.
+
+No **Thermos** o mod continua necessário; lá o certo é ele detectar o Bukkit sem carregar a classe (texto para
+reportar: [docs/upstream/playercontainerfix-early-bukkit-load.md](docs/upstream/playercontainerfix-early-bukkit-load.md)).
+
 ## Configuração (servidor)
 
 `plugins/Kunftig/config.yml`:

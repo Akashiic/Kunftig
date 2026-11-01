@@ -1,8 +1,10 @@
 # Draft issue for PlayerContainerFix
 
-> Not filed yet. PlayerContainerFix 2.0.0 (`com.juanmuscaria.playercontainerfix`), source reported as
-> [GTNewHorizons/BQ3-Thermos-patch](https://github.com/GTNewHorizons/BQ3-Thermos-patch); confirm the repository
-> before filing. Everything below was observed on a copy of the TEOF server (Kunftig issue #3). Copy from the title down.
+> Not filed yet. PlayerContainerFix 2.0.0 (`com.juanmuscaria.playercontainerfix`), repository
+> [GTNewHorizons/BQ3-Thermos-patch](https://github.com/GTNewHorizons/BQ3-Thermos-patch) (its `mcmod.info`). Everything
+> below was observed on a copy of the TEOF server (Kunftig issue #3). For TEOF itself the answer is to remove the mod
+> (Crucible already has the fix); this report matters for Thermos servers and anyone who keeps it. Copy from the title
+> down.
 
 ---
 
@@ -55,3 +57,10 @@ boolean bukkit = FMLCoreMod.class.getClassLoader().getResource("org/bukkit/World
 
 `Class.forName("org.bukkit.World", false, loader)` is not enough: it skips initialization but still loads (and so
 freezes) the class.
+
+### Note for Crucible
+
+Crucible's own `ContainerPlayer` patch already fixes BetterQuesting#605 (`//Crucible start - Fix ClassCastException`,
+the same `instanceof EntityPlayerMP` check), so on Crucible the mod adds nothing but the early load. It may be worth
+skipping the mixin there, or saying in the README that the mod is for Thermos only.
+

@@ -54,6 +54,17 @@ colors on any 1.7.10 client and modern particles (`END_ROD`, `SOUL_FIRE_FLAME`, 
 particle. Plus `KunftigPlayers.getPing(player)`, 1.17's `Player#getPing`. Study (Portuguese):
 [docs/particles/ESTUDO.md](docs/particles/ESTUDO.md).
 
+## Mods that get in the way on Crucible
+
+**PlayerContainerFix (BQ3-Thermos-patch): remove it on Crucible.** It fixes BetterQuesting's `ClassCastException` in
+`ContainerPlayer.onCraftMatrixChanged` on **Thermos** ([BetterQuesting#605](https://github.com/Funwayguy/BetterQuesting/issues/605)).
+Crucible's own `ContainerPlayer` patch already carries that fix (same `instanceof EntityPlayerMP` check). Worse, its
+coremod loads `org.bukkit.World` with `Class.forName` before FML enables deobfuscation, so `World` keeps obfuscated
+names: `getWorldServer()` throws `NoSuchMethodError` and reflection on `World` throws `NoClassDefFoundError: mt` for
+every plugin. Check before removing it in production: `javap -c -cp server.jar aap | sed -n '/public void a(rb);/,/^$/p' | grep instanceof`
+must show `instanceof` of `class mw` (`ContainerPlayer.onCraftMatrixChanged` checking for `EntityPlayerMP`), and
+crafting in the 2x2 grid with BetterQuesting and without the mod must not log a `ClassCastException`. Details (Portuguese): [README.pt-BR.md](README.pt-BR.md).
+
 ## Repository layout
 
 | Path | Contents |
