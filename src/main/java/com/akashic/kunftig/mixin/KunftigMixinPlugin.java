@@ -17,8 +17,8 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  * only the nametag visibility mixin, {@code -Dkunftig.fishing.disable=true} the fishing mixin and
  * {@code -Dkunftig.particles.disable=true} the particle bridge (the client then never registers the particle channel,
  * so servers send it vanilla particles). Nametag and particle mixins are listed as {@code client} in
- * {@code mixins.kunftig.json}, so a dedicated server never applies them. The provisional Crucible fix lives in its own
- * optional config, {@code mixins.kunftig.crucible.json} ({@code CrucibleMixinPlugin}).
+ * {@code mixins.kunftig.json}, so a dedicated server never applies them. No mixin targets a Bukkit class: coremods may
+ * load those before Mixin can transform them.
  */
 public final class KunftigMixinPlugin implements IMixinConfigPlugin {
 

@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -179,75 +178,49 @@ class ObfuscatedApiScannerTest {
                 .isEmpty());
     }
 
-    @Test
-    void locatesTheJarOfAResource() throws Exception {
-        assertEquals(
-            new File("/srv/my server/crucible.jar").getAbsoluteFile(),
-            BukkitApiSelfCheck.jarOf(new URL("jar:file:/srv/my%20server/crucible.jar!/org/bukkit/World.class")));
-        assertNull(BukkitApiSelfCheck.jarOf(new URL("file:/srv/classes/org/bukkit/World.class")));
-        assertNull(BukkitApiSelfCheck.jarOf(null));
+    /** A defective World: its descriptor names {@code mt}, as when a coremod loads it before deobfuscation. */
+    private static ClassLoader withWorld(String getWorldServerDescriptor) {
+        ClassWriter w = new ClassWriter(0);
+        w.visit(
+            Opcodes.V1_8,
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+            "org/bukkit/World",
+            null,
+            "java/lang/Object",
+            null);
+        w.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getWorldServer", getWorldServerDescriptor, null, null)
+            .visitEnd();
+        w.visitEnd();
+        final byte[] bytes = w.toByteArray();
+        return new ClassLoader(ObfuscatedApiScannerTest.class.getClassLoader()) {
+
+            @Override
+            protected synchronized Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                if (!name.equals("org.bukkit.World")) {
+                    return super.loadClass(name, resolve);
+                }
+                Class<?> loaded = findLoadedClass(name);
+                return loaded != null ? loaded : defineClass(name, bytes, 0, bytes.length);
+            }
+        };
     }
 
-    private static ObfuscatedApiScanner.Finding finding(String owner, String member, String type) {
-        return new ObfuscatedApiScanner.Finding(owner, member, "public", Arrays.asList(type), false);
+    @Test
+    void startupCheckJudgesTheLoadedWorld() {
+        assertEquals("mt", BukkitApiSelfCheck.missingType(withWorld("()Lmt;")));
+        assertNull(BukkitApiSelfCheck.missingType(withWorld("()Ljava/lang/Object;")), "deobfuscated as usual");
+        assertNull(BukkitApiSelfCheck.missingType(new ClassLoader(null) {}), "no Bukkit");
     }
 
-    /** Shape of the real report from production Crucible (issue #3): 1 plugin API member, 30 Spigot internals. */
     @Test
-    void logListsThePluginApiAndSummarizesInternals() {
-        List<ObfuscatedApiScanner.Finding> findings = Arrays.asList(
-            finding("org.bukkit.World", "getWorldServer()Lmt;", "mt"),
-            finding("org.spigotmc.ActivationRange", "checkIfActive(Lsa;)Z", "sa"),
-            finding("org.spigotmc.ActivationRange", "maxBB:Lazt;", "azt"),
-            finding("org.spigotmc.AntiXray", "obfuscate(III[BLahb;)V", "ahb"),
-            finding("org.spigotmc.VanillaCommandWrapper$PlayerListener", "<class>", "ac"));
-        String message = BukkitApiSelfCheck.describe(findings, "server.jar", false);
-        assertTrue(message.contains("1 Bukkit API member(s) in server.jar"), message);
+    void startupWarningNamesTheCauseWithoutClaimingAFix() {
+        String message = BukkitApiSelfCheck.describe("mt");
+        assertTrue(message.contains("obfuscated class mt"), message);
         assertTrue(message.contains("NoSuchMethodError"), message);
-        assertTrue(
-            message.contains("\n  public org.bukkit.World#getWorldServer()Lmt; -> [mt] (not in the jar)"),
+        assertTrue(message.contains("PlayerContainerFix"), message);
+        assertFalse(
+            message.toLowerCase(java.util.Locale.ROOT)
+                .contains("fixed"),
             message);
-        assertTrue(
-            message.contains(
-                "Also 4 member(s) of server internals in server.jar name obfuscated classes (org.spigotmc.ActivationRange, "
-                    + "org.spigotmc.AntiXray, org.spigotmc.VanillaCommandWrapper$PlayerListener)"),
-            message);
-        assertTrue(message.contains("ObfuscatedApiScanner server.jar"), message);
-        assertEquals(
-            1,
-            BukkitApiSelfCheck.pluginApi(findings)
-                .size());
-
-        List<ObfuscatedApiScanner.Finding> internalsOnly = findings.subList(1, findings.size());
-        assertTrue(
-            BukkitApiSelfCheck.pluginApi(internalsOnly)
-                .isEmpty(),
-            "logged at INFO");
-        assertTrue(
-            BukkitApiSelfCheck.describe(internalsOnly, "server.jar", false)
-                .startsWith("Kunftig: 4 member(s) of server internals"));
-        assertEquals(
-            "Kunftig: no obfuscated types in the Bukkit API signatures of server.jar",
-            BukkitApiSelfCheck
-                .describe(java.util.Collections.<ObfuscatedApiScanner.Finding>emptyList(), "server.jar", false));
-    }
-
-    @Test
-    void logSaysWhenKunftigFixedWorldAtRuntime() {
-        List<ObfuscatedApiScanner.Finding> findings = Arrays.asList(
-            finding("org.bukkit.World", "getWorldServer()Lmt;", "mt"),
-            finding("org.spigotmc.AntiXray", "obfuscate(III[BLahb;)V", "ahb"));
-        String message = BukkitApiSelfCheck.describe(findings, "server.jar", true);
-        assertTrue(
-            message.startsWith("Kunftig: org.bukkit.World#getWorldServer() names the obfuscated class mt"),
-            message);
-        assertTrue(message.contains("Kunftig fixed it at runtime"), message);
-        assertFalse(message.contains("NoSuchMethodError"), message);
-        assertTrue(message.contains("\n1 member(s) of server internals"), message);
-    }
-
-    @Test
-    void worldReflectionCheckWithoutBukkit() {
-        assertFalse(BukkitApiSelfCheck.worldReflectionWorks(new ClassLoader(null) {}));
     }
 }

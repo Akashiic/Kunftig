@@ -44,11 +44,3 @@ val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     }
     dependsOn(tasks.compileJava)
 }
-
-// A second, optional mixin config: the provisional Crucible fix (issue #3). Optional so that it can never stop a
-// server, whatever loads org.bukkit.World first; the convention only lists mixins.kunftig.json.
-tasks.withType<Jar>().configureEach {
-    manifest {
-        attributes("MixinConfigs" to "mixins.kunftig.json,mixins.kunftig.crucible.json")
-    }
-}

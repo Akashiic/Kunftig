@@ -126,58 +126,46 @@ Como funciona e o que saber:
 Todo o `kunftig-api` é verificado contra a API Bukkit 1.7.10 real do Thermos/Crucible
 (`./gradlew checkLegacyBukkitApi -PlegacyBukkitApi=...`, jar gerado por `scripts/build-legacy-bukkit-api.sh`).
 
-## 6. Reflexão em classes Bukkit no Crucible: use `MethodHandles`
+## 6. `org.bukkit.World` carregado cedo demais: use `MethodHandles`
 
-No Crucible de produção (`1.7.10-staging-67b53034`), `org.bukkit.World` declara `mt getWorldServer()`: `mt` é o nome
-ofuscado do `WorldServer` e não existe em tempo de execução. O código-fonte do Crucible está certo
-(`patches/org/bukkit/World.java.patch` declara `net.minecraft.world.WorldServer`); o defeito está no jar publicado.
+No TEOF (Crucible `1.7.10-staging-67b53034` com o PlayerContainerFix 2.0.0), o `org.bukkit.World` carregado declara
+`mt getWorldServer()`. `mt` é o nome ofuscado do `WorldServer`, e ninguém o renomeia.
 
-| Chamada | Resultado em `World`/`CraftWorld` |
+**Causa** (verificada no TEOF, issue #3). O jar do Crucible guarda todas as classes com nomes notch (o Minecraft vem do
+jar vanilla ofuscado no `Class-Path`) e o FML as renomeia enquanto carregam, pelo `DeobfuscationTransformer`. O FML
+registra esse transformer por último (`FMLDeobfTweaker`, depois de injetar os coremods). O coremod do
+**PlayerContainerFix 2.0.0** detecta o Bukkit com `Class.forName("org.bukkit.World")` durante a injeção. Com isso, o
+`World` carrega antes da deobfuscação e fica com o `mt` para sempre. Sem o PlayerContainerFix, os testes abaixo passam
+todos. Não é defeito do build do Crucible.
+
+| Chamada (com o `World` carregado cedo) | Resultado |
 |---|---|
 | `world.getName()`, chamada direta de qualquer outro método | funciona: a JVM só resolve o método chamado |
-| `world.getWorldServer()` (chamada direta) | **`NoSuchMethodError`** (verificado em produção): o remapeador de plugins do Crucible troca o `mt` da chamada por `WorldServer`, mas a interface continua declarando `()Lmt;` |
+| `world.getWorldServer()` (chamada direta) | `NoSuchMethodError`: o plugin é remapeado para `WorldServer`, a interface ficou com `()Lmt;` |
 | `World.class.getMethods()`, `getDeclaredMethods()` | `NoClassDefFoundError: mt` |
 | `World.class.getMethod("getName")` | **também** `NoClassDefFoundError: mt`: o Java resolve as assinaturas de todos os métodos públicos para achar um |
 | `MethodHandles.publicLookup().findVirtual(World.class, "getName", MethodType.methodType(String.class))` | funciona: resolve só o método pedido |
-| `findVirtual(World.class, "getWorldServer", methodType(WorldServer.class))` | `NoSuchMethodException`: na interface o descritor é `()Lmt;` |
-| `findVirtual(world.getClass(), "getWorldServer", methodType(WorldServer.class))` | **funciona**: o `CraftWorld` é remapeado ao carregar e tem o tipo certo. É o contorno até o Crucible corrigir |
-
-**Correção provisória no Kunftig.** O jar do Crucible traz o Minecraft com nomes deobfuscados, então o FML pula a
-deobfuscação em tempo de execução (`FMLDeobfTweaker` só registra o `DeobfuscationTransformer` fora de ambiente
-deobfuscado) e nada renomeia o `mt`. Com o Kunftig em `mods/`, um mixin vazio em `org.bukkit.World` leva a classe até o
-`CrucibleMixinPlugin`, que troca o descritor de `getWorldServer` de `()Lmt;` para `()Lnet/minecraft/world/WorldServer;`
-enquanto ela carrega (`crucible.WorldDescriptorFix`). Com isso, a chamada direta, o `findVirtual` na interface e o
-`getMethods` voltam a funcionar. Só age se o método tiver exatamente o descritor quebrado, se `WorldServer` existir e se
-não existir classe `mt`; num Crucible corrigido, no Thermos ou no Paper não faz nada. No log:
-`Kunftig: fixed org.bukkit.World#getWorldServer()...`. Desligar: `-Dkunftig.crucible.worldFix.disable=true`. Os 30
-membros internos do `org.spigotmc` não são mexidos: são código do próprio servidor, e plugins não devem usá-los.
-
-**Nunca derruba o servidor.** A correção vive numa config de mixin própria e opcional (`mixins.kunftig.crucible.json`,
-`required: false`, fase PREINIT), e o mixin só é oferecido se o `World` ainda não tiver sido carregado. Coremods que
-detectam o Bukkit com `Class.forName("org.bukkit.World")` (o PlayerContainerFix 2.0.0 faz isso) carregam a classe cedo.
-Se isso acontecer antes de a correção estar pronta, ela é pulada com o aviso
-`org.bukkit.World was loaded before mixins could apply...` e tudo segue como sem ela. O build `8a18b84` tinha o mixin na
-config obrigatória e derrubava esses servidores: não usar.
-
-Mesmo com a correção, para código que precisa rodar também em servidores **sem** o Kunftig continua valendo:
+| `findVirtual(World.class, "getWorldServer", methodType(WorldServer.class))` | `NoSuchMethodException` |
+| `findVirtual(world.getClass(), "getWorldServer", methodType(WorldServer.class))` | **funciona**: o `CraftWorld` carrega depois, já deobfuscado |
 
 Regra para plugins e para o próprio Kunftig: **nada de `getMethod`/`getMethods`/`getDeclaredMethods` em classes
 Bukkit ou CraftBukkit; use `MethodHandles`** (`findVirtual`, `findStatic`; `getDeclaredField` continua seguro porque só
-lista campos). O Kunftig segue a regra em todo o código (`CraftBridge`, `ItemDataBridge`, `VanillaTeamOptions`), e um
-teste reproduz o defeito com uma classe gerada para provar a diferença (`ObfuscatedSignatureReflectionTest`).
+lista campos). Para `getWorldServer`, procure o método no `world.getClass()`, nunca na interface. O Kunftig segue a
+regra em todo o código (`CraftBridge`, `ItemDataBridge`, `VanillaTeamOptions`), e um teste reproduz o defeito com uma
+classe gerada (`ObfuscatedSignatureReflectionTest`).
 
-Como saber se o seu servidor tem o problema: o mod Kunftig lê, sem carregar nenhuma classe, os arquivos `.class` da
-API Bukkit no jar do servidor ao iniciar e registra no log um aviso com cada membro afetado (ou uma linha dizendo que
-está limpo). Para rodar à mão em qualquer jar:
+O Kunftig **não** corrige isso em tempo de execução. As tentativas por mixin (`8a18b84`, `8c59b6c`) partiam de uma
+premissa errada e não tinham como funcionar: o `World` já está carregado antes de qualquer mixin agir. **Não usar o
+`8a18b84`**, que derrubava o servidor; o `8c59b6c` era inofensivo, mas não fazia nada. O conserto certo é no PlayerContainerFix: detectar o Bukkit sem carregar a classe.
+Texto para reportar: [upstream/playercontainerfix-early-bukkit-load.md](upstream/playercontainerfix-early-bukkit-load.md).
 
-```bash
-java -cp mods/kunftig-<versão>.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner crucible-server.jar
-```
+**Como saber se o seu servidor tem o problema.** Na inicialização, o Kunftig confere o `World` carregado. Se as
+assinaturas não resolverem, o log mostra `Kunftig: org.bukkit.World was loaded without FML's runtime
+deobfuscation...`; se estiver tudo certo, não mostra nada. Desligar: `-Dkunftig.diagnostics.disable=true`.
 
-No jar de produção o scanner acha 31 membros: **`World#getWorldServer` é o único da API de plugins**; os outros 30 são
-internos do Spigot (`org.spigotmc.ActivationRange`, `AntiXray`, `TrackingRange`, `VanillaCommandWrapper`), que plugins
-não devem usar. O log de inicialização lista a API inteira e resume os internos por classe. O texto para reportar ao CrucibleMC está em [upstream/crucible-world-getworldserver.md](upstream/crucible-world-getworldserver.md).
-Desligar a verificação: `-Dkunftig.diagnostics.disable=true`.
+O `ObfuscatedApiScanner` (`java -cp kunftig.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner server.jar`) lê
+os nomes **gravados no jar**. No Thermos/Crucible quase tudo aparece ali com nome notch e funciona normalmente em tempo
+de execução, então use-o para inspecionar jars, não como diagnóstico.
 
 ## 7. Partículas: para todos por perto, coloridas e modernas
 

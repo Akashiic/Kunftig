@@ -12,8 +12,9 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Reproduces Kunftig issue #3 without a server: production Crucible's {@code org.bukkit.World} declares
- * {@code mt getWorldServer()}, and {@code mt} does not exist at runtime. This builds a class with the same defect and
+ * Reproduces Kunftig issue #3 without a server: on TEOF, {@code org.bukkit.World} is loaded by a coremod before FML's
+ * deobfuscation and keeps {@code mt getWorldServer()}, and {@code mt} does not exist at runtime. This builds a class
+ * with the same defect and
  * shows why Kunftig only uses method handles for reflection on Bukkit types.
  */
 class ObfuscatedSignatureReflectionTest {

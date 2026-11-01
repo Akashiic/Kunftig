@@ -12,9 +12,10 @@ import org.bukkit.Bukkit;
  * {@code CraftEntity} has {@code getHandle()}.
  * <p>
  * Uses {@link MethodHandles} on purpose, not {@code Class#getMethod}: {@code getMethod} resolves the signature of
- * every public method of the class and its interfaces, and on production Crucible some Bukkit signatures name
- * obfuscated classes that do not exist at runtime ({@code World#getWorldServer()} returns {@code mt}), which throws
- * {@code NoClassDefFoundError}. A method handle lookup resolves only the method asked for (issue #3).
+ * every public method of the class and its interfaces, and a Bukkit class that a coremod loaded before FML's
+ * deobfuscation keeps obfuscated names that do not exist at runtime (on TEOF, {@code World#getWorldServer()} returns
+ * {@code mt}), which throws {@code NoClassDefFoundError}. A method handle lookup resolves only the method asked for
+ * (issue #3).
  */
 public final class CraftBridge {
 

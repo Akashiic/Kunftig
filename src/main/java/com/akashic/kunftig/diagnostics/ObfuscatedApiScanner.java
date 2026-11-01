@@ -15,10 +15,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Finds API members whose signatures name classes in the default package, the shape obfuscated Minecraft names
- * ({@code mt}, {@code aji}...) take. Production Crucible ships {@code org.bukkit.World#getWorldServer()} returning
- * {@code mt}, a class that does not exist at runtime, so {@code World.class.getMethod(...)} and
- * {@code getMethods()} throw {@code NoClassDefFoundError} for every caller (issue #3).
+ * Lists API members whose signatures, <b>as stored in the jar</b>, name classes in the default package: obfuscated
+ * Minecraft names ({@code mt}, {@code aji}...). A tool for inspecting server jars, not a defect detector: Thermos and
+ * Crucible store every class with notch names and FML renames them while they load, so on those jars nearly everything
+ * is listed and is fine at runtime. What matters is the loaded class ({@link BukkitApiSelfCheck}); on TEOF,
+ * {@code org.bukkit.World} kept {@code mt} only because a coremod loaded it before FML's deobfuscation (issue #3).
  * <p>
  * Reads class files directly (constant pool, fields, methods) without loading or initializing any class, so it is
  * safe to run inside a live server and needs no library. Runnable on any server jar:
@@ -85,7 +86,7 @@ public final class ObfuscatedApiScanner {
 
         @Override
         public String toString() {
-            return access + " " + owner + "#" + member + " -> " + types + (typesInJar ? "" : " (not in the jar)");
+            return access + " " + owner + "#" + member + " -> " + types + (typesInJar ? "" : " (not in this jar)");
         }
     }
 
