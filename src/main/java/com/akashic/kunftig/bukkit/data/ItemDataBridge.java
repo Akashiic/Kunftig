@@ -1,7 +1,9 @@
 package com.akashic.kunftig.bukkit.data;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 import net.minecraft.nbt.NBTTagCompound;
 
@@ -24,7 +26,7 @@ public final class ItemDataBridge implements KunftigItems.Provider {
     /** Resolved on first use: plugins only call in while the Bukkit server exists. */
     private volatile Class<?> craftItemStack;
     private volatile Field handle;
-    private volatile Method asCraftCopy;
+    private volatile MethodHandle asCraftCopy;
 
     private ItemDataBridge() {}
 
@@ -46,7 +48,11 @@ public final class ItemDataBridge implements KunftigItems.Provider {
             Class<?> type = Class.forName(craftPackage + ".inventory.CraftItemStack");
             Field field = type.getDeclaredField("handle");
             field.setAccessible(true);
-            asCraftCopy = type.getMethod("asCraftCopy", ItemStack.class);
+            // A method handle, not getMethod: see CraftBridge (issue #3). The field lookup only lists
+            // CraftItemStack's own fields, whose types all exist at runtime.
+            asCraftCopy = MethodHandles.publicLookup()
+                .findStatic(type, "asCraftCopy", MethodType.methodType(type, ItemStack.class))
+                .asType(MethodType.methodType(ItemStack.class, ItemStack.class));
             handle = field;
             craftItemStack = type;
         } catch (ReflectiveOperationException | RuntimeException e) {
@@ -80,8 +86,10 @@ public final class ItemDataBridge implements KunftigItems.Provider {
             return item;
         }
         try {
-            return (ItemStack) asCraftCopy.invoke(null, item);
-        } catch (ReflectiveOperationException e) {
+            return (ItemStack) asCraftCopy.invokeExact(item);
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable e) {
             throw new IllegalStateException("CraftItemStack.asCraftCopy failed", e);
         }
     }

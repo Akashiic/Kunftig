@@ -1,7 +1,12 @@
 package com.akashic.kunftig;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.akashic.kunftig.diagnostics.BukkitApiSelfCheck;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
@@ -46,16 +51,18 @@ public final class Kunftig {
 
     private static void install(String bridge) {
         try {
-            Class.forName(bridge)
-                .getMethod("install")
-                .invoke(null);
-        } catch (ReflectiveOperationException | LinkageError e) {
+            // MethodHandles, never getMethod, for anything that may touch Bukkit classes (issue #3).
+            MethodHandles.publicLookup()
+                .findStatic(Class.forName(bridge), "install", MethodType.methodType(void.class))
+                .invoke();
+        } catch (Throwable e) {
             LOG.error("Kunftig: could not enable {}", bridge, e);
         }
     }
 
     private static void installBukkitBridges() {
         if (bukkitPresent()) {
+            BukkitApiSelfCheck.start(Kunftig.class.getClassLoader(), LOG);
             install("com.akashic.kunftig.bukkit.fishing.BukkitFishingBridge");
             install("com.akashic.kunftig.bukkit.data.ItemDataBridge");
         }

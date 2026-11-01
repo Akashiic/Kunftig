@@ -121,3 +121,34 @@ Como funciona e o que saber:
 
 Todo o `kunftig-api` é verificado contra a API Bukkit 1.7.10 real do Thermos/Crucible
 (`./gradlew checkLegacyBukkitApi -PlegacyBukkitApi=...`, jar gerado por `scripts/build-legacy-bukkit-api.sh`).
+
+## 6. Reflexão em classes Bukkit no Crucible: use `MethodHandles`
+
+No Crucible de produção (`1.7.10-staging-67b53034`), `org.bukkit.World` declara `mt getWorldServer()`: `mt` é o nome
+ofuscado do `WorldServer` e não existe em tempo de execução. O código-fonte do Crucible está certo
+(`patches/org/bukkit/World.java.patch` declara `net.minecraft.world.WorldServer`); o defeito está no jar publicado.
+
+| Chamada | Resultado em `World`/`CraftWorld` |
+|---|---|
+| `world.getName()`, qualquer chamada direta | funciona: a JVM só resolve o método chamado |
+| `World.class.getMethods()`, `getDeclaredMethods()` | `NoClassDefFoundError: mt` |
+| `World.class.getMethod("getName")` | **também** `NoClassDefFoundError: mt`: o Java resolve as assinaturas de todos os métodos públicos para achar um |
+| `MethodHandles.publicLookup().findVirtual(World.class, "getName", MethodType.methodType(String.class))` | funciona: resolve só o método pedido |
+
+Regra para plugins e para o próprio Kunftig: **nada de `getMethod`/`getMethods`/`getDeclaredMethods` em classes
+Bukkit ou CraftBukkit; use `MethodHandles`** (`findVirtual`, `findStatic`; `getDeclaredField` continua seguro porque só
+lista campos). O Kunftig segue a regra em todo o código (`CraftBridge`, `ItemDataBridge`, `VanillaTeamOptions`), e um
+teste reproduz o defeito com uma classe gerada para provar a diferença (`ObfuscatedSignatureReflectionTest`).
+
+Como saber se o seu servidor tem o problema: o mod Kunftig lê, sem carregar nenhuma classe, os arquivos `.class` da
+API Bukkit no jar do servidor ao iniciar e registra no log um aviso com cada membro afetado (ou uma linha dizendo que
+está limpo). Para rodar à mão em qualquer jar:
+
+```bash
+java -cp mods/kunftig-<versão>.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner crucible-server.jar
+```
+
+Nas fontes do Crucible, `World#getWorldServer` é a única assinatura pública da API Bukkit que expõe um tipo do
+Minecraft (os outros patches da API usam tipos do Minecraft/Forge só dentro de corpos de métodos, o que a reflexão não
+resolve). O texto para reportar ao CrucibleMC está em [upstream/crucible-world-getworldserver.md](upstream/crucible-world-getworldserver.md).
+Desligar a verificação: `-Dkunftig.diagnostics.disable=true`.

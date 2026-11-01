@@ -1,6 +1,8 @@
 package com.akashic.kunftig.bukkit.nametag;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,8 +24,8 @@ import com.akashic.kunftig.common.text.TextColor;
 final class VanillaTeamOptions {
 
     private final Logger logger;
-    private Method setColor;
-    private Method setOption;
+    private MethodHandle setColor;
+    private MethodHandle setOption;
     private Object nameTagVisibilityOption;
     private Class<? extends Enum<?>> optionStatus;
     private boolean failed;
@@ -31,18 +33,21 @@ final class VanillaTeamOptions {
     @SuppressWarnings("unchecked")
     VanillaTeamOptions(Logger logger) {
         this.logger = logger;
+        // Method handles resolve only the method asked for; Class#getMethod resolves every signature of the type,
+        // which breaks on Crucible when one of them names an obfuscated class (Kunftig issue #3).
+        MethodHandles.Lookup lookup = MethodHandles.publicLookup();
         try {
-            setColor = Team.class.getMethod("setColor", ChatColor.class);
-        } catch (NoSuchMethodException e) {
+            setColor = lookup.findVirtual(Team.class, "setColor", MethodType.methodType(void.class, ChatColor.class));
+        } catch (NoSuchMethodException | IllegalAccessException e) {
             setColor = null;
         }
         try {
             Class<?> option = Class.forName("org.bukkit.scoreboard.Team$Option");
             Class<?> status = Class.forName("org.bukkit.scoreboard.Team$OptionStatus");
-            setOption = Team.class.getMethod("setOption", option, status);
+            setOption = lookup.findVirtual(Team.class, "setOption", MethodType.methodType(void.class, option, status));
             nameTagVisibilityOption = enumConstant(option, "NAME_TAG_VISIBILITY");
             optionStatus = (Class<? extends Enum<?>>) status;
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | IllegalArgumentException e) {
             setOption = null;
         }
     }
@@ -67,7 +72,7 @@ final class VanillaTeamOptions {
         }
         ChatColor color = nameColor == null ? ChatColor.RESET
             : ChatColor.getByChar(nameColor.nearestLegacy().legacyCode());
-        invoke(setColor, team, color);
+        invoke(setColor, "setColor", team, color);
     }
 
     void applyVisibility(Team team, NametagVisibility visibility) {
@@ -90,15 +95,18 @@ final class VanillaTeamOptions {
             default:
                 status = "ALWAYS";
         }
-        invoke(setOption, team, nameTagVisibilityOption, enumConstant(optionStatus, status));
+        invoke(setOption, "setOption", team, nameTagVisibilityOption, enumConstant(optionStatus, status));
     }
 
-    private void invoke(Method method, Team team, Object... args) {
+    private void invoke(MethodHandle method, String name, Team team, Object... args) {
+        Object[] all = new Object[args.length + 1];
+        all[0] = team;
+        System.arraycopy(args, 0, all, 1, args.length);
         try {
-            method.invoke(team, args);
-        } catch (ReflectiveOperationException | RuntimeException e) {
+            method.invokeWithArguments(all);
+        } catch (Throwable e) {
             failed = true;
-            logger.log(Level.WARNING, "Could not call Team#" + method.getName()
+            logger.log(Level.WARNING, "Could not call Team#" + name
                 + "; vanilla team color/visibility disabled (Kunftig clients are not affected)", e);
         }
     }
