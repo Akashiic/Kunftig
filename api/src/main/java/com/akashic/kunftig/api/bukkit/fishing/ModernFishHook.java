@@ -108,6 +108,21 @@ public interface ModernFishHook {
     /** Pulls the hooked entity toward the angler; false if nothing is hooked. */
     boolean pullHookedEntity();
 
+    /**
+     * Reels in as if the angler had right-clicked with the rod, like Paper's {@code FishHook#retrieve(EquipmentSlot)}
+     * (1.7.10 has no off hand). During a bite the fish is caught, with the same cancellable {@code PlayerFishEvent}
+     * {@code CAUGHT_FISH} (change the item there as usual) and the item flies to the angler; a hooked entity is
+     * pulled; otherwise it is {@code REEL_IN} ({@link KunftigFishEvent}, cancellable) or {@code IN_GROUND}. The hook
+     * is removed unless an event was cancelled. With {@code applyRodDamage}, the rod in hand takes vanilla's damage
+     * (and is removed if it breaks) and the angler swings for everyone else; the angler's own client is not told to
+     * swing, because it would echo that as a left click ({@code PlayerAnimationEvent}). Main thread. API level 3.
+     *
+     * @return the rod damage of this retrieval as vanilla computes it (1 for a fish, 2 in the ground, 3 for an
+     *         entity...), whether applied or not
+     * @throws IllegalStateException if the hook is gone or is not its angler's current hook
+     */
+    int retrieve(boolean applyRodDamage);
+
     // ---------------------------------------------------------------- Kunftig extensions: the bite window
 
     /** A fish is on the hook: reeling in now catches it. Kunftig extension. */

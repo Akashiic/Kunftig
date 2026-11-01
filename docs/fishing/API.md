@@ -24,6 +24,7 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
 | `FishHook.HookState` | `ModernFishHook.HookState` |
 | `event.getHand()` | não existe no 1.7.10 (sem mão secundária) |
 | `setBiteChance` (obsoleto) | não espelhado; no Crucible ele nunca fez nada |
+| `FishHook#retrieve(EquipmentSlot)` (Paper) | `retrieve(applyRodDamage)` (sem mão secundária; API nível 3) |
 | — | extensões: `setBiteWindow`, `setBiteWindowRange`, `isBiting`, `getOwner`, `setTreasureRequiresOpenWater`, `setLavaFishing`, `isInLava` |
 
 Todos os métodos de `ModernFishHook` têm o nome, o padrão e a validação do `FishHook` do 1.21.1. Tudo roda na thread
@@ -77,9 +78,16 @@ no patch do Crucible: o uso do item só acontece se o evento não negar `useItem
    actionbar/título/bossbar do NecroTempus.
 2. Enquanto o minigame roda, cancele o `PlayerInteractEvent` `RIGHT_CLICK_AIR`/`RIGHT_CLICK_BLOCK` do jogador com a
    vara e conte os cliques. Clique esquerdo chega como `PlayerAnimationEvent`, agachar como `PlayerToggleSneakEvent`.
-3. Venceu: libere o próximo clique. A janela ainda está aberta, então o recolhimento gera `PlayerFishEvent`
-   `CAUGHT_FISH`, onde você troca o item (abaixo). Perdeu: `hook.setBiteWindow(1)` faz o peixe escapar no próximo
-   tick com `FAILED_ATTEMPT`; `setBiteWindow(0)` ou `hook.resetFishingState()` encerram sem evento.
+3. Venceu: `hook.retrieve(true)` recolhe a linha pelo servidor, sem esperar outro clique (API nível 3). Com a
+   janela ainda aberta, isso gera o `PlayerFishEvent` `CAUGHT_FISH` de sempre, onde você troca o item (abaixo), e o
+   peixe voa até o jogador; a vara leva o dano normal e o braço balança para os outros jogadores. Em servidores com
+   Kunftig mais antigo (`KunftigApi.apiVersion() < 3`), libere o próximo clique: o recolhimento do jogador dá o mesmo
+   resultado. Perdeu: `hook.setBiteWindow(1)` faz o peixe escapar no próximo tick com `FAILED_ATTEMPT`;
+   `setBiteWindow(0)` ou `hook.resetFishingState()` encerram sem evento.
+
+   O próprio jogador não vê o braço balançar no `retrieve`: mandar a animação para o cliente dele faria o cliente
+   devolver um `PlayerAnimationEvent`, que o seu minigame leria como clique esquerdo. Chame o `retrieve` fora dos
+   handlers de `LURED`/`BITE` (por exemplo, no fim do minigame).
 
 Outra forma, sem mexer no clique: cancelar o `PlayerFishEvent` `CAUGHT_FISH`. No Crucible, o cancelamento retorna
 antes de criar o item e de matar a boia, então a boia continua na água com a janela correndo.

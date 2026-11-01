@@ -104,7 +104,10 @@ EntityFishHook.onUpdate (1.7.10)
   movimento, como sempre foi. Os nomes de partícula são os do 1.7 (`wake` em vez de `fishing`).
 * **Loot não é data-driven**: o 1.7 usa as listas do Forge (`FishingHooks`); plugins trocam o item no
   `PlayerFishEvent` `CAUGHT_FISH` (veja o guia).
-* `FishHook.retrieve` não está no 1.21.1, então também não foi espelhado.
+* `FishHook#retrieve(EquipmentSlot)` veio depois no Paper; o Kunftig espelha como `retrieve(boolean applyRodDamage)`
+  (API nível 3), na ordem do `ItemFishingRod` (recolher, danificar, balançar) mais a limpeza que o
+  `ItemInWorldManager.tryUseItem` faz depois (vara quebrada sai da mão com `PlayerDestroyItemEvent`, inventário
+  reenviado). Testes conferem essa ordem no bytecode do 1.7.10.
 
 ## 7. Pesca na lava (extensão do Kunftig)
 

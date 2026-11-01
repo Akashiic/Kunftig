@@ -11,6 +11,7 @@ import com.akashic.kunftig.fishing.FishingEngine;
 import com.akashic.kunftig.fishing.FishingParameters;
 import com.akashic.kunftig.fishing.HookWorld;
 import com.akashic.kunftig.fishing.KunftigFishHook;
+import com.akashic.kunftig.fishing.api.KunftigFishing;
 
 /** {@link ModernFishHook} over a Minecraft hook. A thin view: all state lives on the hook itself. */
 final class ModernFishHookImpl implements ModernFishHook {
@@ -203,6 +204,11 @@ final class ModernFishHookImpl implements ModernFishHook {
         }
         HookWorld.pull(hook);
         return true;
+    }
+
+    @Override
+    public int retrieve(boolean applyRodDamage) {
+        return KunftigFishing.retrieve(hook, applyRodDamage);
     }
 
     @Override
