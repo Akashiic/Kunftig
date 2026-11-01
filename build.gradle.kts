@@ -15,14 +15,15 @@ tasks.test {
  * (scripts/build-legacy-bukkit-api.sh builds that jar from Crucible's sources.)
  */
 // Relative paths resolve from the repository root, not from this module (issue #4).
-val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi").map { rootProject.file(it) }
+// Resolved here, not in task actions: the configuration cache cannot serialize lambdas that capture the script.
+val legacyBukkitApi: File? = providers.gradleProperty("legacyBukkitApi").orNull?.let { rootProject.file(it) }
 val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     description = "Recompiles the mod's Bukkit-facing code against the Bukkit 1.7.10 API (-PlegacyBukkitApi=<jar>)."
     group = "verification"
-    onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
+    val jar = legacyBukkitApi
+    onlyIf("-PlegacyBukkitApi is set") { jar != null }
     doFirst {
-        val jar = legacyBukkitApi.get()
-        if (!jar.isFile) {
+        if (jar == null || !jar.isFile) {
             throw GradleException("Bukkit 1.7.10 API jar not found: $jar (build it with scripts/build-legacy-bukkit-api.sh)")
         }
     }
@@ -30,7 +31,7 @@ val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     source = fileTree("src/main/java") {
         include("com/akashic/kunftig/bukkit/**")
     }
-    classpath = files(legacyBukkitApi) +
+    classpath = files(listOfNotNull(jar)) +
         main.compileClasspath.filter { !it.name.startsWith("spigot-api-") && !it.name.contains("jabel") } +
         main.output
     destinationDirectory.set(layout.buildDirectory.dir("legacyApiCheck"))
@@ -39,7 +40,7 @@ val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     // The convention wires Jabel into every JavaCompile; the gated code is plain Java 8 and needs no plugin.
     options.annotationProcessorPath = files()
     doFirst {
-        options.compilerArgs.removeIf { it.startsWith("-Xplugin:") }
+        (this as JavaCompile).options.compilerArgs.removeIf { it.startsWith("-Xplugin:") }
     }
     dependsOn(tasks.compileJava)
 }

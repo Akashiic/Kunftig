@@ -72,19 +72,20 @@ publishing {
 
 /* Same gate as :bukkit: recompile against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>. */
 // Relative paths resolve from the repository root, not from this module (issue #4).
-val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi").map { rootProject.file(it) }
+// Resolved here, not in task actions: the configuration cache cannot serialize lambdas that capture the script.
+val legacyBukkitApi: File? = providers.gradleProperty("legacyBukkitApi").orNull?.let { rootProject.file(it) }
 val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     description = "Recompiles the API against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>."
     group = "verification"
-    onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
+    val jar = legacyBukkitApi
+    onlyIf("-PlegacyBukkitApi is set") { jar != null }
     doFirst {
-        val jar = legacyBukkitApi.get()
-        if (!jar.isFile) {
+        if (jar == null || !jar.isFile) {
             throw GradleException("Bukkit 1.7.10 API jar not found: $jar (build it with scripts/build-legacy-bukkit-api.sh)")
         }
     }
     source = sourceSets.main.get().java
-    classpath = files(legacyBukkitApi)
+    classpath = files(listOfNotNull(jar))
     destinationDirectory.set(layout.buildDirectory.dir("legacyApiCheck"))
     options.release.set(8)
 }

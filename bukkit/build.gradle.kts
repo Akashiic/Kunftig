@@ -120,20 +120,21 @@ tasks.check {
  * Recompiling the sources against it fails on any member that does not exist in 1.7.10 (Team#addEntry, ...).
  */
 // Relative paths resolve from the repository root, not from this module (issue #4).
-val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi").map { rootProject.file(it) }
+// Resolved here, not in task actions: the configuration cache cannot serialize lambdas that capture the script.
+val legacyBukkitApi: File? = providers.gradleProperty("legacyBukkitApi").orNull?.let { rootProject.file(it) }
 val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     description = "Recompiles the plugin against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>."
     group = "verification"
-    onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
+    val jar = legacyBukkitApi
+    onlyIf("-PlegacyBukkitApi is set") { jar != null }
     doFirst {
-        val jar = legacyBukkitApi.get()
-        if (!jar.isFile) {
+        if (jar == null || !jar.isFile) {
             throw GradleException("Bukkit 1.7.10 API jar not found: $jar (build it with scripts/build-legacy-bukkit-api.sh)")
         }
     }
     source = sourceSets.main.get().java
     // Same classpath as the real compilation, with the 1.8.8 API swapped for the 1.7.10 one.
-    classpath = files(legacyBukkitApi) + configurations.compileClasspath.get().filter {
+    classpath = files(listOfNotNull(jar)) + configurations.compileClasspath.get().filter {
         !it.name.startsWith("spigot-api-") && !it.name.startsWith("bungeecord-chat-")
     }
     destinationDirectory.set(layout.buildDirectory.dir("legacyApiCheck"))
