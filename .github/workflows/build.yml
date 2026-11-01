@@ -1,0 +1,54 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+    tags: [ '*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the GTNH convention derives the version from git tags
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # 21: MockBukkit integration tests. 25: Gradle daemon (gradle/gradle-daemon-jvm.properties).
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Version for untagged builds
+        if: github.ref_type != 'tag'
+        run: echo "VERSION=0.1.0-dev-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Bukkit 1.7.10 API (Thermos/Crucible) for the compatibility gate
+        run: scripts/build-legacy-bukkit-api.sh build/legacy-bukkit/bukkit-1.7.10.jar
+
+      - name: Build, unit tests, MockBukkit integration tests, 1.7.10 API gate
+        run: ./gradlew build :bukkit:checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kunftig-jars
+          path: |
+            build/libs/kunftig-*.jar
+            !build/libs/*-dev*.jar
+            !build/libs/*-sources.jar
+            bukkit/build/libs/Kunftig-Bukkit-*.jar
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests
+            common/build/reports/tests
+            bukkit/build/reports/tests
