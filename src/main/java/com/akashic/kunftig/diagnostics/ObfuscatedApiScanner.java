@@ -271,19 +271,12 @@ public final class ObfuscatedApiScanner {
         return (access & ACC_PRIVATE) != 0 ? "private" : "package";
     }
 
-    /** {@code java -cp kunftig.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner <server.jar> [prefix...]} */
+    /**
+     * {@code java -cp kunftig.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner <server.jar> [prefix...]}.
+     * Delegates to {@link ObfuscatedApiScannerCli}, which the server never loads: FML warns about every class it loads
+     * that calls {@code System.exit} (issue #6).
+     */
     public static void main(String[] args) throws IOException {
-        if (args.length == 0) {
-            System.err.println("usage: ObfuscatedApiScanner <server.jar> [package/prefix/ ...]");
-            System.exit(2);
-        }
-        List<String> includes = args.length > 1 ? java.util.Arrays.asList(args)
-            .subList(1, args.length) : DEFAULT_INCLUDES;
-        List<Finding> findings = scan(new File(args[0]), includes, DEFAULT_EXCLUDES);
-        for (Finding finding : findings) {
-            System.out.println(finding);
-        }
-        System.out.println(findings.size() + " member(s) name default-package classes");
-        System.exit(findings.isEmpty() ? 0 : 1);
+        ObfuscatedApiScannerCli.main(args);
     }
 }
