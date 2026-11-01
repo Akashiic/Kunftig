@@ -21,11 +21,15 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
 
     private static final Logger LOG = LogManager.getLogger("Kunftig");
     private static final String NAMETAG_PACKAGE = "com.akashic.kunftig.mixin.mixins.nametag.";
+    private static final String FISHING_PACKAGE = "com.akashic.kunftig.mixin.mixins.fishing.";
 
     @Override
     public void onLoad(String mixinPackage) {
         if (Boolean.getBoolean("kunftig.nametag.disable")) {
             LOG.warn("Nametag mixins disabled by -Dkunftig.nametag.disable=true");
+        }
+        if (Boolean.getBoolean("kunftig.fishing.disable")) {
+            LOG.warn("Fishing mixins disabled by -Dkunftig.fishing.disable=true");
         }
     }
 
@@ -36,6 +40,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.startsWith(FISHING_PACKAGE) && Boolean.getBoolean("kunftig.fishing.disable")) {
+            return false;
+        }
         if (mixinClassName.startsWith(NAMETAG_PACKAGE)) {
             if (Boolean.getBoolean("kunftig.nametag.disable")) {
                 return false;

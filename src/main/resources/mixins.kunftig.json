@@ -6,7 +6,9 @@
   "refmap": "mixins.kunftig.refmap.json",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
-  "mixins": [],
+  "mixins": [
+    "fishing.EntityFishHookMixin"
+  ],
   "client": [
     "nametag.NetHandlerPlayClientMixin",
     "nametag.RendererLivingEntityVisibilityMixin",

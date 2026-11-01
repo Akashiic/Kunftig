@@ -4,6 +4,8 @@ import java.io.File;
 
 import net.minecraftforge.common.config.Configuration;
 
+import com.akashic.kunftig.fishing.FishingProfile;
+
 /** {@code config/kunftig.cfg}. Plain Forge configuration: Kunftig has no library dependency. */
 public final class KunftigConfig {
 
@@ -20,6 +22,9 @@ public final class KunftigConfig {
     public static boolean nametagVisibility = true;
     public static ColorModeSetting nametagColorMode = ColorModeSetting.AUTO;
     public static boolean debug = false;
+
+    public static boolean fishingEnabled = true;
+    public static FishingProfile fishingProfile = FishingProfile.VANILLA_1_7_10;
 
     private KunftigConfig() {}
 
