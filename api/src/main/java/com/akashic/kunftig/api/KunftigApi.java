@@ -1,0 +1,37 @@
+package com.akashic.kunftig.api;
+
+import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
+import com.akashic.kunftig.api.bukkit.persistence.KunftigItems;
+
+/**
+ * Version and capabilities of the Kunftig API on this server.
+ * <p>
+ * Plugins compile against {@code kunftig-api} as {@code compileOnly} and must not shade it: at runtime the classes
+ * come from the Kunftig mod in the server's {@code mods/} folder. To degrade gracefully when the mod is missing, check
+ * {@code Class.forName("com.akashic.kunftig.api.KunftigApi")} before touching any other Kunftig class.
+ */
+public final class KunftigApi {
+
+    /**
+     * Incremented whenever the API gains something. 1: modern fishing ({@code KunftigFishEvent},
+     * {@code ModernFishHook}) and item persistent data ({@code KunftigItems}).
+     */
+    private static final int API_VERSION = 1;
+
+    private KunftigApi() {}
+
+    /** The API level of the installed Kunftig (a method, so it is never inlined into your plugin at compile time). */
+    public static int apiVersion() {
+        return API_VERSION;
+    }
+
+    /** Whether the modern fishing engine runs (mod installed, mixin applied, enabled in {@code kunftig.cfg}). */
+    public static boolean isFishingAvailable() {
+        return KunftigFishingBukkit.isAvailable();
+    }
+
+    /** Whether item persistent data is available (Bukkit hybrid with the mod installed). */
+    public static boolean isItemDataAvailable() {
+        return KunftigItems.isAvailable();
+    }
+}

@@ -8,9 +8,9 @@ tasks.test {
 }
 
 /*
- * The mod exposes a Bukkit API on Thermos/Crucible (com.akashic.kunftig.api.bukkit, com.akashic.kunftig.bukkit). It
- * compiles against spigot-api 1.8.8; this gate recompiles those packages against the Bukkit 1.7.10 API those servers
- * ship, so a member that only exists in 1.8+ fails the build instead of a server:
+ * The mod implements kunftig-api (:api) on Thermos/Crucible in com.akashic.kunftig.bukkit. It compiles against
+ * spigot-api 1.8.8; this gate recompiles that package against the Bukkit 1.7.10 API those servers ship, so a member
+ * that only exists in 1.8+ fails the build instead of a server (:api has the same gate):
  *   ./gradlew checkLegacyBukkitApi -PlegacyBukkitApi=/path/to/bukkit-1.7.10.jar
  * (scripts/build-legacy-bukkit-api.sh builds that jar from Crucible's sources.)
  */
@@ -21,7 +21,7 @@ val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
     val main = sourceSets.main.get()
     source = fileTree("src/main/java") {
-        include("com/akashic/kunftig/api/bukkit/**", "com/akashic/kunftig/bukkit/**")
+        include("com/akashic/kunftig/bukkit/**")
     }
     classpath = files(legacyBukkitApi.orElse("")) +
         main.compileClasspath.filter { !it.name.startsWith("spigot-api-") && !it.name.contains("jabel") } +
