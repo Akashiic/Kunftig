@@ -142,6 +142,18 @@ ofuscado do `WorldServer` e não existe em tempo de execução. O código-fonte 
 | `findVirtual(World.class, "getWorldServer", methodType(WorldServer.class))` | `NoSuchMethodException`: na interface o descritor é `()Lmt;` |
 | `findVirtual(world.getClass(), "getWorldServer", methodType(WorldServer.class))` | **funciona**: o `CraftWorld` é remapeado ao carregar e tem o tipo certo. É o contorno até o Crucible corrigir |
 
+**Correção provisória no Kunftig.** O jar do Crucible traz o Minecraft com nomes deobfuscados, então o FML pula a
+deobfuscação em tempo de execução (`FMLDeobfTweaker` só registra o `DeobfuscationTransformer` fora de ambiente
+deobfuscado) e nada renomeia o `mt`. Com o Kunftig em `mods/`, um mixin vazio em `org.bukkit.World` leva a classe até o
+`KunftigMixinPlugin`, que troca o descritor de `getWorldServer` de `()Lmt;` para `()Lnet/minecraft/world/WorldServer;`
+enquanto ela carrega (`crucible.WorldDescriptorFix`). Com isso, a chamada direta, o `findVirtual` na interface e o
+`getMethods` voltam a funcionar. Só age se o método tiver exatamente o descritor quebrado, se `WorldServer` existir e se
+não existir classe `mt`; num Crucible corrigido, no Thermos ou no Paper não faz nada. Só servidor dedicado. No log:
+`Kunftig: fixed org.bukkit.World#getWorldServer()...`. Desligar: `-Dkunftig.crucible.worldFix.disable=true`. Os 30
+membros internos do `org.spigotmc` não são mexidos: são código do próprio servidor, e plugins não devem usá-los.
+
+Mesmo com a correção, para código que precisa rodar também em servidores **sem** o Kunftig continua valendo:
+
 Regra para plugins e para o próprio Kunftig: **nada de `getMethod`/`getMethods`/`getDeclaredMethods` em classes
 Bukkit ou CraftBukkit; use `MethodHandles`** (`findVirtual`, `findStatic`; `getDeclaredField` continua seguro porque só
 lista campos). O Kunftig segue a regra em todo o código (`CraftBridge`, `ItemDataBridge`, `VanillaTeamOptions`), e um

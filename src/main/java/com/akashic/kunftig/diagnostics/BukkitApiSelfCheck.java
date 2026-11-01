@@ -12,8 +12,10 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * Runs {@link ObfuscatedApiScanner} on the server jar once at startup, in a background thread, and logs what it finds,
- * so the admin knows whether reflection on the Bukkit API is safe on this build (issue #3). Never loads a Bukkit class.
- * Disabled with {@code -Dkunftig.diagnostics.disable=true}.
+ * so the admin knows whether reflection on the Bukkit API is safe on this build (issue #3). The scan reads the jar
+ * without loading anything; afterwards {@code org.bukkit.World} is loaded once (without initialization) to tell whether
+ * Kunftig's runtime fix of {@code World#getWorldServer} took effect. Disabled with
+ * {@code -Dkunftig.diagnostics.disable=true}.
  */
 public final class BukkitApiSelfCheck {
 
@@ -28,17 +30,18 @@ public final class BukkitApiSelfCheck {
             log.debug("Kunftig: Bukkit API jar not found, signature check skipped");
             return;
         }
-        Thread thread = new Thread(() -> run(jar, log), "Kunftig Bukkit API check");
+        Thread thread = new Thread(() -> run(jar, loader, log), "Kunftig Bukkit API check");
         thread.setDaemon(true);
         thread.setPriority(Thread.MIN_PRIORITY);
         thread.start();
     }
 
-    private static void run(File jar, Logger log) {
+    private static void run(File jar, ClassLoader loader, Logger log) {
         try {
             List<ObfuscatedApiScanner.Finding> findings = ObfuscatedApiScanner.scan(jar);
-            String message = describe(findings, jar.getName());
-            if (pluginApi(findings).isEmpty()) {
+            boolean worldFixed = !findings.isEmpty() && worldReflectionWorks(loader);
+            String message = describe(findings, jar.getName(), worldFixed);
+            if (unfixed(pluginApi(findings), worldFixed).isEmpty()) {
                 log.info(message);
             } else {
                 log.warn(message);
@@ -46,6 +49,35 @@ public final class BukkitApiSelfCheck {
         } catch (Throwable e) {
             log.debug("Kunftig: Bukkit API signature check failed", e);
         }
+    }
+
+    /** Whether the loaded {@code org.bukkit.World} resolves all its signatures (true once Kunftig's fix applied). */
+    static boolean worldReflectionWorks(ClassLoader loader) {
+        try {
+            Class.forName("org.bukkit.World", false, loader)
+                .getMethods();
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
+    }
+
+    private static boolean fixedAtRuntime(ObfuscatedApiScanner.Finding finding, boolean worldFixed) {
+        return worldFixed && finding.owner()
+            .equals("org.bukkit.World")
+            && finding.member()
+                .equals("getWorldServer()Lmt;");
+    }
+
+    private static List<ObfuscatedApiScanner.Finding> unfixed(List<ObfuscatedApiScanner.Finding> api,
+        boolean worldFixed) {
+        List<ObfuscatedApiScanner.Finding> left = new ArrayList<>();
+        for (ObfuscatedApiScanner.Finding finding : api) {
+            if (!fixedAtRuntime(finding, worldFixed)) {
+                left.add(finding);
+            }
+        }
+        return left;
     }
 
     /** Findings in the API plugins compile against ({@code org.bukkit}, BungeeCord chat), as opposed to internals. */
@@ -66,18 +98,25 @@ public final class BukkitApiSelfCheck {
      * The log message: every plugin-API finding in full (production Crucible has exactly one, World#getWorldServer),
      * and server internals ({@code org.spigotmc}, 30 members there) summarized by class.
      */
-    static String describe(List<ObfuscatedApiScanner.Finding> findings, String jarName) {
+    static String describe(List<ObfuscatedApiScanner.Finding> findings, String jarName, boolean worldFixed) {
         if (findings.isEmpty()) {
             return "Kunftig: no obfuscated types in the Bukkit API signatures of " + jarName;
         }
-        List<ObfuscatedApiScanner.Finding> api = pluginApi(findings);
+        List<ObfuscatedApiScanner.Finding> all = pluginApi(findings);
+        List<ObfuscatedApiScanner.Finding> api = unfixed(all, worldFixed);
         Set<String> internalClasses = new TreeSet<>();
         for (ObfuscatedApiScanner.Finding finding : findings) {
-            if (!api.contains(finding)) {
+            if (!all.contains(finding)) {
                 internalClasses.add(finding.owner());
             }
         }
         StringBuilder message = new StringBuilder("Kunftig: ");
+        if (api.size() < all.size()) {
+            message.append("org.bukkit.World#getWorldServer() names the obfuscated class mt in ")
+                .append(jarName)
+                .append("; Kunftig fixed it at runtime, so plugins can call it and reflect on World.");
+            message.append(api.isEmpty() && internalClasses.isEmpty() ? "" : "\n");
+        }
         if (!api.isEmpty()) {
             message.append(api.size())
                 .append(" Bukkit API member(s) in ")
@@ -92,7 +131,7 @@ public final class BukkitApiSelfCheck {
             message.append(internalClasses.isEmpty() ? "" : "\nAlso ");
         }
         if (!internalClasses.isEmpty()) {
-            message.append(findings.size() - api.size())
+            message.append(findings.size() - all.size())
                 .append(" member(s) of server internals in ")
                 .append(jarName)
                 .append(" name obfuscated classes (")

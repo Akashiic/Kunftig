@@ -201,7 +201,7 @@ class ObfuscatedApiScannerTest {
             finding("org.spigotmc.ActivationRange", "maxBB:Lazt;", "azt"),
             finding("org.spigotmc.AntiXray", "obfuscate(III[BLahb;)V", "ahb"),
             finding("org.spigotmc.VanillaCommandWrapper$PlayerListener", "<class>", "ac"));
-        String message = BukkitApiSelfCheck.describe(findings, "server.jar");
+        String message = BukkitApiSelfCheck.describe(findings, "server.jar", false);
         assertTrue(message.contains("1 Bukkit API member(s) in server.jar"), message);
         assertTrue(message.contains("NoSuchMethodError"), message);
         assertTrue(
@@ -224,10 +224,30 @@ class ObfuscatedApiScannerTest {
                 .isEmpty(),
             "logged at INFO");
         assertTrue(
-            BukkitApiSelfCheck.describe(internalsOnly, "server.jar")
+            BukkitApiSelfCheck.describe(internalsOnly, "server.jar", false)
                 .startsWith("Kunftig: 4 member(s) of server internals"));
         assertEquals(
             "Kunftig: no obfuscated types in the Bukkit API signatures of server.jar",
-            BukkitApiSelfCheck.describe(java.util.Collections.<ObfuscatedApiScanner.Finding>emptyList(), "server.jar"));
+            BukkitApiSelfCheck
+                .describe(java.util.Collections.<ObfuscatedApiScanner.Finding>emptyList(), "server.jar", false));
+    }
+
+    @Test
+    void logSaysWhenKunftigFixedWorldAtRuntime() {
+        List<ObfuscatedApiScanner.Finding> findings = Arrays.asList(
+            finding("org.bukkit.World", "getWorldServer()Lmt;", "mt"),
+            finding("org.spigotmc.AntiXray", "obfuscate(III[BLahb;)V", "ahb"));
+        String message = BukkitApiSelfCheck.describe(findings, "server.jar", true);
+        assertTrue(
+            message.startsWith("Kunftig: org.bukkit.World#getWorldServer() names the obfuscated class mt"),
+            message);
+        assertTrue(message.contains("Kunftig fixed it at runtime"), message);
+        assertFalse(message.contains("NoSuchMethodError"), message);
+        assertTrue(message.contains("\n1 member(s) of server internals"), message);
+    }
+
+    @Test
+    void worldReflectionCheckWithoutBukkit() {
+        assertFalse(BukkitApiSelfCheck.worldReflectionWorks(new ClassLoader(null) {}));
     }
 }
