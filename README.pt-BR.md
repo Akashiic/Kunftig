@@ -22,6 +22,16 @@ sem texto quebrado. É o comportamento dos times do Minecraft 1.13+/1.16+, trazi
 Estudo completo (problema, fatos verificados, alternativas, desenho, testes): [docs/nametags/ESTUDO.md](docs/nametags/ESTUDO.md).
 Protocolo: [docs/nametags/PROTOCOL.md](docs/nametags/PROTOCOL.md).
 
+## Recurso 2: API de pesca do 1.21.1 (servidor)
+
+O ciclo de pesca do 1.21.1 para plugins Bukkit no Thermos/Crucible: os estados `LURED`, `BITE`, `FAILED_ATTEMPT` e
+`REEL_IN` (`KunftigFishEvent`) e o `FishHook` moderno (`ModernFishHook`: tempos de espera, de lure, ângulo, Isca,
+chuva/céu, água aberta, estado da boia), mais a janela da mordida para minigames. Com o perfil padrão a pesca fica
+idêntica ao vanilla; o perfil `MODERN_1_21_1` usa os tempos do 1.21.1 e a regra de tesouro em água aberta.
+
+Instale o mesmo jar do mod em `mods/` do servidor. Guia: [docs/fishing/API.md](docs/fishing/API.md). Estudo:
+[docs/fishing/ESTUDO.md](docs/fishing/ESTUDO.md).
+
 ## Instalação
 
 | Onde | Jar | Requisitos |
@@ -81,14 +91,14 @@ api.isKunftigClient(player);                     // + evento KunftigClientReadyE
 Gera `build/libs/kunftig-<versão>.jar` (mod) e `bukkit/build/libs/Kunftig-Bukkit-<versão>.jar` (plugin) e roda os
 testes unitários e de integração (MockBukkit). A versão vem da tag git; sem tag, defina `VERSION=...`.
 
-Portão de compatibilidade com a API Bukkit 1.7.10 do Thermos/Crucible:
+Portão de compatibilidade com a API Bukkit 1.7.10 do Thermos/Crucible (mod e plugin):
 
 ```bash
 scripts/build-legacy-bukkit-api.sh build/legacy-bukkit/bukkit-1.7.10.jar
 ```
 
 ```bash
-./gradlew :bukkit:checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
+./gradlew checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
 ```
 
 ## Licença
