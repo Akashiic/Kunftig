@@ -5,7 +5,10 @@ para **Bukkit** (Thermos/Crucible 1.7.10 e Paper/Spigot até 1.21+).
 
 > English version: [README.md](README.md).
 
-## Recurso 1: nametags modernas
+## Recurso 1: nametags modernas (experimental)
+
+> Experimental: coberto por testes automatizados, ainda não validado em servidor com clientes reais
+> (plano de teste manual em `docs/nametags/ESTUDO.md`, seção 9).
 
 Prefixos, sufixos e nomes **sem limite de tamanho**, com **cores RGB** e **degradês**, na tab e acima da cabeça,
 sem texto quebrado. É o comportamento dos times do Minecraft 1.13+/1.16+, trazido para clientes 1.7.10.

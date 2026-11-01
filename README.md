@@ -7,7 +7,10 @@ Backports of features from recent Minecraft versions to **1.7.10** (Forge + UniM
 > [docs/nametags/ESTUDO.md](docs/nametags/ESTUDO.md); the protocol spec is in English:
 > [docs/nametags/PROTOCOL.md](docs/nametags/PROTOCOL.md).
 
-## Feature 1: modern nametags
+## Feature 1: modern nametags (experimental)
+
+> Experimental: covered by automated tests, not yet validated on a live server with real clients
+> (see the manual test plan in `docs/nametags/ESTUDO.md`, section 9).
 
 Team prefixes, suffixes and names of **any length**, with **24-bit colors** and **gradients**, in the tab list and
 above heads, never broken mid-color. This is how teams behave from Minecraft 1.13/1.16 on, brought to 1.7.10
