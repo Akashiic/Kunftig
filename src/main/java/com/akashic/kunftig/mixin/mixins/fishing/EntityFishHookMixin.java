@@ -2,10 +2,13 @@ package com.akashic.kunftig.mixin.mixins.fishing;
 
 import java.util.Random;
 
+import net.minecraft.block.material.Material;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.projectile.EntityFishHook;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
@@ -18,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.akashic.kunftig.KunftigConfig;
@@ -37,6 +41,11 @@ import com.akashic.kunftig.fishing.api.KunftigFishing;
  * copy; the movement code before and after is untouched. The same holds in Thermos' and Crucible's patched class
  * (their patches touch entity collision and reeling in, not this block). The engine keeps the state in vanilla's own
  * fields, so reeling in, Forge loot and Bukkit's PlayerFishEvent keep working unchanged.
+ * <p>
+ * Lava fishing (off unless enabled for the hook): the fluid argument of that same {@code isAABBInMaterial} call becomes
+ * lava where there is no water, so vanilla's own buoyancy code floats the hook on lava; the engine then runs as in
+ * water, with fire effects. The hook and the caught item are fire-proof, and the item starts above the lava surface
+ * because {@code EntityItem} throws itself in a random direction while inside a lava block.
  */
 @Mixin(EntityFishHook.class)
 public abstract class EntityFishHookMixin extends Entity implements KunftigFishHook {
@@ -68,7 +77,9 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
     public Entity field_146043_c;
 
     @Unique
-    private final FishingParameters kunftig$parameters = new FishingParameters(KunftigConfig.fishingProfile);
+    private final FishingParameters kunftig$parameters = new FishingParameters(
+        KunftigConfig.fishingProfile,
+        KunftigConfig.fishingLava);
 
     @Unique
     private boolean kunftig$bobbing;
@@ -79,8 +90,50 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
     @Unique
     private int kunftig$outOfWaterTime;
 
+    @Unique
+    private boolean kunftig$inLava;
+
+    /** Whether Kunftig made this hook fire-proof (so it only undoes its own change). */
+    @Unique
+    private boolean kunftig$fireProof;
+
     private EntityFishHookMixin(World world) {
         super(world);
+    }
+
+    @Unique
+    private boolean kunftig$lavaFishing() {
+        return KunftigConfig.fishingEnabled && kunftig$parameters.lavaFishing();
+    }
+
+    /** Before {@code Entity.onEntityUpdate} sets the hook on fire. */
+    @Inject(method = "onUpdate", at = @At("HEAD"))
+    private void kunftig$fireProofing(CallbackInfo ci) {
+        if (worldObj.isRemote) {
+            return;
+        }
+        boolean lava = kunftig$lavaFishing();
+        if (lava != kunftig$fireProof) {
+            kunftig$fireProof = lava;
+            isImmuneToFire = lava;
+        }
+    }
+
+    /**
+     * Lava fishing: vanilla's water-fraction loop counts lava where there is no water, so the same buoyancy code
+     * floats the hook. Server side only; the client keeps vanilla physics and follows the server's position updates.
+     */
+    @ModifyArg(
+        method = "onUpdate",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/World;isAABBInMaterial(Lnet/minecraft/util/AxisAlignedBB;Lnet/minecraft/block/material/Material;)Z"),
+        index = 1)
+    private Material kunftig$fluid(AxisAlignedBB slice, Material material) {
+        if (worldObj.isRemote || material != Material.water || !kunftig$lavaFishing()) {
+            return material;
+        }
+        return worldObj.isAABBInMaterial(slice, Material.water) ? Material.water : Material.lava;
     }
 
     @Redirect(
@@ -102,18 +155,21 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
             return false; // vanilla's block runs
         }
         EntityFishHook self = (EntityFishHook) (Object) this;
-        if (HookWorld.waterFraction(self) > 0.0D) {
+        boolean inWater = HookWorld.fluidFraction(self, Material.water) > 0.0D;
+        kunftig$inLava = !inWater && kunftig$lavaFishing() && HookWorld.fluidFraction(self, Material.lava) > 0.0D;
+        if (inWater || kunftig$inLava) {
             kunftig$bobbing = true;
             kunftig$outOfWaterTime = Math.max(0, kunftig$outOfWaterTime - 1);
             if (field_146045_ax <= 0 && field_146038_az <= 0) {
                 kunftig$openWater = true;
             } else {
                 kunftig$openWater = kunftig$openWater && kunftig$outOfWaterTime < 10
-                    && HookWorld.isOpenWater(
+                    && HookWorld.isOpenFluid(
                         worldObj,
                         MathHelper.floor_double(posX),
                         MathHelper.floor_double(posY),
-                        MathHelper.floor_double(posZ));
+                        MathHelper.floor_double(posZ),
+                        kunftig$inLava ? Material.lava : Material.water);
             }
             FishingEngine.tick(this, KunftigFishing.ENGINE_LISTENER);
         } else {
@@ -132,6 +188,31 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
             && !KunftigFishing.fireReelIn((EntityFishHook) (Object) this)) {
             cir.setReturnValue(0);
         }
+    }
+
+    /** Lava fishing: the caught item must survive the lava and fly to the angler. */
+    @ModifyArg(
+        method = "func_146034_e",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/World;spawnEntityInWorld(Lnet/minecraft/entity/Entity;)Z"))
+    private Entity kunftig$lavaProofCatch(Entity entity) {
+        if (!(entity instanceof EntityItem) || !kunftig$inLava || !kunftig$lavaFishing()) {
+            return entity;
+        }
+        ((EntityFireAccessor) entity).kunftig$setImmuneToFire(true);
+        int x = MathHelper.floor_double(entity.posX);
+        int z = MathHelper.floor_double(entity.posZ);
+        int y = MathHelper.floor_double(entity.posY);
+        int top = y;
+        while (top - y < 3 && worldObj.getBlock(x, top, z)
+            .getMaterial() == Material.lava) {
+            top++;
+        }
+        if (top != y) {
+            entity.setPosition(entity.posX, top + 0.05D, entity.posZ);
+        }
+        return entity;
     }
 
     @ModifyArg(
@@ -243,17 +324,18 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
 
     @Override
     public void kunftig$waitingSplash() {
-        HookWorld.waitingSplash((EntityFishHook) (Object) this, rand);
+        HookWorld.waitingSplash((EntityFishHook) (Object) this, rand, kunftig$inLava);
     }
 
     @Override
     public void kunftig$approachEffects() {
-        HookWorld.approachEffects((EntityFishHook) (Object) this, rand, field_146054_aA, field_146038_az);
+        HookWorld
+            .approachEffects((EntityFishHook) (Object) this, rand, field_146054_aA, field_146038_az, kunftig$inLava);
     }
 
     @Override
     public void kunftig$biteEffects() {
-        HookWorld.biteEffects((EntityFishHook) (Object) this, rand);
+        HookWorld.biteEffects((EntityFishHook) (Object) this, rand, kunftig$inLava);
     }
 
     @Override
@@ -269,5 +351,10 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
     @Override
     public boolean kunftig$isInOpenWater() {
         return kunftig$openWater;
+    }
+
+    @Override
+    public boolean kunftig$isInLava() {
+        return kunftig$inLava;
     }
 }

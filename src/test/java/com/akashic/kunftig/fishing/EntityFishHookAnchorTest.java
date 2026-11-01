@@ -20,6 +20,7 @@ import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 
 /**
  * Checks, on the real 1.7.10 (Forge) bytecode, the facts EntityFishHookMixin relies on. If an update changed the
@@ -129,5 +130,48 @@ class EntityFishHookAnchorTest {
         }
         assertEquals(1, category, "one category draw (statistic)");
         assertEquals(1, item, "one item draw, with the same chance");
+    }
+
+    private static AbstractInsnNode previousReal(AbstractInsnNode insn) {
+        AbstractInsnNode previous = insn.getPrevious();
+        while (previous != null && previous.getOpcode() < 0) {
+            previous = previous.getPrevious();
+        }
+        return previous;
+    }
+
+    /** Lava fishing swaps the Material argument of the water loop: it must be the constant Material.water. */
+    @Test
+    void waterLoopPassesMaterialWater() throws IOException {
+        MethodNode onUpdate = method(load(), "onUpdate", "()V");
+        for (AbstractInsnNode insn = onUpdate.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (isCall(insn, WORLD, "isAABBInMaterial")) {
+                AbstractInsnNode argument = previousReal(insn);
+                assertEquals(Opcodes.GETSTATIC, argument.getOpcode());
+                assertEquals("net/minecraft/block/material/Material", ((FieldInsnNode) argument).owner);
+                assertEquals("water", ((FieldInsnNode) argument).name);
+                return;
+            }
+        }
+        throw new AssertionError("no isAABBInMaterial call");
+    }
+
+    /** Reeling in a fish spawns the item first, then the XP orb (which spawns at the angler, never in lava). */
+    @Test
+    void reelInSpawnsTheItemThenTheOrb() throws IOException {
+        MethodNode reelIn = method(load(), "func_146034_e", "()I");
+        List<String> spawned = new ArrayList<String>();
+        String lastNew = null;
+        for (AbstractInsnNode insn = reelIn.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn.getOpcode() == Opcodes.NEW) {
+                lastNew = ((TypeInsnNode) insn).desc;
+            }
+            if (isCall(insn, WORLD, "spawnEntityInWorld")) {
+                spawned.add(lastNew);
+            }
+        }
+        assertEquals(2, spawned.size(), String.valueOf(spawned));
+        assertEquals("net/minecraft/entity/item/EntityItem", spawned.get(0));
+        assertEquals("net/minecraft/entity/item/EntityXPOrb", spawned.get(1));
     }
 }

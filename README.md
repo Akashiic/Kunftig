@@ -35,7 +35,7 @@ Configuration, commands and API: see [README.pt-BR.md](README.pt-BR.md) and the 
 
 1.21.1's fishing cycle for Bukkit plugins on Thermos/Crucible: the `LURED`, `BITE`, `FAILED_ATTEMPT` and `REEL_IN`
 states (`KunftigFishEvent`) and the modern `FishHook` (`ModernFishHook`: wait and lure times, lure angle, Lure
-enchantment, rain/sky influence, open water, hook state), plus the bite window for minigames. The default profile
+enchantment, rain/sky influence, open water, hook state), plus the bite window for minigames and lava fishing. The default profile
 keeps fishing exactly vanilla; `MODERN_1_21_1` uses 1.21.1's timings and the open-water treasure rule. Install the same
 mod jar in the server's `mods/`. Guide (Portuguese): [docs/fishing/API.md](docs/fishing/API.md); study:
 [docs/fishing/ESTUDO.md](docs/fishing/ESTUDO.md).

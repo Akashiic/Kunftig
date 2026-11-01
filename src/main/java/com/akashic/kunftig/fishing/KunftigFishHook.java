@@ -11,4 +11,7 @@ public interface KunftigFishHook extends FishingEngine.Hook {
 
     /** 1.16+'s open water state, kept up to date while a fish approaches and bites. */
     boolean kunftig$isInOpenWater();
+
+    /** The hook is floating in lava (only possible with lava fishing on). */
+    boolean kunftig$isInLava();
 }

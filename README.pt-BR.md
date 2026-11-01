@@ -26,7 +26,7 @@ Protocolo: [docs/nametags/PROTOCOL.md](docs/nametags/PROTOCOL.md).
 
 O ciclo de pesca do 1.21.1 para plugins Bukkit no Thermos/Crucible: os estados `LURED`, `BITE`, `FAILED_ATTEMPT` e
 `REEL_IN` (`KunftigFishEvent`) e o `FishHook` moderno (`ModernFishHook`: tempos de espera, de lure, ângulo, Isca,
-chuva/céu, água aberta, estado da boia), mais a janela da mordida para minigames. Com o perfil padrão a pesca fica
+chuva/céu, água aberta, estado da boia), mais a janela da mordida para minigames e a pesca na lava. Com o perfil padrão a pesca fica
 idêntica ao vanilla; o perfil `MODERN_1_21_1` usa os tempos do 1.21.1 e a regra de tesouro em água aberta.
 
 Instale o mesmo jar do mod em `mods/` do servidor. Guia: [docs/fishing/API.md](docs/fishing/API.md). Estudo:

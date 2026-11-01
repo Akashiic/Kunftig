@@ -14,6 +14,9 @@ import net.minecraft.world.WorldServer;
 /**
  * The world-facing pieces of the fishing cycle, written to match 1.7.10's {@code EntityFishHook.onUpdate} so that
  * hooks look, sound and consume the random generator exactly as in vanilla. Server side only.
+ * <p>
+ * Lava fishing (a Kunftig extension, no vanilla equivalent) uses the same code with the fluid swapped and fire
+ * effects in place of water ones, one for one, so the random generator is consumed in the same order.
  */
 public final class HookWorld {
 
@@ -21,6 +24,11 @@ public final class HookWorld {
 
     /** Fraction (0, 0.2, ... 1) of the hook's height that is in water, measured as vanilla does. */
     public static double waterFraction(EntityFishHook hook) {
+        return fluidFraction(hook, Material.water);
+    }
+
+    /** Fraction (0, 0.2, ... 1) of the hook's height that is in {@code fluid}, measured as vanilla measures water. */
+    public static double fluidFraction(EntityFishHook hook, Material fluid) {
         AxisAlignedBB box = hook.boundingBox;
         int slices = 5;
         double fraction = 0.0D;
@@ -28,7 +36,7 @@ public final class HookWorld {
             double minY = box.minY + (box.maxY - box.minY) * j / slices - 0.125D + 0.125D;
             double maxY = box.minY + (box.maxY - box.minY) * (j + 1) / slices - 0.125D + 0.125D;
             AxisAlignedBB slice = AxisAlignedBB.getBoundingBox(box.minX, minY, box.minZ, box.maxX, maxY, box.maxZ);
-            if (hook.worldObj.isAABBInMaterial(slice, Material.water)) {
+            if (hook.worldObj.isAABBInMaterial(slice, fluid)) {
                 fraction += 1.0D / slices;
             }
         }
@@ -36,7 +44,12 @@ public final class HookWorld {
     }
 
     /** 1.16+'s open water test around a block position. */
-    public static boolean isOpenWater(final World world, int x, int y, int z) {
+    public static boolean isOpenWater(World world, int x, int y, int z) {
+        return isOpenFluid(world, x, y, z, Material.water);
+    }
+
+    /** The open water test with {@code fluid} in place of water (lava fishing: open lava). */
+    public static boolean isOpenFluid(final World world, int x, int y, int z, final Material fluid) {
         return OpenWater.isOpenWater(new OpenWater.Probe() {
 
             @Override
@@ -45,8 +58,8 @@ public final class HookWorld {
                 if (block.getMaterial() == Material.air || block == Blocks.waterlily) {
                     return OpenWater.Type.ABOVE_WATER;
                 }
-                // A source block (metadata 0) of water; water has no collision box in 1.7.10.
-                if (block.getMaterial() == Material.water && world.getBlockMetadata(bx, by, bz) == 0) {
+                // A source block (metadata 0) of the fluid; liquids have no collision box in 1.7.10.
+                if (block.getMaterial() == fluid && world.getBlockMetadata(bx, by, bz) == 0) {
                     return OpenWater.Type.INSIDE_WATER;
                 }
                 return OpenWater.Type.INVALID;
@@ -54,14 +67,14 @@ public final class HookWorld {
         }, x, y, z);
     }
 
-    public static void waitingSplash(EntityFishHook hook, Random rand) {
+    public static void waitingSplash(EntityFishHook hook, Random rand, boolean lava) {
         float angle = MathHelper.randomFloatClamp(rand, 0.0F, 360.0F) * 0.017453292F;
         float distance = MathHelper.randomFloatClamp(rand, 25.0F, 60.0F);
         double x = hook.posX + (double) (MathHelper.sin(angle) * distance * 0.1F);
         double y = (double) ((float) MathHelper.floor_double(hook.boundingBox.minY) + 1.0F);
         double z = hook.posZ + (double) (MathHelper.cos(angle) * distance * 0.1F);
         ((WorldServer) hook.worldObj).func_147487_a(
-            "splash",
+            lava ? "lava" : "splash",
             x,
             y,
             z,
@@ -72,7 +85,8 @@ public final class HookWorld {
             0.0D);
     }
 
-    public static void approachEffects(EntityFishHook hook, Random rand, float fishAngle, int approachTime) {
+    public static void approachEffects(EntityFishHook hook, Random rand, float fishAngle, int approachTime,
+        boolean lava) {
         WorldServer world = (WorldServer) hook.worldObj;
         float radians = fishAngle * 0.017453292F;
         float sin = MathHelper.sin(radians);
@@ -81,22 +95,35 @@ public final class HookWorld {
         double y = (double) ((float) MathHelper.floor_double(hook.boundingBox.minY) + 1.0F);
         double z = hook.posZ + (double) (cos * (float) approachTime * 0.1F);
         if (rand.nextFloat() < 0.15F) {
-            world.func_147487_a("bubble", x, y - 0.10000000149011612D, z, 1, (double) sin, 0.1D, (double) cos, 0.0D);
+            world.func_147487_a(
+                lava ? "smoke" : "bubble",
+                x,
+                y - 0.10000000149011612D,
+                z,
+                1,
+                (double) sin,
+                0.1D,
+                (double) cos,
+                0.0D);
         }
         float sideX = sin * 0.04F;
         float sideZ = cos * 0.04F;
-        world.func_147487_a("wake", x, y, z, 0, (double) sideZ, 0.01D, (double) (-sideX), 1.0D);
-        world.func_147487_a("wake", x, y, z, 0, (double) (-sideZ), 0.01D, (double) sideX, 1.0D);
+        String trail = lava ? "flame" : "wake";
+        world.func_147487_a(trail, x, y, z, 0, (double) sideZ, 0.01D, (double) (-sideX), 1.0D);
+        world.func_147487_a(trail, x, y, z, 0, (double) (-sideZ), 0.01D, (double) sideX, 1.0D);
     }
 
-    public static void biteEffects(EntityFishHook hook, Random rand) {
+    public static void biteEffects(EntityFishHook hook, Random rand, boolean lava) {
         hook.motionY -= 0.20000000298023224D;
-        hook.playSound("random.splash", 0.25F, 1.0F + (rand.nextFloat() - rand.nextFloat()) * 0.4F);
+        hook.playSound(
+            lava ? "liquid.lavapop" : "random.splash",
+            0.25F,
+            1.0F + (rand.nextFloat() - rand.nextFloat()) * 0.4F);
         float y = (float) MathHelper.floor_double(hook.boundingBox.minY);
         int count = (int) (1.0F + hook.width * 20.0F);
         WorldServer world = (WorldServer) hook.worldObj;
         world.func_147487_a(
-            "bubble",
+            lava ? "lava" : "bubble",
             hook.posX,
             (double) (y + 1.0F),
             hook.posZ,
@@ -106,7 +133,7 @@ public final class HookWorld {
             (double) hook.width,
             0.20000000298023224D);
         world.func_147487_a(
-            "wake",
+            lava ? "flame" : "wake",
             hook.posX,
             (double) (y + 1.0F),
             hook.posZ,

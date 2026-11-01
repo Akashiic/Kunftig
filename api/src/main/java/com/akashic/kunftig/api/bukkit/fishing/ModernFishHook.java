@@ -133,4 +133,20 @@ public interface ModernFishHook {
     boolean getTreasureRequiresOpenWater();
 
     void setTreasureRequiresOpenWater(boolean value);
+
+    // ---------------------------------------------------------------- Kunftig extensions: lava
+
+    /**
+     * Fishing in lava: the hook floats on lava and the whole cycle runs there (states, events, bite window, loot),
+     * with flames and lava pops instead of wakes and splashes. The hook and the caught item are fire-proof, and the
+     * item starts above the surface so it flies to the angler. Water keeps working. Off by default (unless
+     * {@code fishing.lava} is on in {@code kunftig.cfg}); set it on {@code PlayerFishEvent} {@code FISHING}. Kunftig
+     * extension. In lava, {@link #isInOpenWater()} means open lava.
+     */
+    void setLavaFishing(boolean lavaFishing);
+
+    boolean isLavaFishing();
+
+    /** The hook is floating in lava. Kunftig extension. */
+    boolean isInLava();
 }

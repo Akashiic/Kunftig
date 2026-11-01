@@ -249,6 +249,21 @@ final class ModernFishHookImpl implements ModernFishHook {
     }
 
     @Override
+    public void setLavaFishing(boolean lavaFishing) {
+        parameters().setLavaFishing(lavaFishing);
+    }
+
+    @Override
+    public boolean isLavaFishing() {
+        return parameters().lavaFishing();
+    }
+
+    @Override
+    public boolean isInLava() {
+        return access.kunftig$isInLava();
+    }
+
+    @Override
     public boolean equals(Object other) {
         return other instanceof ModernFishHookImpl && ((ModernFishHookImpl) other).hook == hook;
     }

@@ -8,9 +8,10 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
   API. No log aparece `Kunftig fishing: Bukkit API enabled`.
 * **Seu plugin**: `compileOnly("com.akashic.kunftig:kunftig-api:<versão>")` (veja [../API.md](../API.md)). O Kunftig é
   um mod, não um plugin: não vai em `depend` do `plugin.yml`. No `onEnable`, confira `KunftigApi.isFishingAvailable()`.
-* **Configuração** (`config/kunftig.cfg`, categoria `fishing`): `enabled`, e `profile` com `VANILLA_1_7_10` (padrão,
-  pesca idêntica ao vanilla) ou `MODERN_1_21_1` (tempos do 1.21.1 e tesouro só em água aberta). O perfil só define os
-  valores iniciais de cada boia: o plugin pode mudar tudo por boia.
+* **Configuração** (`config/kunftig.cfg`, categoria `fishing`): `enabled`, `profile` com `VANILLA_1_7_10` (padrão,
+  pesca idêntica ao vanilla) ou `MODERN_1_21_1` (tempos do 1.21.1 e tesouro só em água aberta), e `lava` (padrão
+  `false`: pesca na lava para todas as boias). Esses valores só definem o início de cada boia: o plugin pode mudar tudo
+  por boia.
 
 ## Do 1.21.1 para o Kunftig
 
@@ -23,7 +24,7 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
 | `FishHook.HookState` | `ModernFishHook.HookState` |
 | `event.getHand()` | não existe no 1.7.10 (sem mão secundária) |
 | `setBiteChance` (obsoleto) | não espelhado; no Crucible ele nunca fez nada |
-| — | extensões: `setBiteWindow`, `setBiteWindowRange`, `isBiting`, `getOwner`, `setTreasureRequiresOpenWater` |
+| — | extensões: `setBiteWindow`, `setBiteWindowRange`, `isBiting`, `getOwner`, `setTreasureRequiresOpenWater`, `setLavaFishing`, `isInLava` |
 
 Todos os métodos de `ModernFishHook` têm o nome, o padrão e a validação do `FishHook` do 1.21.1. Tudo roda na thread
 principal.
@@ -98,10 +99,39 @@ public void onCatch(PlayerFishEvent event) {
 }
 ```
 
+### Pesca na lava
+
+```java
+@EventHandler
+public void onCast(PlayerFishEvent event) {
+    if (event.getState() == PlayerFishEvent.State.FISHING && isNetherRod(event.getPlayer().getItemInHand())) {
+        KunftigFishingBukkit.of(event.getHook()).setLavaFishing(true);
+    }
+}
+
+@EventHandler
+public void onFishState(KunftigFishEvent event) {
+    if (event.getState() == KunftigFishEvent.State.BITE && event.getHook().isInLava()) {
+        // tabela de loot do Nether, minigame com a arte da lava...
+    }
+}
+```
+
+Com `setLavaFishing(true)` a boia flutua na lava (a mesma física da água) e o ciclo inteiro roda lá: os mesmos
+estados e eventos, a mesma janela da mordida, o mesmo `PlayerFishEvent` `CAUGHT_FISH` para trocar o item. No lugar da
+esteira e dos respingos aparecem chamas, fumaça e estalos de lava, e a mordida soa como `liquid.lavapop`. A boia não
+pega fogo, e o item pescado é à prova de fogo e sai da superfície da lava (dentro dela um `EntityItem` se joga para
+um lado aleatório). Na água a boia continua pescando normalmente. `isInOpenWater()` na lava significa "lava aberta"
+(fontes de lava em volta, como a regra do 1.16+).
+
+O cliente não sabe que a boia é de lava: entre as atualizações de posição do servidor (a cada 5 ticks) ele simula a
+física vanilla e a boia afunda um pouco, o que aparece como um balanço leve.
+
 ## Para mods Forge (sem Bukkit)
 
 `com.akashic.kunftig.fishing.api.KunftigFishing.register(FishingListener)` recebe os mesmos estados com o
-`EntityFishHook`, e `KunftigFishing.parameters(hook)` dá os mesmos controles. Funciona também em singleplayer.
+`EntityFishHook`, e `KunftigFishing.parameters(hook)` dá os mesmos controles (inclusive `setLavaFishing`). Funciona
+também em singleplayer.
 
 ## Kill-switch
 

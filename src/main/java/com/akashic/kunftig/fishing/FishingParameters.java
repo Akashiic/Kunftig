@@ -18,8 +18,15 @@ public final class FishingParameters {
     private boolean rainInfluenced = true;
     private boolean skyInfluenced = true;
     private boolean treasureRequiresOpenWater;
+    private boolean lavaFishing;
 
     public FishingParameters(FishingProfile profile) {
+        this(profile, false);
+    }
+
+    /** @param lavaFishing whether hooks also float and catch fish in lava (see {@link #setLavaFishing}) */
+    public FishingParameters(FishingProfile profile, boolean lavaFishing) {
+        this.lavaFishing = lavaFishing;
         minWait = profile.minWait;
         maxWait = profile.maxWait;
         minLure = profile.minLure;
@@ -167,5 +174,19 @@ public final class FishingParameters {
 
     public void setTreasureRequiresOpenWater(boolean value) {
         treasureRequiresOpenWater = value;
+    }
+
+    // --- lava (Kunftig extension)
+
+    public boolean lavaFishing() {
+        return lavaFishing;
+    }
+
+    /**
+     * Lets the hook float in lava and run the whole bite cycle there, with fire effects instead of water ones. The
+     * hook and the caught item become fire-proof. Water keeps working as usual.
+     */
+    public void setLavaFishing(boolean value) {
+        lavaFishing = value;
     }
 }

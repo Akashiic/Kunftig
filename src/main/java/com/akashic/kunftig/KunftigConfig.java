@@ -25,6 +25,7 @@ public final class KunftigConfig {
 
     public static boolean fishingEnabled = true;
     public static FishingProfile fishingProfile = FishingProfile.VANILLA_1_7_10;
+    public static boolean fishingLava = false;
 
     private KunftigConfig() {}
 
@@ -55,6 +56,29 @@ public final class KunftigConfig {
                 + "LEGACY: always 16 colors.",
             new String[] { "AUTO", "RGB", "LEGACY" });
         nametagColorMode = ColorModeSetting.valueOf(mode);
+
+        category = "fishing";
+        config.setCategoryComment(
+            category,
+            "Server side. The 1.21.1 fishing cycle and its Bukkit API (KunftigFishEvent, ModernFishHook).");
+        fishingEnabled = config.getBoolean(
+            "enabled",
+            category,
+            true,
+            "Run the bite cycle in Kunftig's engine and fire the 1.21.1 events. false: vanilla code, no events.");
+        String profile = config.getString(
+            "profile",
+            category,
+            FishingProfile.VANILLA_1_7_10.name(),
+            "Initial settings of every hook (plugins can change them per hook). VANILLA_1_7_10: identical to vanilla. "
+                + "MODERN_1_21_1: 1.21.1's timings and treasure only in open water.",
+            new String[] { FishingProfile.VANILLA_1_7_10.name(), FishingProfile.MODERN_1_21_1.name() });
+        fishingProfile = FishingProfile.valueOf(profile);
+        fishingLava = config.getBoolean(
+            "lava",
+            category,
+            false,
+            "Let every hook float and catch fish in lava (plugins can enable it per hook with setLavaFishing).");
 
         debug = config
             .getBoolean("debug", Configuration.CATEGORY_GENERAL, false, "Log every Kunftig protocol message.");

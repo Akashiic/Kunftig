@@ -105,3 +105,27 @@ EntityFishHook.onUpdate (1.7.10)
 * **Loot não é data-driven**: o 1.7 usa as listas do Forge (`FishingHooks`); plugins trocam o item no
   `PlayerFishEvent` `CAUGHT_FISH` (veja o guia).
 * `FishHook.retrieve` não está no 1.21.1, então também não foi espelhado.
+
+## 7. Pesca na lava (extensão do Kunftig)
+
+Não existe no vanilla em nenhuma versão; o plugin de pesca precisa dela para o Nether. Desligada por padrão
+(`ModernFishHook#setLavaFishing`, `KunftigFishing.parameters(hook).setLavaFishing`, ou `fishing.lava` no config).
+
+| Fato | Onde | Consequência |
+|---|---|---|
+| A flutuação vem da fração da altura da boia em `Material.water` (o laço com `isAABBInMaterial`, o mesmo da âncora): `motionY += 0.04 * (fração * 2 - 1)` | `EntityFishHook.onUpdate` | um `@ModifyArg` no argumento de material dessa chamada (lava onde não há água) faz o próprio código vanilla flutuar a boia na lava. Um teste confere no bytecode que o argumento é a constante `Material.water` |
+| Uma entidade em lava leva 4 de dano e pega fogo, a menos que `isImmuneToFire` | `Entity.setOnFireFromLava` | boia de lava fica à prova de fogo (só a que o Kunftig mudou) |
+| `EntityItem` tem 5 de vida e nenhum tempo de invulnerabilidade: morre no segundo tick dentro da lava | `EntityItem.attackEntityFrom` | o item pescado fica à prova de fogo (`@Accessor` em `Entity`) |
+| Dentro de um bloco de lava, `EntityItem` troca a própria velocidade por um pulo aleatório (`motionY = 0.2`, X/Z aleatórios) | `EntityItem.onUpdate` | o item nasce logo acima da superfície da lava, senão não voa até o jogador |
+| Ao puxar, o servidor cria primeiro o item (na boia) e depois o orbe de XP (no jogador); no Crucible também | `func_146034_e`; patch do Crucible | só o item precisa de proteção. Um teste confere a ordem no bytecode |
+| Partículas e sons: `splash` → `lava`, `bubble` → `smoke` (vindo) / `lava` (mordida), `wake` → `flame`, `random.splash` → `liquid.lavapop` | escolha do Kunftig | troca um por um: o gerador aleatório é consumido na mesma ordem |
+
+**Não verificado** (depende de servidor e cliente): plano manual.
+
+1. Nether, `setLavaFishing(true)` no `FISHING`: a boia flutua na lava e não pega fogo.
+2. `LURED` → `BITE` com chamas vindo até a boia e estalo de lava na mordida; puxar dentro da janela: o peixe sai da
+   superfície, voa até o jogador e não queima.
+3. Mesma vara sem `setLavaFishing`: a boia afunda como no vanilla.
+4. Na água, com lava ligada: pesca normal, com esteira e respingos.
+5. `fishing.lava=true` no config, sem plugin: toda boia pesca na lava.
+
