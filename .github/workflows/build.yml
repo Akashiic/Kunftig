@@ -32,8 +32,8 @@ jobs:
       - name: Bukkit 1.7.10 API (Thermos/Crucible) for the compatibility gate
         run: scripts/build-legacy-bukkit-api.sh build/legacy-bukkit/bukkit-1.7.10.jar
 
-      - name: Build, unit tests, MockBukkit integration tests, 1.7.10 API gate
-        run: ./gradlew build :bukkit:checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
+      - name: Build, unit tests, MockBukkit integration tests, 1.7.10 API gates (mod and plugin)
+        run: ./gradlew build checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
 
       - uses: actions/upload-artifact@v4
         with:

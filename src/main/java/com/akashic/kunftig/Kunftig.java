@@ -27,7 +27,27 @@ public final class Kunftig {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         KunftigConfig.load(event.getSuggestedConfigurationFile());
+        installBukkitFishingBridge();
         proxy.preInit(event);
+    }
+
+    /**
+     * On Bukkit hybrids (Thermos, Crucible) expose the fishing engine to plugins. Done reflectively so that no
+     * Bukkit class is ever loaded where Bukkit does not exist (clients, singleplayer, pure Forge servers).
+     */
+    private static void installBukkitFishingBridge() {
+        try {
+            Class.forName("org.bukkit.Bukkit", false, Kunftig.class.getClassLoader());
+        } catch (ClassNotFoundException e) {
+            return;
+        }
+        try {
+            Class.forName("com.akashic.kunftig.bukkit.fishing.BukkitFishingBridge")
+                .getMethod("install")
+                .invoke(null);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            LOG.error("Kunftig fishing: could not enable the Bukkit API", e);
+        }
     }
 
     @Mod.EventHandler

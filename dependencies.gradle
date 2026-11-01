@@ -12,6 +12,11 @@ dependencies {
         }
     }
 
+    // Bukkit API for the fishing API exposed to plugins on Thermos/Crucible. Compile-only: the hybrid server provides
+    // Bukkit at runtime. The oldest public API (1.8.8); checkLegacyBukkitApi verifies the code against 1.7.10's.
+    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") { transitive = false }
+    testImplementation("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") { transitive = false }
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
 }

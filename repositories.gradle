@@ -1,5 +1,13 @@
 // Add any additional repositories for your dependencies here.
 
 repositories {
-
+    // spigot-api (compile-only Bukkit API for the fishing API).
+    maven {
+        name = "SpigotMC"
+        url = "https://hub.spigotmc.org/nexus/content/groups/public/"
+        content {
+            includeGroup("org.spigotmc")
+            includeGroup("org.bukkit")
+        }
+    }
 }
