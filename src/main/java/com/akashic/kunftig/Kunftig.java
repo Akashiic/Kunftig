@@ -65,6 +65,8 @@ public final class Kunftig {
             BukkitApiSelfCheck.start(Kunftig.class.getClassLoader(), LOG);
             install("com.akashic.kunftig.bukkit.fishing.BukkitFishingBridge");
             install("com.akashic.kunftig.bukkit.data.ItemDataBridge");
+            install("com.akashic.kunftig.bukkit.particle.BukkitParticleBridge");
+            install("com.akashic.kunftig.bukkit.player.BukkitPlayerBridge");
         }
     }
 

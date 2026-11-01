@@ -54,7 +54,8 @@ public void onEnable() {
         getServer().getPluginManager().disablePlugin(this);
         return;
     }
-    if (KunftigApi.apiVersion() < 1 || !KunftigApi.isFishingAvailable() || !KunftigApi.isItemDataAvailable()) {
+    if (KunftigApi.apiVersion() < 2 || !KunftigApi.isFishingAvailable() || !KunftigApi.isItemDataAvailable()
+        || !KunftigApi.isParticlesAvailable() || !KunftigApi.isPlayersAvailable()) {
         getLogger().severe("Kunftig sem os recursos necessários (versão da API " + KunftigApi.apiVersion() + ").");
         getServer().getPluginManager().disablePlugin(this);
     }
@@ -63,13 +64,15 @@ public void onEnable() {
 
 `apiVersion()` é um método (não uma constante), então reflete o Kunftig instalado, não o que foi usado para compilar.
 
-## 3. O que a API oferece (versão 1)
+## 3. O que a API oferece
 
-| Pacote | Conteúdo | Equivalente moderno |
-|---|---|---|
-| `com.akashic.kunftig.api` | `KunftigApi`: versão e capacidades | — |
-| `...api.bukkit.fishing` | `KunftigFishEvent` (`LURED`, `BITE`, `FAILED_ATTEMPT`, `REEL_IN`), `ModernFishHook`, `KunftigFishingBukkit` | `PlayerFishEvent` e `FishHook` do 1.21.1 |
-| `...api.bukkit.persistence` | `PersistentDataContainer`, `PersistentDataType`, `NamespacedKey`, `KunftigItems` | `org.bukkit.persistence` (1.14+) e `NamespacedKey` (1.12+) |
+| Pacote | Conteúdo | Equivalente moderno | Versão da API |
+|---|---|---|---|
+| `com.akashic.kunftig.api` | `KunftigApi`: versão e capacidades | — | 1 |
+| `...api.bukkit.fishing` | `KunftigFishEvent` (`LURED`, `BITE`, `FAILED_ATTEMPT`, `REEL_IN`), `ModernFishHook`, `KunftigFishingBukkit` | `PlayerFishEvent` e `FishHook` do 1.21.1 | 1 |
+| `...api.bukkit.persistence` | `PersistentDataContainer`, `PersistentDataType`, `NamespacedKey`, `KunftigItems` | `org.bukkit.persistence` (1.14+) e `NamespacedKey` (1.12+) | 1 |
+| `...api.particle`, `...api.bukkit.particle` | `KunftigParticle`, `KunftigParticles`, `ParticleBuilder` | `World#spawnParticle`, `Particle` e o `ParticleBuilder` do Paper | 2 |
+| `...api.bukkit.player` | `KunftigPlayers.getPing` | `Player#getPing` (1.17+) | 2 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -152,3 +155,56 @@ Nas fontes do Crucible, `World#getWorldServer` é a única assinatura pública d
 Minecraft (os outros patches da API usam tipos do Minecraft/Forge só dentro de corpos de métodos, o que a reflexão não
 resolve). O texto para reportar ao CrucibleMC está em [upstream/crucible-world-getworldserver.md](upstream/crucible-world-getworldserver.md).
 Desligar a verificação: `-Dkunftig.diagnostics.disable=true`.
+
+## 7. Partículas: para todos por perto, coloridas e modernas
+
+O Crucible de produção só tem `Player#spawnParticle` (sem `World#spawnParticle`), e o `spawnParticle` dele manda
+`flame` no lugar de `END_ROD`, `FALLING_DUST`, `DAMAGE_INDICATOR`... O `KunftigParticles` resolve os dois: manda para
+todos no raio e entrega partículas modernas a quem pode desenhá-las. Estudo: [particles/ESTUDO.md](particles/ESTUDO.md).
+
+```java
+// rastro do peixe vindo até a boia (todos a até 16 blocos)
+KunftigParticles.spawn(fishLocation, KunftigParticle.FISHING, 4, 0.1, 0, 0.1, 0.0);
+
+// aura de raridade: END_ROD para quem tem Kunftig + Et Futurum, fagulhas para os demais
+KunftigParticles.builder(KunftigParticle.END_ROD)
+    .location(hook.getLocation())
+    .count(6)
+    .offset(0.25, 0.4, 0.25)
+    .extra(0.01)
+    .spawn();
+
+// pó colorido (funciona em qualquer cliente 1.7.10)
+KunftigParticles.builder(KunftigParticle.DUST).location(loc).color(0xFFAA00).count(12).offset(.3, .3, .3).spawn();
+
+// só para um jogador (por exemplo, o efeito do minigame)
+KunftigParticles.builder(KunftigParticle.ENCHANTED_HIT).location(loc).count(10).receivers(player).spawn();
+```
+
+* **Nomes do 1.21** (`FISHING`, `DUST`, `ENCHANTED_HIT`...). Para portar código do Crucible:
+  `KunftigParticle.fromName(particle.name())` aceita os nomes antigos (`WATER_WAKE`, `REDSTONE`, `CRIT_MAGIC`...).
+* **Mesma semântica do Bukkit**: `count` 0 é uma partícula com velocidade `offset * extra`; `count` &gt; 0 espalha com
+  desvio `offset` e velocidade aleatória vezes `extra`. O `extra` padrão é **1**, como no Bukkit: use `extra(0)` para
+  partículas paradas.
+* **Raio padrão: 16 blocos**, o alcance do 1.7.10 (o servidor vanilla manda até 16 e o cliente descarta além de 16).
+  `receivers(raio)` muda; `receivers(jogadores)` manda só para quem você escolher.
+* **Modernas** (`KunftigParticle#isModern()`): desenhadas por clientes com o Kunftig e o Et Futurum Requiem; os demais
+  veem o `fallback()`. `KunftigParticles.drawsModernParticles(player)` diz se aquele cliente tem o Kunftig (o Et
+  Futurum não é visível ao servidor).
+* **Cores**: `DUST`, `ENTITY_EFFECT`, `AMBIENT_ENTITY_EFFECT`, `FALLING_DUST` e as gotas. Em clientes sem o Kunftig
+  cada partícula colorida é um pacote; prefira contagens moderadas.
+* **Itens e blocos**: `ITEM` com `item(id, dano)`, `BLOCK`/`BLOCK_DUST` com `block(id, meta)` (ids numéricos, como no
+  1.7.10).
+* Thread principal. Desligar no cliente: `-Dkunftig.particles.disable=true`; no servidor a mesma propriedade faz todos
+  receberem só vanilla.
+
+## 8. Ping do jogador
+
+```java
+int ping = KunftigPlayers.getPing(player);   // ms, igual ao da tab e ao Player#getPing do 1.17+
+hook.setBiteWindow(baseTicks + Math.min(ping / 50, 10));   // ex.: compensar a latência no minigame
+```
+
+É a média móvel do 1.7.10 (`(ping * 3 + amostra) / 4` a cada keep-alive), então reage a mudanças em alguns segundos;
+0 logo depois de entrar.
+

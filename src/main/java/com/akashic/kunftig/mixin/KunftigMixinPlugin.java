@@ -14,14 +14,17 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  * <p>
  * {@code -Dkunftig.nametag.disable=true} disables every nametag mixin,
  * {@code -Dkunftig.nametag.visibility.disable=true}
- * disables only the nametag visibility mixin. Mixins are listed as {@code client} in {@code mixins.kunftig.json},
- * so a dedicated server never applies them.
+ * only the nametag visibility mixin, {@code -Dkunftig.fishing.disable=true} the fishing mixin and
+ * {@code -Dkunftig.particles.disable=true} the particle bridge (the client then never registers the particle channel,
+ * so servers send it vanilla particles). Nametag and particle mixins are listed as {@code client} in
+ * {@code mixins.kunftig.json}, so a dedicated server never applies them.
  */
 public final class KunftigMixinPlugin implements IMixinConfigPlugin {
 
     private static final Logger LOG = LogManager.getLogger("Kunftig");
     private static final String NAMETAG_PACKAGE = "com.akashic.kunftig.mixin.mixins.nametag.";
     private static final String FISHING_PACKAGE = "com.akashic.kunftig.mixin.mixins.fishing.";
+    private static final String PARTICLE_PACKAGE = "com.akashic.kunftig.mixin.mixins.particle.";
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -30,6 +33,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
         }
         if (Boolean.getBoolean("kunftig.fishing.disable")) {
             LOG.warn("Fishing mixins disabled by -Dkunftig.fishing.disable=true");
+        }
+        if (Boolean.getBoolean("kunftig.particles.disable")) {
+            LOG.warn("Particle mixins disabled by -Dkunftig.particles.disable=true");
         }
     }
 
@@ -41,6 +47,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.startsWith(FISHING_PACKAGE) && Boolean.getBoolean("kunftig.fishing.disable")) {
+            return false;
+        }
+        if (mixinClassName.startsWith(PARTICLE_PACKAGE) && Boolean.getBoolean("kunftig.particles.disable")) {
             return false;
         }
         if (mixinClassName.startsWith(NAMETAG_PACKAGE)) {

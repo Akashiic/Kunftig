@@ -12,7 +12,8 @@
   "client": [
     "nametag.NetHandlerPlayClientMixin",
     "nametag.RendererLivingEntityVisibilityMixin",
-    "nametag.ScorePlayerTeamMixin"
+    "nametag.ScorePlayerTeamMixin",
+    "particle.NetHandlerPlayClientParticleMixin"
   ],
   "server": []
 }

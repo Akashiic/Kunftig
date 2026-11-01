@@ -37,6 +37,15 @@ Instale o mesmo jar do mod em `mods/` do servidor. Guia: [docs/fishing/API.md](d
 O `PersistentDataContainer` do Bukkit 1.14 (com `NamespacedKey` e `PersistentDataType`) para itens no Thermos/Crucible,
 no mesmo formato das versões modernas. Para marcar varas, iscas e peixes sem analisar lore nem usar NMS.
 
+## Recurso 4: partículas no mundo e partículas modernas (servidor + cliente)
+
+`KunftigParticles` manda partículas para todos os jogadores por perto (o Crucible de produção não tem
+`World.spawnParticle`), com cores em qualquer cliente 1.7.10 e partículas modernas (`END_ROD`, `SOUL_FIRE_FLAME`,
+`FALLING_DUST`, `CHERRY_LEAVES`, `BUBBLE_COLUMN_UP`...) desenhadas pelo **Et Futurum Requiem** nos clientes que têm o
+Kunftig; os demais veem a partícula vanilla mais parecida. Estudo: [docs/particles/ESTUDO.md](docs/particles/ESTUDO.md).
+
+E `KunftigPlayers.getPing(player)`, o `Player#getPing` do 1.17+.
+
 **Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
 [docs/API.md](docs/API.md).
 
@@ -79,7 +88,7 @@ Texto em [MiniMessage](https://docs.advntr.dev/minimessage/format.html); `&c`, `
 | `/kunftigclient` (no cliente) | diz se o protocolo está ativo neste servidor |
 
 Permissão de admin: `kunftig.admin` (OP). Kill-switches do cliente: `-Dkunftig.nametag.disable=true`,
-`-Dkunftig.nametag.visibility.disable=true`; configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
+`-Dkunftig.nametag.visibility.disable=true`, `-Dkunftig.particles.disable=true`; configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
 
 ## API para outros plugins
 

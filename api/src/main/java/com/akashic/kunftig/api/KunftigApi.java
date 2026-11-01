@@ -1,6 +1,8 @@
 package com.akashic.kunftig.api;
 
 import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
+import com.akashic.kunftig.api.bukkit.particle.KunftigParticles;
+import com.akashic.kunftig.api.bukkit.player.KunftigPlayers;
 import com.akashic.kunftig.api.bukkit.persistence.KunftigItems;
 
 /**
@@ -14,9 +16,10 @@ public final class KunftigApi {
 
     /**
      * Incremented whenever the API gains something. 1: modern fishing ({@code KunftigFishEvent},
-     * {@code ModernFishHook}) and item persistent data ({@code KunftigItems}).
+     * {@code ModernFishHook}) and item persistent data ({@code KunftigItems}). 2: particles
+     * ({@code KunftigParticles}) and player ping ({@code KunftigPlayers}).
      */
-    private static final int API_VERSION = 1;
+    private static final int API_VERSION = 2;
 
     private KunftigApi() {}
 
@@ -33,5 +36,15 @@ public final class KunftigApi {
     /** Whether item persistent data is available (Bukkit hybrid with the mod installed). */
     public static boolean isItemDataAvailable() {
         return KunftigItems.isAvailable();
+    }
+
+    /** Whether {@code KunftigParticles} works (Bukkit hybrid with the mod installed). */
+    public static boolean isParticlesAvailable() {
+        return KunftigParticles.isAvailable();
+    }
+
+    /** Whether {@code KunftigPlayers} works (Bukkit hybrid with the mod installed). */
+    public static boolean isPlayersAvailable() {
+        return KunftigPlayers.isAvailable();
     }
 }

@@ -46,6 +46,14 @@ Bukkit 1.14's `PersistentDataContainer` (with `NamespacedKey` and `PersistentDat
 stored with the modern layout. For tagging custom rods, baits and fish without parsing lore or touching NMS.
 See [docs/API.md](docs/API.md).
 
+## Feature 4: world and modern particles (server + client)
+
+`KunftigParticles` sends particles to every player nearby (production Crucible has no `World.spawnParticle`), with
+colors on any 1.7.10 client and modern particles (`END_ROD`, `SOUL_FIRE_FLAME`, `FALLING_DUST`, `CHERRY_LEAVES`,
+`BUBBLE_COLUMN_UP`...) drawn by **Et Futurum Requiem** on clients with Kunftig; everyone else sees the closest vanilla
+particle. Plus `KunftigPlayers.getPing(player)`, 1.17's `Player#getPing`. Study (Portuguese):
+[docs/particles/ESTUDO.md](docs/particles/ESTUDO.md).
+
 ## Repository layout
 
 | Path | Contents |
