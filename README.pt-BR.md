@@ -32,6 +32,14 @@ idêntica ao vanilla; o perfil `MODERN_1_21_1` usa os tempos do 1.21.1 e a regra
 Instale o mesmo jar do mod em `mods/` do servidor. Guia: [docs/fishing/API.md](docs/fishing/API.md). Estudo:
 [docs/fishing/ESTUDO.md](docs/fishing/ESTUDO.md).
 
+## Recurso 3: dados persistentes em itens (servidor)
+
+O `PersistentDataContainer` do Bukkit 1.14 (com `NamespacedKey` e `PersistentDataType`) para itens no Thermos/Crucible,
+no mesmo formato das versões modernas. Para marcar varas, iscas e peixes sem analisar lore nem usar NMS.
+
+**Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
+[docs/API.md](docs/API.md).
+
 ## Instalação
 
 | Onde | Jar | Requisitos |

@@ -43,6 +43,7 @@ jobs:
             !build/libs/*-dev*.jar
             !build/libs/*-sources.jar
             bukkit/build/libs/Kunftig-Bukkit-*.jar
+            api/build/libs/kunftig-api-*.jar
 
       - uses: actions/upload-artifact@v4
         if: failure()

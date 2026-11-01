@@ -6,8 +6,8 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
 
 * **Servidor**: o jar do Kunftig em `mods/` (o mesmo jar do cliente) e o UniMixins. Nenhum plugin é necessário para a
   API. No log aparece `Kunftig fishing: Bukkit API enabled`.
-* **Seu plugin**: compile contra o jar do Kunftig como dependência `compileOnly` (ele é um mod, não um plugin; não
-  vai em `depend` do `plugin.yml`). No `onEnable`, confira `KunftigFishingBukkit.isAvailable()` e avise se for falso.
+* **Seu plugin**: `compileOnly("com.akashic.kunftig:kunftig-api:<versão>")` (veja [../API.md](../API.md)). O Kunftig é
+  um mod, não um plugin: não vai em `depend` do `plugin.yml`. No `onEnable`, confira `KunftigApi.isFishingAvailable()`.
 * **Configuração** (`config/kunftig.cfg`, categoria `fishing`): `enabled`, e `profile` com `VANILLA_1_7_10` (padrão,
   pesca idêntica ao vanilla) ou `MODERN_1_21_1` (tempos do 1.21.1 e tesouro só em água aberta). O perfil só define os
   valores iniciais de cada boia: o plugin pode mudar tudo por boia.
@@ -92,6 +92,7 @@ public void onCatch(PlayerFishEvent event) {
         ModernFishHook hook = KunftigFishingBukkit.of(event.getHook());
         ItemStack loot = hook.isInOpenWater() ? rollTreasureTable() : rollCommonTable();
         ((Item) event.getCaught()).setItemStack(loot);   // o item ainda não foi lançado ao jogador
+        // para marcar o peixe (peso, espécie...), veja "Dados persistentes em itens" em ../API.md
         event.setExpToDrop(3);
     }
 }

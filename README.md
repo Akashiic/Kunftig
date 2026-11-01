@@ -40,11 +40,18 @@ keeps fishing exactly vanilla; `MODERN_1_21_1` uses 1.21.1's timings and the ope
 mod jar in the server's `mods/`. Guide (Portuguese): [docs/fishing/API.md](docs/fishing/API.md); study:
 [docs/fishing/ESTUDO.md](docs/fishing/ESTUDO.md).
 
+## Feature 3: persistent data on items (server side)
+
+Bukkit 1.14's `PersistentDataContainer` (with `NamespacedKey` and `PersistentDataType`) for items on Thermos/Crucible,
+stored with the modern layout. For tagging custom rods, baits and fish without parsing lore or touching NMS.
+See [docs/API.md](docs/API.md).
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `src/` | Forge 1.7.10 mod (GTNH convention / RetroFuturaGradle): client nametags, server fishing engine and its Bukkit API |
+| `api/` | `kunftig-api`: what Bukkit plugins compile against (`compileOnly`); embedded in the mod for runtime. See [docs/API.md](docs/API.md) |
 | `common/` | dependency-free Java 8 library shared by mod and plugin: protocol codec, text model, JSON, legacy renderer |
 | `bukkit/` | Bukkit plugin, one jar for 1.7.10 through 1.21+ |
 | `scripts/` | builds the Bukkit 1.7.10 API from Crucible's sources for the compatibility gate |
