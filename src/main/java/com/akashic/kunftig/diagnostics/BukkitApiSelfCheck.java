@@ -3,7 +3,10 @@ package com.akashic.kunftig.diagnostics;
 import java.io.File;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.logging.log4j.Logger;
 
@@ -13,8 +16,6 @@ import org.apache.logging.log4j.Logger;
  * Disabled with {@code -Dkunftig.diagnostics.disable=true}.
  */
 public final class BukkitApiSelfCheck {
-
-    private static final int MAX_LISTED = 20;
 
     private BukkitApiSelfCheck() {}
 
@@ -36,30 +37,72 @@ public final class BukkitApiSelfCheck {
     private static void run(File jar, Logger log) {
         try {
             List<ObfuscatedApiScanner.Finding> findings = ObfuscatedApiScanner.scan(jar);
-            if (findings.isEmpty()) {
-                log.info("Kunftig: no obfuscated types in the Bukkit API signatures of {}", jar.getName());
-                return;
+            String message = describe(findings, jar.getName());
+            if (pluginApi(findings).isEmpty()) {
+                log.info(message);
+            } else {
+                log.warn(message);
             }
-            StringBuilder message = new StringBuilder();
-            message.append("Kunftig: ")
-                .append(findings.size())
-                .append(" Bukkit API member(s) in ")
-                .append(jar.getName())
-                .append(" name obfuscated classes. Class#getMethod/getMethods on these classes throws ")
-                .append("NoClassDefFoundError; use MethodHandles (see Kunftig docs/API.md, section 6):");
-            for (int i = 0; i < findings.size() && i < MAX_LISTED; i++) {
-                message.append("\n  ")
-                    .append(findings.get(i));
-            }
-            if (findings.size() > MAX_LISTED) {
-                message.append("\n  ... and ")
-                    .append(findings.size() - MAX_LISTED)
-                    .append(" more");
-            }
-            log.warn(message.toString());
         } catch (Throwable e) {
             log.debug("Kunftig: Bukkit API signature check failed", e);
         }
+    }
+
+    /** Findings in the API plugins compile against ({@code org.bukkit}, BungeeCord chat), as opposed to internals. */
+    static List<ObfuscatedApiScanner.Finding> pluginApi(List<ObfuscatedApiScanner.Finding> findings) {
+        List<ObfuscatedApiScanner.Finding> api = new ArrayList<>();
+        for (ObfuscatedApiScanner.Finding finding : findings) {
+            if (finding.owner()
+                .startsWith("org.bukkit.")
+                || finding.owner()
+                    .startsWith("net.md_5.bungee.")) {
+                api.add(finding);
+            }
+        }
+        return api;
+    }
+
+    /**
+     * The log message: every plugin-API finding in full (production Crucible has exactly one, World#getWorldServer),
+     * and server internals ({@code org.spigotmc}, 30 members there) summarized by class.
+     */
+    static String describe(List<ObfuscatedApiScanner.Finding> findings, String jarName) {
+        if (findings.isEmpty()) {
+            return "Kunftig: no obfuscated types in the Bukkit API signatures of " + jarName;
+        }
+        List<ObfuscatedApiScanner.Finding> api = pluginApi(findings);
+        Set<String> internalClasses = new TreeSet<>();
+        for (ObfuscatedApiScanner.Finding finding : findings) {
+            if (!api.contains(finding)) {
+                internalClasses.add(finding.owner());
+            }
+        }
+        StringBuilder message = new StringBuilder("Kunftig: ");
+        if (!api.isEmpty()) {
+            message.append(api.size())
+                .append(" Bukkit API member(s) in ")
+                .append(jarName)
+                .append(" name obfuscated classes that do not exist at runtime. Plugins calling them directly get ")
+                .append("NoSuchMethodError, and Class#getMethod/getMethods on their classes throws ")
+                .append("NoClassDefFoundError (see Kunftig docs/API.md, section 6):");
+            for (ObfuscatedApiScanner.Finding finding : api) {
+                message.append("\n  ")
+                    .append(finding);
+            }
+            message.append(internalClasses.isEmpty() ? "" : "\nAlso ");
+        }
+        if (!internalClasses.isEmpty()) {
+            message.append(findings.size() - api.size())
+                .append(" member(s) of server internals in ")
+                .append(jarName)
+                .append(" name obfuscated classes (")
+                .append(String.join(", ", internalClasses))
+                .append("); plugins should not use these. Full list: java -cp <kunftig jar> ")
+                .append(ObfuscatedApiScanner.class.getName())
+                .append(" ")
+                .append(jarName);
+        }
+        return message.toString();
     }
 
     /** The jar file of a {@code jar:file:...!/entry} resource URL, or null for anything else. */

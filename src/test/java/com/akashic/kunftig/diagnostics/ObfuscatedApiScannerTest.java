@@ -187,4 +187,47 @@ class ObfuscatedApiScannerTest {
         assertNull(BukkitApiSelfCheck.jarOf(new URL("file:/srv/classes/org/bukkit/World.class")));
         assertNull(BukkitApiSelfCheck.jarOf(null));
     }
+
+    private static ObfuscatedApiScanner.Finding finding(String owner, String member, String type) {
+        return new ObfuscatedApiScanner.Finding(owner, member, "public", Arrays.asList(type), false);
+    }
+
+    /** Shape of the real report from production Crucible (issue #3): 1 plugin API member, 30 Spigot internals. */
+    @Test
+    void logListsThePluginApiAndSummarizesInternals() {
+        List<ObfuscatedApiScanner.Finding> findings = Arrays.asList(
+            finding("org.bukkit.World", "getWorldServer()Lmt;", "mt"),
+            finding("org.spigotmc.ActivationRange", "checkIfActive(Lsa;)Z", "sa"),
+            finding("org.spigotmc.ActivationRange", "maxBB:Lazt;", "azt"),
+            finding("org.spigotmc.AntiXray", "obfuscate(III[BLahb;)V", "ahb"),
+            finding("org.spigotmc.VanillaCommandWrapper$PlayerListener", "<class>", "ac"));
+        String message = BukkitApiSelfCheck.describe(findings, "server.jar");
+        assertTrue(message.contains("1 Bukkit API member(s) in server.jar"), message);
+        assertTrue(message.contains("NoSuchMethodError"), message);
+        assertTrue(
+            message.contains("\n  public org.bukkit.World#getWorldServer()Lmt; -> [mt] (not in the jar)"),
+            message);
+        assertTrue(
+            message.contains(
+                "Also 4 member(s) of server internals in server.jar name obfuscated classes (org.spigotmc.ActivationRange, "
+                    + "org.spigotmc.AntiXray, org.spigotmc.VanillaCommandWrapper$PlayerListener)"),
+            message);
+        assertTrue(message.contains("ObfuscatedApiScanner server.jar"), message);
+        assertEquals(
+            1,
+            BukkitApiSelfCheck.pluginApi(findings)
+                .size());
+
+        List<ObfuscatedApiScanner.Finding> internalsOnly = findings.subList(1, findings.size());
+        assertTrue(
+            BukkitApiSelfCheck.pluginApi(internalsOnly)
+                .isEmpty(),
+            "logged at INFO");
+        assertTrue(
+            BukkitApiSelfCheck.describe(internalsOnly, "server.jar")
+                .startsWith("Kunftig: 4 member(s) of server internals"));
+        assertEquals(
+            "Kunftig: no obfuscated types in the Bukkit API signatures of server.jar",
+            BukkitApiSelfCheck.describe(java.util.Collections.<ObfuscatedApiScanner.Finding>emptyList(), "server.jar"));
+    }
 }

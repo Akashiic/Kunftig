@@ -134,10 +134,13 @@ ofuscado do `WorldServer` e não existe em tempo de execução. O código-fonte 
 
 | Chamada | Resultado em `World`/`CraftWorld` |
 |---|---|
-| `world.getName()`, qualquer chamada direta | funciona: a JVM só resolve o método chamado |
+| `world.getName()`, chamada direta de qualquer outro método | funciona: a JVM só resolve o método chamado |
+| `world.getWorldServer()` (chamada direta) | **`NoSuchMethodError`** (verificado em produção): o remapeador de plugins do Crucible troca o `mt` da chamada por `WorldServer`, mas a interface continua declarando `()Lmt;` |
 | `World.class.getMethods()`, `getDeclaredMethods()` | `NoClassDefFoundError: mt` |
 | `World.class.getMethod("getName")` | **também** `NoClassDefFoundError: mt`: o Java resolve as assinaturas de todos os métodos públicos para achar um |
 | `MethodHandles.publicLookup().findVirtual(World.class, "getName", MethodType.methodType(String.class))` | funciona: resolve só o método pedido |
+| `findVirtual(World.class, "getWorldServer", methodType(WorldServer.class))` | `NoSuchMethodException`: na interface o descritor é `()Lmt;` |
+| `findVirtual(world.getClass(), "getWorldServer", methodType(WorldServer.class))` | **funciona**: o `CraftWorld` é remapeado ao carregar e tem o tipo certo. É o contorno até o Crucible corrigir |
 
 Regra para plugins e para o próprio Kunftig: **nada de `getMethod`/`getMethods`/`getDeclaredMethods` em classes
 Bukkit ou CraftBukkit; use `MethodHandles`** (`findVirtual`, `findStatic`; `getDeclaredField` continua seguro porque só
@@ -152,9 +155,9 @@ está limpo). Para rodar à mão em qualquer jar:
 java -cp mods/kunftig-<versão>.jar com.akashic.kunftig.diagnostics.ObfuscatedApiScanner crucible-server.jar
 ```
 
-Nas fontes do Crucible, `World#getWorldServer` é a única assinatura pública da API Bukkit que expõe um tipo do
-Minecraft (os outros patches da API usam tipos do Minecraft/Forge só dentro de corpos de métodos, o que a reflexão não
-resolve). O texto para reportar ao CrucibleMC está em [upstream/crucible-world-getworldserver.md](upstream/crucible-world-getworldserver.md).
+No jar de produção o scanner acha 31 membros: **`World#getWorldServer` é o único da API de plugins**; os outros 30 são
+internos do Spigot (`org.spigotmc.ActivationRange`, `AntiXray`, `TrackingRange`, `VanillaCommandWrapper`), que plugins
+não devem usar. O log de inicialização lista a API inteira e resume os internos por classe. O texto para reportar ao CrucibleMC está em [upstream/crucible-world-getworldserver.md](upstream/crucible-world-getworldserver.md).
 Desligar a verificação: `-Dkunftig.diagnostics.disable=true`.
 
 ## 7. Partículas: para todos por perto, coloridas e modernas
