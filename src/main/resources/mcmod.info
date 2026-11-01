@@ -1,0 +1,21 @@
+{
+	"modListVersion": 2,
+	"modList": [{
+		"modid": "${modId}",
+		"name": "${modName}",
+		"description": "Backports features from recent Minecraft versions to 1.7.10. Nametags: long, RGB and gradient team prefixes, suffixes and names in the tab list and above heads, sent by the Kunftig server plugin.",
+		"version": "${modVersion}",
+		"mcversion": "${minecraftVersion}",
+		"url": "https://github.com/Akashiic/Kunftig",
+		"updateUrl": "",
+		"authorList": ["Akashiic"],
+		"credits": "",
+		"logoFile": "",
+		"screenshots": [],
+		"parent": "",
+		"requiredMods": [],
+		"dependencies": [],
+		"dependants": [],
+		"useDependencyInformation": false
+	}]
+}
