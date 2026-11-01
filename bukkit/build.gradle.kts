@@ -115,17 +115,25 @@ tasks.check {
 /*
  * Binary-compatibility gate against the Bukkit 1.7.10 API that Thermos/Crucible actually ship.
  * No public repository hosts it, so the jar is passed explicitly, e.g. one built from Crucible's bukkit/ module:
- *   ./gradlew :bukkit:checkLegacyBukkitApi -PlegacyBukkitApi=/path/to/bukkit-1.7.10.jar
+ *   scripts/build-legacy-bukkit-api.sh build/legacy-bukkit/bukkit-1.7.10.jar
+ *   ./gradlew :bukkit:checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar   (relative to the repository root)
  * Recompiling the sources against it fails on any member that does not exist in 1.7.10 (Team#addEntry, ...).
  */
-val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi")
+// Relative paths resolve from the repository root, not from this module (issue #4).
+val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi").map { rootProject.file(it) }
 val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     description = "Recompiles the plugin against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>."
     group = "verification"
     onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
+    doFirst {
+        val jar = legacyBukkitApi.get()
+        if (!jar.isFile) {
+            throw GradleException("Bukkit 1.7.10 API jar not found: $jar (build it with scripts/build-legacy-bukkit-api.sh)")
+        }
+    }
     source = sourceSets.main.get().java
     // Same classpath as the real compilation, with the 1.8.8 API swapped for the 1.7.10 one.
-    classpath = files(legacyBukkitApi.orElse("")) + configurations.compileClasspath.get().filter {
+    classpath = files(legacyBukkitApi) + configurations.compileClasspath.get().filter {
         !it.name.startsWith("spigot-api-") && !it.name.startsWith("bungeecord-chat-")
     }
     destinationDirectory.set(layout.buildDirectory.dir("legacyApiCheck"))

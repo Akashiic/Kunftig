@@ -71,13 +71,20 @@ publishing {
 }
 
 /* Same gate as :bukkit: recompile against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>. */
-val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi")
+// Relative paths resolve from the repository root, not from this module (issue #4).
+val legacyBukkitApi = providers.gradleProperty("legacyBukkitApi").map { rootProject.file(it) }
 val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     description = "Recompiles the API against the Bukkit 1.7.10 API given by -PlegacyBukkitApi=<jar>."
     group = "verification"
     onlyIf("-PlegacyBukkitApi is set") { legacyBukkitApi.isPresent }
+    doFirst {
+        val jar = legacyBukkitApi.get()
+        if (!jar.isFile) {
+            throw GradleException("Bukkit 1.7.10 API jar not found: $jar (build it with scripts/build-legacy-bukkit-api.sh)")
+        }
+    }
     source = sourceSets.main.get().java
-    classpath = files(legacyBukkitApi.orElse(""))
+    classpath = files(legacyBukkitApi)
     destinationDirectory.set(layout.buildDirectory.dir("legacyApiCheck"))
     options.release.set(8)
 }
