@@ -1,4 +1,4 @@
-# Kunftig
+# Künftig
 
 Backports of features from recent Minecraft versions to **1.7.10** (Forge + UniMixins), with the server side for
 **Bukkit** (Thermos/Crucible 1.7.10 and Paper/Spigot up to 1.21+).
