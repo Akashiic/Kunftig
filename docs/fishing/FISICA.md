@@ -117,3 +117,33 @@ Não há o que trazer aqui: a curva da linha e a posição do sprite já são as
 3. Mordida: a boia afunda e volta, como antes.
 4. Cliente sem o Kunftig num servidor com `true`: pesca normal, só com mais correções visuais.
 5. Confirmar as constantes [a confirmar] com `javap -c` no `FishingHook` do Paper 1.21.1.
+
+## 7. Medido no jogo (servidor de desenvolvimento, 2026-11-02)
+
+Feito com `runServer -Dkunftig.devHarness=true` (`com.akashic.kunftig.dev.FishingHarness`, fora do jar de release).
+O ambiente é Forge 1.7.10 com o Kunftig e os mixins aplicados, `EntityFishHook` e `EntityItem` reais, um lago de 4
+blocos e um `FakePlayer` com a vara. Resultado completo em `run/server/kunftig-harness.txt`.
+
+**Boia** (base em relação à superfície desenhada), igual à simulação da seção 4:
+
+| Entrada | Vanilla: mais fundo / repouso / oscilação | `modernBobber`: mais fundo / repouso / balanço |
+|---|---|---|
+| −0,3 | −0,358 / +0,012 / 0,007 | −0,125 / −0,002 / 0,114 |
+| −0,8 | −1,300 / +0,013 / 0,009 | −0,496 / +0,004 / 0,090 |
+| −1,2 | −2,415 / +0,010 / 0,009 | −1,092 / 0,000 / 0,102 |
+
+**Trava (#9):** com `setReelLocked(true)` durante uma mordida, `func_146034_e` devolveu 0, a boia continuou viva, o
+`fishEntity` foi mantido e a mordida continuou. `retrieve` ignorou a trava, devolveu 1, removeu a boia e criou o item.
+
+**Item pescado (#10)**, boia a 5 blocos do jogador, margem 1 bloco acima da água:
+
+| Situação | Vanilla | `setCatchAimedAtAngler(true)` |
+|---|---|---|
+| jogador a 3,5 da beira, boia em repouso | coletado (tick 9) | coletado (tick 8) |
+| jogador a 3,5 da beira, boia puxada pela mordida (−0,3) | cai na água | coletado (tick 8) |
+| jogador a 1,5 da beira (a montagem da issue) | cai na água | coletado (tick 8) |
+| jogador a 1,5 da beira, com a mordida | cai na água | coletado (tick 8) |
+
+"Coletado" é o primeiro tick em que o item entra na área de coleta do jogador (caixa crescida em 1; 0,5; 1). O
+`FakePlayer` não pega itens, por isso no teste o item mirado segue voando e cai atrás. Um jogador real o pega nesse
+tick.

@@ -29,14 +29,17 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * Development-only test harness (never in the release jar): with {@code -Dkunftig.devHarness=true} on the dev server, it
+ * Development-only test harness (never in the release jar): with {@code -Dkunftig.devHarness=true} on the dev server,
+ * it
  * builds a pond in the air and measures real {@link EntityFishHook}s tick by tick, then stops the server. Results go to
  * {@code kunftig-harness.txt} in the run directory.
  */
 public final class FishingHarness {
 
     // Pond: water blocks y 96..99 (surface drawn at 99 + 8/9), stone floor 95; bank: stone at y 99, feet at 100.
-    private static final int X0 = 0, Z0 = 0, FLOOR = 95, TOP = 99, SIZE = 12;
+    private static final int FLOOR = 95, TOP = 99, SIZE = 12;
+    /** Pond corner: the spawn point, whose chunks stay loaded. */
+    private int X0, Z0;
 
     private final List<Scenario> scenarios = new ArrayList<>();
     private PrintWriter out;
@@ -136,19 +139,26 @@ public final class FishingHarness {
     private final class LockAndAim extends Scenario {
 
         final boolean aim;
+        final double anglerZ;
+        final double drop;
         EntityFishHook hook;
         EntityItem item;
         double closest = Double.MAX_VALUE;
+        int pickedAt = -1;
 
-        LockAndAim(boolean aim) {
-            super("lock+retrieve, aim=" + aim);
+        /** Angler at {@code anglerZ} (bank edge at Z0), hook 5 blocks out; {@code drop}: bite pull at reel-in. */
+        LockAndAim(boolean aim, double anglerZ, double drop) {
+            super("catch aim=" + aim + " angler " + (Z0 - anglerZ) + " from edge, dip " + drop);
             this.aim = aim;
+            this.anglerZ = anglerZ;
+            this.drop = drop;
         }
 
         @Override
         void start() {
             KunftigConfig.fishingModernBobber = false;
-            hook = cast(X0 + 5.5, Z0 + 1.5, -0.3); // 5 blocks from the angler on the bank
+            angler.setPositionAndRotation(X0 + 5.5, TOP + 1, anglerZ, 0, 30);
+            hook = cast(X0 + 5.5, anglerZ + 5, -0.3);
         }
 
         @Override
@@ -168,6 +178,7 @@ public final class FishingHarness {
                     !hook.isDead,
                     angler.fishEntity == hook,
                     access.kunftig$biteWindow() > 0);
+                hook.setPosition(hook.posX, hook.posY - drop, hook.posZ);
                 int before = world.loadedEntityList.size();
                 int damage = KunftigFishing.retrieve(hook, false);
                 for (Object entity : world.loadedEntityList) {
@@ -195,12 +206,20 @@ public final class FishingHarness {
                     age - 60,
                     horizontal,
                     item.posY - angler.posY);
+                if (horizontal <= 1.3 && item.posY >= angler.posY - 0.5
+                    && item.posY <= angler.posY + 2.3
+                    && pickedAt < 0) {
+                    pickedAt = age - 60;
+                }
                 if (age - 60 >= 40 || item.isDead) {
                     boolean onBank = item.posY >= angler.posY - 0.01;
                     boolean reachable = horizontal <= 1.3 && item.posY >= angler.posY - 0.5;
+                    // A real player collects it on the first tick it enters the pickup box (player box grown 1, 0.5,
+                    // 1).
                     out.printf(
-                        "RESULT %s: item after 40 ticks: horizontal=%.3f y_above_feet=%.3f on_bank=%s pickup_range=%s closest=%.3f%n",
+                        "RESULT %s: would be collected at tick %d | after 40 ticks: horizontal=%.3f y_above_feet=%.3f on_bank=%s pickup_range=%s closest=%.3f%n",
                         name,
+                        pickedAt,
                         horizontal,
                         item.posY - angler.posY,
                         onBank,
@@ -253,18 +272,30 @@ public final class FishingHarness {
                 }
                 MinecraftServer server = MinecraftServer.getServer();
                 world = server.worldServerForDimension(0);
+                X0 = world.getSpawnPoint().posX;
+                Z0 = world.getSpawnPoint().posZ;
+                for (int cx = (X0 - 8) >> 4; cx <= (X0 + SIZE + 8) >> 4; cx++) {
+                    for (int cz = (Z0 - 8) >> 4; cz <= (Z0 + SIZE + 8) >> 4; cz++) {
+                        world.theChunkProviderServer.loadChunk(cx, cz);
+                    }
+                }
                 out = new PrintWriter(new FileWriter(new File("kunftig-harness.txt")), true);
                 build();
-                angler = FakePlayerFactory
-                    .get(world, new GameProfile(UUID.fromString("41c82c87-7afb-4024-ba57-13d2c99cae77"), "[KunftigTest]"));
+                angler = FakePlayerFactory.get(
+                    world,
+                    new GameProfile(UUID.fromString("41c82c87-7afb-4024-ba57-13d2c99cae77"), "[KunftigTest]"));
                 angler.setPositionAndRotation(X0 + 5.5, TOP + 1, Z0 - 3.5, 0, 30);
                 angler.inventory.mainInventory[angler.inventory.currentItem] = new ItemStack(Items.fishing_rod);
                 for (double vy : new double[] { -0.3, -0.8, -1.2 }) {
                     scenarios.add(new Bobber(vy, false));
                     scenarios.add(new Bobber(vy, true));
                 }
-                scenarios.add(new LockAndAim(false));
-                scenarios.add(new LockAndAim(true));
+                for (double anglerZ : new double[] { Z0 - 3.5, Z0 - 1.5 }) {
+                    for (double drop : new double[] { 0, 0.3 }) {
+                        scenarios.add(new LockAndAim(false, anglerZ, drop));
+                        scenarios.add(new LockAndAim(true, anglerZ, drop));
+                    }
+                }
                 return;
             }
             world.resetUpdateEntityTick(); // keep entities ticking without real players
