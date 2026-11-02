@@ -37,6 +37,9 @@ public final class Kunftig {
         cpw.mods.fml.common.FMLCommonHandler.instance()
             .bus()
             .register(new com.akashic.kunftig.fishing.ModernBobberAnnouncer());
+        if (Boolean.getBoolean("kunftig.devHarness")) {
+            install("com.akashic.kunftig.dev.FishingHarness"); // development only, absent from release jars
+        }
         proxy.preInit(event);
     }
 

@@ -44,3 +44,8 @@ val checkLegacyBukkitApi by tasks.registering(JavaCompile::class) {
     }
     dependsOn(tasks.compileJava)
 }
+
+// The development test harness (com.akashic.kunftig.dev, -Dkunftig.devHarness=true) never ships.
+tasks.named<Jar>("shadowJar") {
+    exclude("com/akashic/kunftig/dev/**")
+}
