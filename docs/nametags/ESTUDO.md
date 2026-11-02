@@ -1,5 +1,8 @@
 # Estudo: nametags modernas no 1.7.10 (cliente Forge + Bukkit)
 
+> **Nota (2026-11):** o plugin Kunftig-Bukkit descrito aqui (grupos, comandos, API) foi removido do repositório; a rede
+> usa o TAB. Fica o motor do cliente e o protocolo (`PROTOCOL.md`). O texto abaixo continua como registro do desenho.
+
 > Objetivo: nomes longos e coloridos (RGB e degradê) na **tab** e **acima da cabeça** em clientes 1.7.10, sem
 > texto quebrado, funcionando em servidores Bukkit (Thermos/Crucible 1.7.10 e Paper 1.21 do lobby), atrás do
 > Velocity e através do ViaVersion.
