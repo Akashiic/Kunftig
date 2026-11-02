@@ -1,7 +1,7 @@
 # Künftig
 
-Backports of features from recent Minecraft versions to **1.7.10** (Forge + UniMixins), with the server side for
-**Bukkit** (Thermos/Crucible 1.7.10 and Paper/Spigot up to 1.21+).
+Backports of features from recent Minecraft versions to **1.7.10** (Forge + UniMixins): one mod jar for the client
+and the server (Thermos/Crucible 1.7.10), plus the `kunftig-api` artifact for plugins.
 
 > Versão em português: [README.pt-BR.md](README.pt-BR.md). The design study is in Portuguese:
 > [docs/nametags/ESTUDO.md](docs/nametags/ESTUDO.md); the protocol spec is in English:
