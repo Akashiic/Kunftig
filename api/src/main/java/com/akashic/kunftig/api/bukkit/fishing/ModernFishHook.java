@@ -164,4 +164,26 @@ public interface ModernFishHook {
 
     /** The hook is floating in lava. Kunftig extension. */
     boolean isInLava();
+
+    // ---------------------------------------------------------------- Kunftig extensions: minigames (API level 5)
+
+    /**
+     * Locks reeling in: while locked, every way of reeling in (right click in the air or on a block, the Backhand off
+     * hand, other mods) does nothing, without rod damage; the hook stays and the bite goes on. For minigames between
+     * {@code BITE} and the catch, instead of cancelling clicks. {@link #retrieve} ignores the lock (it is the plugin
+     * asking). The lock belongs to the hook and goes away with it. Kunftig extension.
+     */
+    void setReelLocked(boolean locked);
+
+    boolean isReelLocked();
+
+    /**
+     * Raises the caught item's arc so it lands at the angler. Vanilla's arc (the same in 1.21.1) comes back to the
+     * hook's height after ~10 ticks and ~90% of the distance, so from water a block below a bank the item hits the
+     * bank and falls in. Never lower than vanilla's. Off by default ({@code fishing.catchAim} in {@code kunftig.cfg});
+     * set it on {@code FISHING}. Applies to {@link #retrieve} too. Kunftig extension.
+     */
+    void setCatchAimedAtAngler(boolean aimed);
+
+    boolean isCatchAimedAtAngler();
 }

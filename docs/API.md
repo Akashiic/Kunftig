@@ -75,6 +75,7 @@ public void onEnable() {
 | `...api.bukkit.player` | `KunftigPlayers.getPing` | `Player#getPing` (1.17+) | 2 |
 | `...api.bukkit.fishing` | `ModernFishHook#retrieve`, pesca na lava (`setLavaFishing`) | `FishHook#retrieve` do Paper | 3 |
 | `...api.bukkit.persistence` | `KunftigItems.setModel`/`getModel` (ícone do item por NBT) | `CustomModelData` (1.14+) e `item_model` (1.21.4+) | 4 |
+| `...api.bukkit.fishing`, `...api.bukkit.player` | `ModernFishHook#setReelLocked`, `setCatchAimedAtAngler`; `KunftigPlayers.isHotbarSwitch` | — | 5 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -276,4 +277,29 @@ instanciamento e no cache do HUD, mas usa o ícone escolhido por esses métodos.
   puxado também mantêm os ícones vanilla.
 * Cliente sem o Kunftig, ou sem o ícone no pack: aparece o ícone do item base, como hoje. Nada quebra.
 * Desligar no cliente: `-Dkunftig.itemModels.disable=true`.
+
+## 10. Backhand: `PlayerItemHeldEvent` falso a cada clique direito
+
+Com o Backhand (mão secundária) no TEOF, **todo clique direito** gera no servidor dois `PlayerItemHeldEvent`, de `0 → 36`
+e de `36 → 0`. O cliente troca para o slot da mão secundária (36) e volta, para tentar usar o item dela, e o Backhand
+faz o servidor aceitar o slot 36 (`MixinNetHandlerPlayServer`, `isValidSwitch`). O Crucible então dispara o evento para
+cada troca. Plugins que tratam o evento como "o jogador trocou de item" são enganados: minigames que acabam na troca,
+bloqueios por item na mão, cooldowns, HUD de item.
+
+```java
+@EventHandler
+public void onHeld(PlayerItemHeldEvent event) {
+    if (!KunftigPlayers.isHotbarSwitch(event)) {
+        return; // ida e volta do Backhand (ou slot fora da hotbar): não é troca
+    }
+    ...
+}
+```
+
+`isHotbarSwitch` só é verdadeiro para uma troca real entre slots 0 a 8, e funciona sem o mod (é só Bukkit). Para saber
+se o **item** na mão mudou, o mais seguro é comparar o item na mão um tick depois. Em minigames de pesca, prefira
+`ModernFishHook#setReelLocked`, que não depende de cliques nem de trocas de slot.
+
+A origem é do lado do Backhand: o servidor poderia não repassar ao Bukkit a ida ao slot da mão secundária. Isso fica
+fora do escopo do Kunftig.
 

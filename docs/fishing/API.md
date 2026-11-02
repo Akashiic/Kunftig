@@ -25,7 +25,7 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
 | `event.getHand()` | não existe no 1.7.10 (sem mão secundária) |
 | `setBiteChance` (obsoleto) | não espelhado; no Crucible ele nunca fez nada |
 | `FishHook#retrieve(EquipmentSlot)` (Paper) | `retrieve(applyRodDamage)` (sem mão secundária; API nível 3) |
-| — | extensões: `setBiteWindow`, `setBiteWindowRange`, `isBiting`, `getOwner`, `setTreasureRequiresOpenWater`, `setLavaFishing`, `isInLava` |
+| — | extensões: `setBiteWindow`, `setBiteWindowRange`, `isBiting`, `getOwner`, `setTreasureRequiresOpenWater`, `setLavaFishing`, `isInLava`, `setReelLocked`, `setCatchAimedAtAngler` |
 
 Todos os métodos de `ModernFishHook` têm o nome, o padrão e a validação do `FishHook` do 1.21.1. Tudo roda na thread
 principal.
@@ -76,9 +76,11 @@ no patch do Crucible: o uso do item só acontece se o evento não negar `useItem
 
 1. No `KunftigFishEvent` `BITE`: comece o minigame e dê tempo com `hook.setBiteWindow(...)`. A interface pode usar o
    actionbar/título/bossbar do NecroTempus.
-2. Enquanto o minigame roda, cancele o `PlayerInteractEvent` `RIGHT_CLICK_AIR`/`RIGHT_CLICK_BLOCK` do jogador com a
-   vara e conte os cliques. Clique esquerdo chega como `PlayerAnimationEvent`, agachar como `PlayerToggleSneakEvent`.
-3. Venceu: `hook.retrieve(true)` recolhe a linha pelo servidor, sem esperar outro clique (API nível 3). Com a
+2. Enquanto o minigame roda, trave a linha com `hook.setReelLocked(true)` (API nível 5). Nenhum caminho recolhe a boia:
+   clique no ar ou num bloco, a mão secundária do Backhand ou outros mods. Não há dano na vara, e a mordida continua.
+   Cancelar o `PlayerInteractEvent` só cobre o clique no ar. Os cliques continuam chegando como `PlayerInteractEvent`
+   `RIGHT_CLICK_AIR`/`RIGHT_CLICK_BLOCK` para você contar. Clique esquerdo chega como `PlayerAnimationEvent`, agachar como `PlayerToggleSneakEvent`.
+3. Destrave (`setReelLocked(false)`) ou não: o `retrieve` ignora a trava. Venceu: `hook.retrieve(true)` recolhe a linha pelo servidor, sem esperar outro clique (API nível 3). Com a
    janela ainda aberta, isso gera o `PlayerFishEvent` `CAUGHT_FISH` de sempre, onde você troca o item (abaixo), e o
    peixe voa até o jogador; a vara leva o dano normal e o braço balança para os outros jogadores. Em servidores com
    Kunftig mais antigo (`KunftigApi.apiVersion() < 3`), libere o próximo clique: o recolhimento do jogador dá o mesmo
@@ -106,6 +108,18 @@ public void onCatch(PlayerFishEvent event) {
     }
 }
 ```
+
+### O peixe que não chega ao jogador
+
+A física do item pescado é vanilla, e é igual no 1.21.1: velocidade = um décimo da distância, mais `sqrt(distância) *
+0.08` para cima. Depois vêm gravidade 0,04 e arrasto 0,98 por tick. Com a boia na altura dos pés do jogador, o item
+volta a essa altura depois de ~10 ticks, tendo percorrido só ~90% da distância. De uma margem 1 bloco acima da água, ele
+bate na margem e cai na água (issue #10).
+
+`hook.setCatchAimedAtAngler(true)` (no `FISHING`; ou `fishing.catchAim=true` no `kunftig.cfg` para todas as boias) sobe o
+arco o bastante para o item chegar aos pés do jogador, dentro da área de coleta. O cálculo é exato, com a mesma física.
+Nunca fica mais baixo que o vanilla: em lançamentos longos, o vanilla já chega alto o suficiente e é mantido. Vale
+também para o `retrieve`.
 
 ### Pesca na lava
 

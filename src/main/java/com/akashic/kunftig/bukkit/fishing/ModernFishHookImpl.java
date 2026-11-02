@@ -270,6 +270,26 @@ final class ModernFishHookImpl implements ModernFishHook {
     }
 
     @Override
+    public void setReelLocked(boolean locked) {
+        parameters().setReelLocked(locked);
+    }
+
+    @Override
+    public boolean isReelLocked() {
+        return parameters().reelLocked();
+    }
+
+    @Override
+    public void setCatchAimedAtAngler(boolean aimed) {
+        parameters().setCatchAimedAtAngler(aimed);
+    }
+
+    @Override
+    public boolean isCatchAimedAtAngler() {
+        return parameters().catchAimedAtAngler();
+    }
+
+    @Override
     public boolean equals(Object other) {
         return other instanceof ModernFishHookImpl && ((ModernFishHookImpl) other).hook == hook;
     }

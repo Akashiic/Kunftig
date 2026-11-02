@@ -26,6 +26,7 @@ public final class KunftigConfig {
     public static boolean fishingEnabled = true;
     public static FishingProfile fishingProfile = FishingProfile.VANILLA_1_7_10;
     public static boolean fishingLava = false;
+    public static boolean fishingCatchAim = false;
 
     private KunftigConfig() {}
 
@@ -79,6 +80,12 @@ public final class KunftigConfig {
             category,
             false,
             "Let every hook float and catch fish in lava (plugins can enable it per hook with setLavaFishing).");
+        fishingCatchAim = config.getBoolean(
+            "catchAim",
+            category,
+            false,
+            "Aim caught items at the angler: vanilla's arc falls short when the angler stands above the water "
+                + "(plugins can set it per hook with setCatchAimedAtAngler).");
 
         debug = config
             .getBoolean("debug", Configuration.CATEGORY_GENERAL, false, "Log every Kunftig protocol message.");

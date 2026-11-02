@@ -19,6 +19,8 @@ public final class FishingParameters {
     private boolean skyInfluenced = true;
     private boolean treasureRequiresOpenWater;
     private boolean lavaFishing;
+    private boolean catchAimedAtAngler;
+    private boolean reelLocked;
 
     public FishingParameters(FishingProfile profile) {
         this(profile, false);
@@ -188,5 +190,30 @@ public final class FishingParameters {
      */
     public void setLavaFishing(boolean value) {
         lavaFishing = value;
+    }
+
+    // --- caught item aimed at the angler (Kunftig extension, issue #10)
+
+    public boolean catchAimedAtAngler() {
+        return catchAimedAtAngler;
+    }
+
+    /**
+     * Raises the caught item's arc just enough to land it at the angler's feet ({@link CatchArc}); vanilla's arc falls
+     * short when the angler stands above the water. Never lower than vanilla's.
+     */
+    public void setCatchAimedAtAngler(boolean value) {
+        catchAimedAtAngler = value;
+    }
+
+    // --- reel lock (Kunftig extension, issue #9)
+
+    public boolean reelLocked() {
+        return reelLocked;
+    }
+
+    /** While locked, reeling in by any path does nothing (the hook stays, the bite goes on); retrieve() ignores it. */
+    public void setReelLocked(boolean value) {
+        reelLocked = value;
     }
 }

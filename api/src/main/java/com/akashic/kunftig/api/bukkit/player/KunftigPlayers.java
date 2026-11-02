@@ -1,6 +1,7 @@
 package com.akashic.kunftig.api.bukkit.player;
 
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 
 /**
  * Player data that Bukkit 1.7.10 does not expose. Requires the Kunftig mod on the server.
@@ -35,6 +36,28 @@ public final class KunftigPlayers {
             throw new IllegalStateException("KunftigPlayers is not available on this server");
         }
         return current.getPing(player);
+    }
+
+    /** Hotbar slots are 0 to 8; anything else in a {@link PlayerItemHeldEvent} is not a real switch. */
+    public static final int HOTBAR_SIZE = 9;
+
+    /**
+     * Whether a {@link PlayerItemHeldEvent} is the player really switching hotbar slots. With Backhand (off hand mod),
+     * every right click on the server produces {@code 0 -> 36 -> 0}: the client switches to the off hand slot (36) and
+     * back to try the off hand item, Backhand makes the server accept slot 36, and Crucible fires the event for each.
+     * Those are not switches. Works without the mod (pure Bukkit). To know whether the item in hand changed, compare it
+     * a tick later instead.
+     */
+    public static boolean isHotbarSwitch(PlayerItemHeldEvent event) {
+        return isHotbarSwitch(event.getPreviousSlot(), event.getNewSlot());
+    }
+
+    /** {@link #isHotbarSwitch(PlayerItemHeldEvent)} by slots. */
+    public static boolean isHotbarSwitch(int previousSlot, int newSlot) {
+        return previousSlot != newSlot && previousSlot >= 0
+            && previousSlot < HOTBAR_SIZE
+            && newSlot >= 0
+            && newSlot < HOTBAR_SIZE;
     }
 
     /** Internal: called by the mod. */

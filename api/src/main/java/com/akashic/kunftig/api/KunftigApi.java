@@ -18,9 +18,10 @@ public final class KunftigApi {
      * Incremented whenever the API gains something. 1: modern fishing ({@code KunftigFishEvent},
      * {@code ModernFishHook}) and item persistent data ({@code KunftigItems}). 2: particles
      * ({@code KunftigParticles}) and player ping ({@code KunftigPlayers}). 3: {@code ModernFishHook#retrieve} and lava
-     * fishing ({@code ModernFishHook#setLavaFishing}). 4: item models ({@code KunftigItems#setModel}).
+     * fishing ({@code ModernFishHook#setLavaFishing}). 4: item models ({@code KunftigItems#setModel}). 5:
+     * {@code ModernFishHook#setReelLocked}, {@code setCatchAimedAtAngler} and {@code KunftigPlayers#isHotbarSwitch}.
      */
-    private static final int API_VERSION = 4;
+    private static final int API_VERSION = 5;
 
     private KunftigApi() {}
 

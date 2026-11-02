@@ -116,7 +116,13 @@ public final class KunftigFishing {
 
             @Override
             public int reelIn() {
-                return hook.func_146034_e();
+                KunftigFishHook access = access(hook);
+                access.kunftig$setRetrieving(true);
+                try {
+                    return hook.func_146034_e();
+                } finally {
+                    access.kunftig$setRetrieving(false);
+                }
             }
 
             @Override

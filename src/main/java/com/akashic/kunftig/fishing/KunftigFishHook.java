@@ -14,4 +14,7 @@ public interface KunftigFishHook extends FishingEngine.Hook {
 
     /** The hook is floating in lava (only possible with lava fishing on). */
     boolean kunftig$isInLava();
+
+    /** Marks a server-side retrieve in progress (it ignores the reel lock). */
+    void kunftig$setRetrieving(boolean retrieving);
 }

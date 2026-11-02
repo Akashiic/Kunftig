@@ -25,6 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.akashic.kunftig.KunftigConfig;
+import com.akashic.kunftig.fishing.CatchArc;
 import com.akashic.kunftig.fishing.FishingEngine;
 import com.akashic.kunftig.fishing.FishingParameters;
 import com.akashic.kunftig.fishing.HookWorld;
@@ -77,9 +78,7 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
     public Entity field_146043_c;
 
     @Unique
-    private final FishingParameters kunftig$parameters = new FishingParameters(
-        KunftigConfig.fishingProfile,
-        KunftigConfig.fishingLava);
+    private final FishingParameters kunftig$parameters = kunftig$initialParameters();
 
     @Unique
     private boolean kunftig$bobbing;
@@ -99,6 +98,22 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
 
     private EntityFishHookMixin(World world) {
         super(world);
+    }
+
+    @Unique
+    private static FishingParameters kunftig$initialParameters() {
+        FishingParameters parameters = new FishingParameters(KunftigConfig.fishingProfile, KunftigConfig.fishingLava);
+        parameters.setCatchAimedAtAngler(KunftigConfig.fishingCatchAim);
+        return parameters;
+    }
+
+    /** Set by {@code KunftigFishing.retrieve}: the plugin itself is reeling in, so the reel lock does not apply. */
+    @Unique
+    private boolean kunftig$retrieving;
+
+    @Override
+    public void kunftig$setRetrieving(boolean retrieving) {
+        kunftig$retrieving = retrieving;
     }
 
     @Unique
@@ -178,28 +193,52 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
         return true; // vanilla's copy of the cycle is skipped
     }
 
-    /** 1.21's REEL_IN: reeling in with nothing hooked, nothing biting and not stuck in a block. */
+    /**
+     * The reel lock (issue #9): every path that reels in (right click in the air or on a block, Backhand's off hand,
+     * mods) ends in this method; while locked it returns 0 at once: no rod damage, the hook stays and the bite goes on.
+     * Then 1.21's REEL_IN: reeling in with nothing hooked, nothing biting and not stuck in a block.
+     */
     @Inject(method = "func_146034_e", at = @At("HEAD"), cancellable = true)
     private void kunftig$reelIn(CallbackInfoReturnable<Integer> cir) {
-        if (!worldObj.isRemote && KunftigConfig.fishingEnabled
-            && field_146043_c == null
-            && field_146045_ax <= 0
+        if (worldObj.isRemote || !KunftigConfig.fishingEnabled) {
+            return;
+        }
+        if (kunftig$parameters.reelLocked() && !kunftig$retrieving) {
+            cir.setReturnValue(0);
+            return;
+        }
+        if (field_146043_c == null && field_146045_ax <= 0
             && !field_146051_au
             && !KunftigFishing.fireReelIn((EntityFishHook) (Object) this)) {
             cir.setReturnValue(0);
         }
     }
 
-    /** Lava fishing: the caught item must survive the lava and fly to the angler. */
+    /**
+     * The caught item: lava fishing makes it fire-proof and lifts it out of the lava, and the optional aim raises its
+     * arc so it lands at the angler (issue #10). Crucible has already fired PlayerFishEvent CAUGHT_FISH and set the
+     * vanilla motion by now.
+     */
     @ModifyArg(
         method = "func_146034_e",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/world/World;spawnEntityInWorld(Lnet/minecraft/entity/Entity;)Z"))
-    private Entity kunftig$lavaProofCatch(Entity entity) {
-        if (!(entity instanceof EntityItem) || !kunftig$inLava || !kunftig$lavaFishing()) {
+    private Entity kunftig$caughtItem(Entity entity) {
+        if (!(entity instanceof EntityItem) || !KunftigConfig.fishingEnabled) {
             return entity;
         }
+        if (kunftig$inLava && kunftig$lavaFishing()) {
+            kunftig$lavaProof(entity);
+        }
+        if (kunftig$parameters.catchAimedAtAngler() && field_146042_b != null) {
+            entity.motionY = CatchArc.aimedVerticalSpeed(entity.motionY, field_146042_b.boundingBox.minY - entity.posY);
+        }
+        return entity;
+    }
+
+    @Unique
+    private void kunftig$lavaProof(Entity entity) {
         ((EntityFireAccessor) entity).kunftig$setImmuneToFire(true);
         int x = MathHelper.floor_double(entity.posX);
         int z = MathHelper.floor_double(entity.posZ);
@@ -212,7 +251,6 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
         if (top != y) {
             entity.setPosition(entity.posX, top + 0.05D, entity.posZ);
         }
-        return entity;
     }
 
     @ModifyArg(
