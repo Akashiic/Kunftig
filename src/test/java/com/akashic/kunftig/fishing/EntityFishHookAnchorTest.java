@@ -174,4 +174,28 @@ class EntityFishHookAnchorTest {
         assertEquals("net/minecraft/entity/item/EntityItem", spawned.get(0));
         assertEquals("net/minecraft/entity/item/EntityXPOrb", spawned.get(1));
     }
+
+    /** The modern bobber injects at the one setPosition after the water loop: the tick's last motion change. */
+    @Test
+    void oneSetPositionAfterTheWaterLoop() throws IOException {
+        MethodNode onUpdate = method(load(), "onUpdate", "()V");
+        boolean afterLoop = false;
+        int setPositions = 0;
+        AbstractInsnNode last = null;
+        for (AbstractInsnNode insn = onUpdate.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (isCall(insn, WORLD, "isAABBInMaterial")) {
+                afterLoop = true;
+            } else if (afterLoop && isCall(insn, "net/minecraft/entity/projectile/EntityFishHook", "setPosition")) {
+                setPositions++;
+                last = insn;
+            }
+        }
+        assertEquals(1, setPositions);
+        for (AbstractInsnNode insn = last.getNext(); insn != null; insn = insn.getNext()) {
+            assertTrue(
+                !(insn instanceof FieldInsnNode && ((FieldInsnNode) insn).name.startsWith("motion")
+                    && insn.getOpcode() == Opcodes.PUTFIELD),
+                "no motion write after it");
+        }
+    }
 }

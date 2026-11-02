@@ -33,6 +33,10 @@ public final class Kunftig {
     public void preInit(FMLPreInitializationEvent event) {
         KunftigConfig.load(event.getSuggestedConfigurationFile());
         installBukkitBridges();
+        // Tells joining Kunftig clients which bobber physics to predict (also in singleplayer's integrated server).
+        cpw.mods.fml.common.FMLCommonHandler.instance()
+            .bus()
+            .register(new com.akashic.kunftig.fishing.ModernBobberAnnouncer());
         proxy.preInit(event);
     }
 

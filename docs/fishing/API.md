@@ -10,7 +10,8 @@ Para quem vai escrever o plugin de pesca. Por que e como funciona: [ESTUDO.md](E
   um mod, não um plugin: não vai em `depend` do `plugin.yml`. No `onEnable`, confira `KunftigApi.isFishingAvailable()`.
 * **Configuração** (`config/kunftig.cfg`, categoria `fishing`): `enabled`, `profile` com `VANILLA_1_7_10` (padrão,
   pesca idêntica ao vanilla) ou `MODERN_1_21_1` (tempos do 1.21.1 e tesouro só em água aberta), e `lava` (padrão
-  `false`: pesca na lava para todas as boias). Esses valores só definem o início de cada boia: o plugin pode mudar tudo
+  `false`: pesca na lava para todas as boias), `catchAim` (o item pescado vai até o jogador) e `modernBobber`
+  (física da boia do 1.16+, veja [FISICA.md](FISICA.md)). Esses valores só definem o início de cada boia: o plugin pode mudar tudo
   por boia.
 
 ## Do 1.21.1 para o Kunftig

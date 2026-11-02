@@ -16,7 +16,8 @@
     "nametag.ScorePlayerTeamMixin",
     "particle.NetHandlerPlayClientParticleMixin",
     "itemmodel.ItemModelMixin",
-    "itemmodel.ItemStackModelMixin"
+    "itemmodel.ItemStackModelMixin",
+    "fishing.NetHandlerPlayClientFishingMixin"
   ],
   "server": []
 }

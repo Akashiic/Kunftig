@@ -30,6 +30,8 @@ import com.akashic.kunftig.fishing.FishingEngine;
 import com.akashic.kunftig.fishing.FishingParameters;
 import com.akashic.kunftig.fishing.HookWorld;
 import com.akashic.kunftig.fishing.KunftigFishHook;
+import com.akashic.kunftig.fishing.ModernBobber;
+import com.akashic.kunftig.fishing.ModernBobberMode;
 import com.akashic.kunftig.fishing.TreasureRule;
 import com.akashic.kunftig.fishing.api.KunftigFishing;
 
@@ -163,6 +165,28 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
                 value = "INVOKE",
                 target = "Lnet/minecraft/world/World;isAABBInMaterial(Lnet/minecraft/util/AxisAlignedBB;Lnet/minecraft/block/material/Material;)Z")))
     private boolean kunftig$catchFish(World world) {
+        boolean skipVanilla = kunftig$runCycle(world);
+        // The velocity before vanilla's buoyancy (bite pulls of the engine included), for the modern bobber below.
+        kunftig$preBuoyancyX = motionX;
+        kunftig$preBuoyancyY = motionY;
+        kunftig$preBuoyancyZ = motionZ;
+        return skipVanilla;
+    }
+
+    @Unique
+    private double kunftig$preBuoyancyX;
+
+    @Unique
+    private double kunftig$preBuoyancyY;
+
+    @Unique
+    private double kunftig$preBuoyancyZ;
+
+    @Unique
+    private boolean kunftig$wasInFluid;
+
+    @Unique
+    private boolean kunftig$runCycle(World world) {
         if (world.isRemote) {
             return true;
         }
@@ -191,6 +215,56 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
             kunftig$outOfWaterTime = Math.min(10, kunftig$outOfWaterTime + 1);
         }
         return true; // vanilla's copy of the cycle is skipped
+    }
+
+    /**
+     * Modern bobber physics ({@link ModernBobber}), when the server turns it on ({@code fishing.modernBobber}):
+     * replaces
+     * the velocity vanilla's buoyancy just computed, right before the tick's final {@code setPosition}. Runs on the
+     * server and, when the server announced it, on Kunftig clients, so both predict the same motion between the
+     * tracker's updates.
+     */
+    @Inject(
+        method = "onUpdate",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/projectile/EntityFishHook;setPosition(DDD)V"),
+        slice = @Slice(
+            from = @At(
+                value = "INVOKE",
+                target = "Lnet/minecraft/world/World;isAABBInMaterial(Lnet/minecraft/util/AxisAlignedBB;Lnet/minecraft/block/material/Material;)Z")))
+    private void kunftig$modernBobber(CallbackInfo ci) {
+        if (!(worldObj.isRemote ? ModernBobberMode.client()
+            : KunftigConfig.fishingEnabled && KunftigConfig.fishingModernBobber)) {
+            return;
+        }
+        Double surface = kunftig$fluidSurface();
+        boolean entering = surface != null && !kunftig$wasInFluid;
+        kunftig$wasInFluid = surface != null;
+        double[] velocity = ModernBobber.step(
+            new double[] { kunftig$preBuoyancyX, kunftig$preBuoyancyY, kunftig$preBuoyancyZ },
+            posY,
+            surface,
+            entering,
+            rand);
+        motionX = velocity[0];
+        motionY = velocity[1];
+        motionZ = velocity[2];
+    }
+
+    /** Absolute height of the drawn fluid surface in the hook's block, or null out of fluid. */
+    @Unique
+    private Double kunftig$fluidSurface() {
+        int x = MathHelper.floor_double(posX);
+        int y = MathHelper.floor_double(posY);
+        int z = MathHelper.floor_double(posZ);
+        Material material = worldObj.getBlock(x, y, z)
+            .getMaterial();
+        boolean fluid = material == Material.water || material == Material.lava && kunftig$inLava;
+        if (!fluid) {
+            return null;
+        }
+        boolean fluidAbove = worldObj.getBlock(x, y + 1, z)
+            .getMaterial() == material;
+        return y + ModernBobber.surfaceHeight(worldObj.getBlockMetadata(x, y, z), fluidAbove);
     }
 
     /**
