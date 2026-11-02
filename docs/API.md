@@ -74,6 +74,7 @@ public void onEnable() {
 | `...api.particle`, `...api.bukkit.particle` | `KunftigParticle`, `KunftigParticles`, `ParticleBuilder` | `World#spawnParticle`, `Particle` e o `ParticleBuilder` do Paper | 2 |
 | `...api.bukkit.player` | `KunftigPlayers.getPing` | `Player#getPing` (1.17+) | 2 |
 | `...api.bukkit.fishing` | `ModernFishHook#retrieve`, pesca na lava (`setLavaFishing`) | `FishHook#retrieve` do Paper | 3 |
+| `...api.bukkit.persistence` | `KunftigItems.setModel`/`getModel` (ícone do item por NBT) | `CustomModelData` (1.14+) e `item_model` (1.21.4+) | 4 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -222,4 +223,57 @@ hook.setBiteWindow(baseTicks + Math.min(ping / 50, 10));   // ex.: compensar a l
 
 É a média móvel do 1.7.10 (`(ping * 3 + amostra) / 4` a cada keep-alive), então reage a mudanças em alguns segundos;
 0 logo depois de entrar.
+
+## 9. Ícone próprio para itens de plugin (o `CustomModelData` do 1.7.10)
+
+No 1.7.10 o ícone de um item é sempre o do item base. Com o Kunftig no cliente, o servidor escolhe o ícone por um id
+gravado no item, como o `CustomModelData` do 1.14+ (aqui com um id, como o `item_model` do 1.21.4+). O NecroTempus não
+tem esse recurso.
+
+**No plugin:**
+
+```java
+ItemStack fish = KunftigItems.asDataCapable(new ItemStack(Material.RAW_FISH));
+KunftigItems.setModel(fish, new NamespacedKey(plugin, "tucunare"));   // akashicfishing:tucunare
+KunftigItems.getModel(fish);                                          // akashicfishing:tucunare
+KunftigItems.setModel(fish, null);                                    // volta ao ícone do peixe
+```
+
+O id fica em `PublicBukkitValues."kunftig:model"`, como qualquer dado persistente, e viaja com o NBT do item. Valem as
+regras da seção 4 (pilha do servidor, `asDataCapable`). Requer API nível 4.
+
+**No resource pack** (o mesmo que o cliente já usa, por exemplo o dos glyphs do NecroTempus), um índice por namespace:
+
+```
+assets/akashicfishing/kunftig/item_models.json
+assets/akashicfishing/textures/items/fish/tucunare.png
+```
+
+```json
+{
+  "tucunare": "akashicfishing:fish/tucunare",
+  "bota_velha": "junk/boot"
+}
+```
+
+A chave é o id do modelo dentro do namespace (`akashicfishing:tucunare`). O valor é o nome do ícone, como no
+`setTextureName` do 1.7.10: `akashicfishing:fish/tucunare` aponta para `textures/items/fish/tucunare.png`, e sem
+namespace vale o da pasta. Animações com `.mcmeta` funcionam como em qualquer ícone. Packs carregados depois sobrescrevem
+os anteriores, e o resource pack enviado pelo servidor também conta. Erros no arquivo aparecem no log do cliente
+(`Kunftig item models: ...`) sem derrubar o resto.
+
+**Onde aparece:** inventário e qualquer GUI, mão em primeira e terceira pessoa (inclusive de outros jogadores), item no
+chão e em moldura. O Kunftig troca o ícone em `ItemStack#getIconIndex` e `Item#getIcon(ItemStack, int)`, os dois pontos
+por onde esses caminhos passam no 1.7.10 (conferido no bytecode por testes). O Angelica mexe no brilho, no
+instanciamento e no cache do HUD, mas usa o ícone escolhido por esses métodos.
+
+**Limites:**
+
+* Só itens com ícone simples. Blocos (`ItemBlock`) usam o atlas de blocos. Itens de várias camadas (poções, armadura de
+  couro, ovos) pintam cada camada com uma cor. Nesses casos fica o ícone original. Para itens de plugin, use uma base
+  simples (peixe, papel, pedra de fogo...).
+* Itens que sobrescrevem `getIcon` ou têm um `IItemRenderer` próprio mantêm o desenho deles. A vara lançada e o arco
+  puxado também mantêm os ícones vanilla.
+* Cliente sem o Kunftig, ou sem o ícone no pack: aparece o ícone do item base, como hoje. Nada quebra.
+* Desligar no cliente: `-Dkunftig.itemModels.disable=true`.
 

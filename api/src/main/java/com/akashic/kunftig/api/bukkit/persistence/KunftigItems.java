@@ -76,6 +76,42 @@ public final class KunftigItems {
         return provider().setItemMeta(item, meta);
     }
 
+    // ---------------------------------------------------------------- item models
+
+    /**
+     * Where the model id is stored: {@code PublicBukkitValues."kunftig:model"} (a string), like any other persistent
+     * data. The Kunftig client reads it from the item's NBT.
+     */
+    public static final NamespacedKey MODEL_KEY = new NamespacedKey("kunftig", "model");
+
+    /**
+     * Gives the item its own icon on clients with Kunftig, like 1.14's {@code CustomModelData} and 1.21.4's
+     * {@code item_model}, but with an id instead of a number. The icon comes from the resource pack: model
+     * {@code akashicfishing:tucunare} is key {@code tucunare} of {@code assets/akashicfishing/kunftig/item_models.json}
+     * (see Kunftig's docs/API.md). Clients without Kunftig, or without that icon in their packs, show the base item's
+     * icon, as today. Applies to items with a plain icon (not blocks, not multi-layer items such as potions or leather
+     * armor).
+     *
+     * @param model the model id, or null to remove it
+     * @throws IllegalArgumentException if the stack cannot hold data (see {@link #asDataCapable})
+     */
+    public static void setModel(ItemStack item, NamespacedKey model) {
+        PersistentDataContainer data = getData(item);
+        if (model == null) {
+            data.remove(MODEL_KEY);
+        } else {
+            data.set(MODEL_KEY, PersistentDataType.STRING, model.toString());
+        }
+    }
+
+    /** The item's model id, or null (also for stacks that cannot hold data). */
+    public static NamespacedKey getModel(ItemStack item) {
+        if (item == null || !canHoldData(item)) {
+            return null;
+        }
+        return NamespacedKey.fromString(getData(item).get(MODEL_KEY, PersistentDataType.STRING));
+    }
+
     /** Internal: called by the mod. */
     public static void install(Provider implementation) {
         provider = implementation;

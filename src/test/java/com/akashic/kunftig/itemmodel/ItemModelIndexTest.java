@@ -1,0 +1,88 @@
+package com.akashic.kunftig.itemmodel;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+class ItemModelIndexTest {
+
+    @Test
+    void modelsAreNamespacedByTheirPackDomain() {
+        ItemModelIndex index = new ItemModelIndex();
+        index.add(
+            "akashicfishing",
+            "{\"tucunare\": \"akashicfishing:fish/tucunare\", \"bota_velha\": \"junk/boot\", \"x/y.z-1\": \"other:a\"}",
+            "pack");
+        Map<String, String> expected = new LinkedHashMap<>();
+        expected.put("akashicfishing:tucunare", "akashicfishing:fish/tucunare");
+        expected.put("akashicfishing:bota_velha", "akashicfishing:junk/boot");
+        expected.put("akashicfishing:x/y.z-1", "other:a");
+        assertEquals(expected, index.icons());
+        assertTrue(
+            index.errors()
+                .isEmpty());
+    }
+
+    @Test
+    void laterPacksOverrideEarlierOnes() {
+        ItemModelIndex index = new ItemModelIndex();
+        index.add("akashicfishing", "{\"tucunare\": \"old\"}", "low");
+        index.add("akashicfishing", "{\"tucunare\": \"new\"}", "high");
+        assertEquals(
+            "akashicfishing:new",
+            index.icons()
+                .get("akashicfishing:tucunare"));
+    }
+
+    @Test
+    void badEntriesAreReportedAndSkippedWithoutLosingTheRest() {
+        ItemModelIndex index = new ItemModelIndex();
+        index.add(
+            "pack",
+            "{\"Upper\": \"a\", \"ok\": \"a\", \"num\": 3, \"bad\": \"BAD:x\", \"slash\": \"a/\", \"sp\": \"a b\"}",
+            "file");
+        assertEquals(
+            Arrays.asList("pack:ok"),
+            Arrays.asList(
+                index.icons()
+                    .keySet()
+                    .toArray()));
+        assertEquals(
+            5,
+            index.errors()
+                .size(),
+            index.errors()
+                .toString());
+        assertTrue(
+            index.errors()
+                .get(0)
+                .startsWith("file: invalid model key 'Upper'"));
+
+        ItemModelIndex broken = new ItemModelIndex();
+        broken.add("pack", "{\"a\": ", "file");
+        broken.add("pack", "[\"a\"]", "file2");
+        assertTrue(
+            broken.icons()
+                .isEmpty());
+        assertEquals(
+            2,
+            broken.errors()
+                .size());
+    }
+
+    @Test
+    void iconNames() {
+        assertEquals("ns:path/to/icon", ItemModelIndex.iconName("ns", "path/to/icon"));
+        assertEquals("other:icon", ItemModelIndex.iconName("ns", "other:icon"));
+        assertNull(ItemModelIndex.iconName("ns", "/abs"));
+        assertNull(ItemModelIndex.iconName("ns", ""));
+        assertNull(ItemModelIndex.iconName("ns", ":x"));
+        assertNull(ItemModelIndex.iconName("ns", "a:b:c"));
+    }
+}

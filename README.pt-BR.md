@@ -46,6 +46,13 @@ Kunftig; os demais veem a partícula vanilla mais parecida. Estudo: [docs/partic
 
 E `KunftigPlayers.getPing(player)`, o `Player#getPing` do 1.17+.
 
+## Recurso 5: ícone próprio para itens de plugin (cliente + servidor)
+
+O `CustomModelData` do 1.14+ no 1.7.10: `KunftigItems.setModel(item, new NamespacedKey(plugin, "tucunare"))` faz o
+item aparecer com um ícone do resource pack (listado em `assets/<namespace>/kunftig/item_models.json`) no inventário,
+na mão, no chão e em molduras, para clientes com o Kunftig; os demais veem o ícone do item base. Veja
+[docs/API.md](docs/API.md), seção 9.
+
 **Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
 [docs/API.md](docs/API.md).
 

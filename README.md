@@ -65,6 +65,13 @@ every plugin. Check before removing it in production: `javap -c -cp server.jar a
 must show `instanceof` of `class mw` (`ContainerPlayer.onCraftMatrixChanged` checking for `EntityPlayerMP`), and
 crafting in the 2x2 grid with BetterQuesting and without the mod must not log a `ClassCastException`. Details (Portuguese): [README.pt-BR.md](README.pt-BR.md).
 
+## Feature 5: icons for plugin items (client + server)
+
+1.14's `CustomModelData` for 1.7.10: `KunftigItems.setModel(item, new NamespacedKey(plugin, "tucunare"))` shows the
+item with an icon from the resource pack (listed in `assets/<namespace>/kunftig/item_models.json`) in inventories, in
+hand, on the ground and in item frames, on clients with Kunftig; other clients see the base item's icon. See
+[docs/API.md](docs/API.md), section 9 (Portuguese).
+
 ## Repository layout
 
 | Path | Contents |
