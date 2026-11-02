@@ -23,4 +23,4 @@ plugins {
 // :common is a dependency-free Java 8 library shared by the mod and the plugin.
 // :api is kunftig-api, what Bukkit plugins compile against (embedded in the mod for runtime).
 // :bukkit is the server plugin (Thermos/Crucible 1.7.10 and Paper 1.21+).
-include(":common", ":api", ":bukkit")
+include(":common", ":api")
