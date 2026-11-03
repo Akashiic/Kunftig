@@ -144,7 +144,12 @@ public final class HologramClient {
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glEnable(GL11.GL_BLEND);
         OpenGlHelper.glBlendFunc(770, 771, 1, 0);
-        int half = font.getStringWidth(text) / 2;
+        java.util.List<RgbText.Run> runs = RgbText.runs(text);
+        int width = 0;
+        for (RgbText.Run r : runs) {
+            width += font.getStringWidth(r.text);
+        }
+        int half = width / 2;
         Tessellator tess = Tessellator.instance;
         GL11.glDisable(GL11.GL_TEXTURE_2D);
         tess.startDrawingQuads();
@@ -155,13 +160,22 @@ public final class HologramClient {
         tess.addVertex(half + 1, -1, 0.0D);
         tess.draw();
         GL11.glEnable(GL11.GL_TEXTURE_2D);
-        font.drawString(text, -half, 0, 0x20FFFFFF);
+        draw(font, runs, -half, 0x20000000);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         GL11.glDepthMask(true);
-        font.drawString(text, -half, 0, -1);
+        draw(font, runs, -half, 0xFF000000);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GL11.glPopMatrix();
+    }
+
+    /** The runs one after the other, each in its color (white when it has none), with this alpha. */
+    private static void draw(FontRenderer font, java.util.List<RgbText.Run> runs, int x, int alpha) {
+        for (RgbText.Run r : runs) {
+            int color = alpha | (r.rgb < 0 ? 0xFFFFFF : r.rgb);
+            font.drawString(r.text, x, 0, color);
+            x += font.getStringWidth(r.text);
+        }
     }
 }
