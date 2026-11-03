@@ -62,6 +62,27 @@ public final class ItemModels {
         return model == null ? null : current.get(model);
     }
 
+    /** Suffix of the model a fishing rod uses while its line is out ({@code <model>.cast}), when the pack has one. */
+    public static final String CAST_SUFFIX = ".cast";
+
+    /**
+     * The model icon of a fishing rod whose line is out: {@code <model>.cast} when the resource pack has it (the rod
+     * without the hanging line, as vanilla does), else the rod's own model icon; null for a rod without a model (it
+     * keeps vanilla's cast icon).
+     */
+    public static IIcon castIconFor(ItemStack stack) {
+        Map<String, IIcon> current = icons;
+        if (current.isEmpty() || stack == null || stack.stackTagCompound == null) {
+            return null;
+        }
+        String model = modelOf(stack.stackTagCompound);
+        if (model == null) {
+            return null;
+        }
+        IIcon cast = current.get(model + CAST_SUFFIX);
+        return cast != null ? cast : current.get(model);
+    }
+
     /** {@code PublicBukkitValues."kunftig:model"} of an item tag, or null. */
     static String modelOf(NBTTagCompound tag) {
         if (tag == null || !tag.hasKey(ItemModelIndex.NBT_ROOT, 10)) {
