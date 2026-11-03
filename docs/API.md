@@ -76,6 +76,7 @@ public void onEnable() {
 | `...api.bukkit.fishing` | `ModernFishHook#retrieve`, pesca na lava (`setLavaFishing`) | `FishHook#retrieve` do Paper | 3 |
 | `...api.bukkit.persistence` | `KunftigItems.setModel`/`getModel` (ícone do item por NBT) | `CustomModelData` (1.14+) e `item_model` (1.21.4+) | 4 |
 | `...api.bukkit.fishing`, `...api.bukkit.player` | `ModernFishHook#setReelLocked`, `setCatchAimedAtAngler`; `KunftigPlayers.isHotbarSwitch` | — | 5 |
+| `...api.bukkit.hologram` | `KunftigHolograms`, `Hologram` (texto flutuante no mundo) | `TextDisplay` (1.19.4+) | 6 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -302,4 +303,29 @@ se o **item** na mão mudou, o mais seguro é comparar o item na mão um tick de
 
 A origem é do lado do Backhand: o servidor poderia não repassar ao Bukkit a ida ao slot da mão secundária. Isso fica
 fora do escopo do Kunftig.
+
+## 11. Hologramas: texto flutuante no mundo (API 6)
+
+O 1.7.10 não tem como desenhar texto no mundo sem uma entidade (os hologramas antigos usavam cavalos minúsculos
+montados em caveiras de wither, presos a pacotes e ao NMS). O Kunftig manda o texto num canal próprio
+(`kunftig:holo`) e o cliente com Kunftig desenha cada linha como uma nametag: virada para a câmera, fundo translúcido,
+fraca através dos blocos e firme na frente deles. Cores com `§` e os glyphs do NecroTempus funcionam (é a fonte do
+jogo).
+
+```java
+if (KunftigApi.apiVersion() >= 6 && KunftigApi.isHologramsAvailable()) {
+    Hologram h = KunftigHolograms.create(location, Arrays.asList("§6§lAmuleto da Sorte", "§a+25% de sorte"));
+    h.setLines(...);       // quem vê recebe o texto novo na hora
+    h.teleport(outro);     // mesma coisa para a posição (até de mundo)
+    h.remove();            // some para todos
+}
+```
+
+* `location` é o centro da linha de cima; as outras descem 0,27 bloco cada. Até 16 linhas de até 256 caracteres.
+* O servidor manda cada holograma aos jogadores do mesmo mundo dentro do alcance (32 blocos por padrão, 1 a 128 com
+  `create(location, linhas, alcance)`) e o tira de quem se afasta (com 4 blocos de folga, para não piscar na borda),
+  sai do mundo ou do servidor. Quem reconecta ou renasce recebe tudo de novo.
+* Só jogadores com o Kunftig no cliente veem (`KunftigHolograms.drawsHolograms(player)`); os outros não recebem nada.
+* Os hologramas **não sobrevivem** a um reinício: o plugin cria de novo no `onEnable` os que devem ficar.
+* Thread principal. `-Dkunftig.holograms.disable=true` desliga tudo (servidor e cliente).
 

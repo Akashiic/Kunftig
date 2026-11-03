@@ -1,6 +1,7 @@
 package com.akashic.kunftig.api;
 
 import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
+import com.akashic.kunftig.api.bukkit.hologram.KunftigHolograms;
 import com.akashic.kunftig.api.bukkit.particle.KunftigParticles;
 import com.akashic.kunftig.api.bukkit.player.KunftigPlayers;
 import com.akashic.kunftig.api.bukkit.persistence.KunftigItems;
@@ -20,8 +21,9 @@ public final class KunftigApi {
      * ({@code KunftigParticles}) and player ping ({@code KunftigPlayers}). 3: {@code ModernFishHook#retrieve} and lava
      * fishing ({@code ModernFishHook#setLavaFishing}). 4: item models ({@code KunftigItems#setModel}). 5:
      * {@code ModernFishHook#setReelLocked}, {@code setCatchAimedAtAngler} and {@code KunftigPlayers#isHotbarSwitch}.
+     * 6: holograms ({@code KunftigHolograms}).
      */
-    private static final int API_VERSION = 5;
+    private static final int API_VERSION = 6;
 
     private KunftigApi() {}
 
@@ -43,6 +45,11 @@ public final class KunftigApi {
     /** Whether {@code KunftigParticles} works (Bukkit hybrid with the mod installed). */
     public static boolean isParticlesAvailable() {
         return KunftigParticles.isAvailable();
+    }
+
+    /** Whether {@code KunftigHolograms} works (Bukkit hybrid with the mod installed; API 6). */
+    public static boolean isHologramsAvailable() {
+        return KunftigHolograms.isAvailable();
     }
 
     /** Whether {@code KunftigPlayers} works (Bukkit hybrid with the mod installed). */

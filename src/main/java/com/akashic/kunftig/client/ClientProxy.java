@@ -31,6 +31,9 @@ public final class ClientProxy extends CommonProxy {
             .bus()
             .register(this);
         ClientCommandHandler.instance.registerCommand(new KunftigClientCommand());
+        if (!Boolean.getBoolean("kunftig.holograms.disable")) {
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.hologram.HologramClient.INSTANCE);
+        }
         RgbSupport.refresh();
     }
 

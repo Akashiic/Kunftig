@@ -17,7 +17,8 @@
     "particle.NetHandlerPlayClientParticleMixin",
     "itemmodel.ItemModelMixin",
     "itemmodel.ItemStackModelMixin",
-    "fishing.NetHandlerPlayClientFishingMixin"
+    "fishing.NetHandlerPlayClientFishingMixin",
+    "hologram.NetHandlerPlayClientHologramMixin"
   ],
   "server": []
 }

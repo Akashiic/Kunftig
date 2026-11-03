@@ -74,6 +74,7 @@ public final class Kunftig {
             install("com.akashic.kunftig.bukkit.data.ItemDataBridge");
             install("com.akashic.kunftig.bukkit.particle.BukkitParticleBridge");
             install("com.akashic.kunftig.bukkit.player.BukkitPlayerBridge");
+            install("com.akashic.kunftig.bukkit.hologram.BukkitHologramBridge");
         }
     }
 
