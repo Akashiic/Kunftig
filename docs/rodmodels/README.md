@@ -116,6 +116,13 @@ O display experimentado sai no chat e no log como JSON, pronto para o `DISPLAY` 
 
 ### O que o harness mostrou (Forge 1.7.10 de desenvolvimento, Mesa por software, pack da branch `claude/kind-ride-ts9apr`)
 
+![Varas 3D no cliente 1.7.10](harness.png)
+
+Da esquerda para a direita, de cima para baixo: Akáshica na Ascensão em briga (tensão 1, a vara verga); Solar no
+estágio 4 com a linha fora, saindo da ponta na cor da aura; Solar em terceira pessoa com a linha fora (sem virar
+graveto); outro jogador de perfil em briga e em parada (braço acompanhando); Vara de Coral na moldura e Estrela Cadente
+no chão.
+
 * O GeckoLib 1.0.4 monta as 8 geometrias do pack (UV por face, `inflate`, rotação de cubo) e toca as animações, com
   `query.tensao` vergando a vara na briga.
 * Primeira pessoa igual à prévia (`vara-solar-primeira-pessoa.gif`, quadro de `parada`): ponta em (0,64; 0,50) da tela
