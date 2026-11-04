@@ -272,7 +272,9 @@ public final class RodModels implements IResourceManagerReloadListener {
 
     /** The value of the model's size ({@code tamanho}) in a stack's data, or null (no size, or none stored). */
     public static Double sizeOf(ItemStack stack, RodModelDef rod) {
-        if (rod == null || rod.size == null || stack == null || stack.stackTagCompound == null
+        if (rod == null || rod.size == null
+            || stack == null
+            || stack.stackTagCompound == null
             || !stack.stackTagCompound.hasKey(ItemModelIndex.NBT_ROOT, 10)) {
             return null;
         }

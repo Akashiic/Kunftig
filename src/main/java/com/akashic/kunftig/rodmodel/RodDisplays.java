@@ -125,7 +125,9 @@ public final class RodDisplays {
         return thirdPerson(d, grip, true, true);
     }
 
-    /** {@link #thirdPerson(RodModelDef.Display, float[])} for any item ({@link #thirdPersonChain(boolean, boolean)}). */
+    /**
+     * {@link #thirdPerson(RodModelDef.Display, float[])} for any item ({@link #thirdPersonChain(boolean, boolean)}).
+     */
     public static RodMatrix thirdPerson(RodModelDef.Display d, float[] grip, boolean full3D, boolean rotatesAround) {
         return thirdPersonChain(full3D, rotatesAround).inverse()
             .scale(-1, -1, 1)

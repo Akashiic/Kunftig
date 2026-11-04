@@ -208,8 +208,7 @@ public final class RodModelDef {
             this(name, upTo, states, displays, null);
         }
 
-        public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays,
-            float[] grip) {
+        public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays, float[] grip) {
             this.name = name;
             this.upTo = upTo;
             this.states = Collections.unmodifiableMap(states);
@@ -260,7 +259,9 @@ public final class RodModelDef {
     public final Sway sway;
     /** May be null: the hanging line follows the rod as modeled. */
     public final HangingLine hangingLine;
-    /** Registry names of the items ({@code itens}) whose renderer draws this model; {@link #DEFAULT_ITEMS} by default. */
+    /**
+     * Registry names of the items ({@code itens}) whose renderer draws this model; {@link #DEFAULT_ITEMS} by default.
+     */
     public final List<String> items;
     /** May be null: the model keeps its modeled size. */
     public final Size size;
@@ -275,9 +276,32 @@ public final class RodModelDef {
         float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
         Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
         Map<String, Integer> transitions, Sway sway, HangingLine hangingLine) {
-        this(id, geo, animations, arm, texture, stageTextures, ticksPerFrame, states, lightBones, translucentBones,
-            boneStages, tipBone, tipRest, hiddenWhileCast, lineColors, grip, displays, contexts, qualityBones, transitions,
-            sway, hangingLine, DEFAULT_ITEMS, null, Collections.<Band>emptyList(),
+        this(
+            id,
+            geo,
+            animations,
+            arm,
+            texture,
+            stageTextures,
+            ticksPerFrame,
+            states,
+            lightBones,
+            translucentBones,
+            boneStages,
+            tipBone,
+            tipRest,
+            hiddenWhileCast,
+            lineColors,
+            grip,
+            displays,
+            contexts,
+            qualityBones,
+            transitions,
+            sway,
+            hangingLine,
+            DEFAULT_ITEMS,
+            null,
+            Collections.<Band>emptyList(),
             Collections.<String, List<String>>emptyMap());
     }
 
@@ -337,7 +361,8 @@ public final class RodModelDef {
 
     /**
      * The texture of an item of {@code quality} (null: no suffix, {@link #DEFAULT_QUALITY}) at a mutation stage and a
-     * client tick: the quality's own ({@code texturas_qualidade}) when the model has one, else the stage's. Animated textures cycle through their
+     * client tick: the quality's own ({@code texturas_qualidade}) when the model has one, else the stage's. Animated
+     * textures cycle through their
      * frames.
      */
     public String textureFor(String quality, int stage, long tick) {

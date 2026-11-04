@@ -275,13 +275,17 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         // The hanging line goes while the line is out, except while casting: the cast animation whips it away.
         boolean lineOut = player != null && player.fishEntity != null && !RodModelDef.CAST.equals(state);
 
-        RodModelDef.Display display = RodModelDef.scaled(models.display(def, context, band),
-            RodModels.sizeScale(stack, def));
+        RodModelDef.Display display = RodModelDef
+            .scaled(models.display(def, context, band), RodModels.sizeScale(stack, def));
         RodMatrix transform;
         if (RodModelDef.FIRST_PERSON.equals(context)) {
             float swing = holder == null ? 0 : holder.getSwingProgress(models.partialTicks());
-            transform = RodDisplays.firstPerson(display, def.grip(band), swing, stack.getItem()
-                .shouldRotateAroundWhenRendering());
+            transform = RodDisplays.firstPerson(
+                display,
+                def.grip(band),
+                swing,
+                stack.getItem()
+                    .shouldRotateAroundWhenRendering());
         } else if (RodModelDef.THIRD_PERSON.equals(context)) {
             transform = RodDisplays.thirdPerson(
                 display,

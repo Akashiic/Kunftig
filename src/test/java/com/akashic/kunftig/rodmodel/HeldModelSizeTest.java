@@ -115,8 +115,10 @@ class HeldModelSizeTest {
         assertEquals("akashicfishing:textures/peixe3d/pirarucu_iridio_1.png", f.textureFor("iridio", 0, 2));
         assertEquals("akashicfishing:textures/peixe3d/pirarucu_iridio_0.png", f.textureFor("iridio", 0, 4));
         // "normal" (an item without a quality suffix) can have its own animated texture too (Peixe-Akasha)
-        RodModelDef akasha = fish(FISH.replace("\"ouro\": \"textures", "\"normal\": [\"textures/peixe3d/a_0.png\", "
-            + "\"textures/peixe3d/a_1.png\"], \"ouro\": \"textures"));
+        RodModelDef akasha = fish(
+            FISH.replace(
+                "\"ouro\": \"textures",
+                "\"normal\": [\"textures/peixe3d/a_0.png\", " + "\"textures/peixe3d/a_1.png\"], \"ouro\": \"textures"));
         assertEquals("akashicfishing:textures/peixe3d/a_1.png", akasha.textureFor(null, 0, 2));
         assertEquals("akashicfishing:textures/peixe3d/a_0.png", akasha.textureFor("normal", 0, 0));
     }
@@ -124,7 +126,8 @@ class HeldModelSizeTest {
     @Test
     void rejectsBrokenFishFields() {
         assertProblem(FISH.replace("\"tamanho\":", "\"tamanho_x\":"), "faixas needs tamanho");
-        assertProblem(FISH.replace("\"parada\": \"parada_duas_maos\"", "\"parada\": \"nenhum\""),
+        assertProblem(
+            FISH.replace("\"parada\": \"parada_duas_maos\"", "\"parada\": \"nenhum\""),
             "must name a state of estados");
         assertProblem(FISH.replace("\"ate\": 160", "\"ate\": 50"), "must grow");
         assertProblem(FISH.replace("{\"nome\": \"mao\", \"ate\": 60}", "{\"nome\": \"mao\"}"), "needs \"ate\"");
@@ -135,8 +138,10 @@ class HeldModelSizeTest {
     private static void assertProblem(String json, String expected) {
         RodModelIndex index = new RodModelIndex();
         index.add("akashicfishing", json, "test");
-        assertTrue(index.models()
-            .isEmpty(), "should be rejected: " + expected);
+        assertTrue(
+            index.models()
+                .isEmpty(),
+            "should be rejected: " + expected);
         assertTrue(
             index.errors()
                 .stream()

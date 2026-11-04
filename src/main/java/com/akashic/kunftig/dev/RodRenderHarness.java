@@ -89,6 +89,15 @@ public final class RodRenderHarness {
                 RodPerfHarness.install();
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("fish")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planFish();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("edge")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planEdge();
@@ -141,6 +150,69 @@ public final class RodRenderHarness {
     private static void view(Minecraft mc, int mode) {
         mc.gameSettings.thirdPersonView = mode;
         mc.gameSettings.hideGUI = false; // F1 would also hide the hand
+    }
+
+    /** A fish of AkashicFishing as the plugin makes it: the model and the size (cm) in the item's Bukkit data. */
+    static ItemStack fish(String model, double cm, int meta) {
+        ItemStack stack = new ItemStack(Items.fish, 1, meta);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", "akashicfishing:" + model);
+        values.setDouble("akashicfishing:tamanho-cm", cm);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    /**
+     * 3D fish (held models with size bands): the local player holds one of each band in first person and in the front
+     * view, then another player holds them side on, in each quality.
+     */
+    private void planFish() {
+        Object[][] own = { { "robalo", 55.0, 0, "mao" }, { "pirarucu.ouro", 140.0, 0, "duas-maos" },
+            { "pirarucu-ancestral.iridio", 420.0, 0, "acima" }, { "leviathan", 1800.0, 0, "leviathan" },
+            { "peixe-palhaco.prata", 9.0, 2, "palhaco-prata" } };
+        for (Object[] f : own) {
+            steps.add(new Step("fish-fp-" + f[3], SETTLE_TICKS, (mc, p) -> {
+                view(mc, 0);
+                place(p, 180, 0);
+                hold(p, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+            }));
+        }
+        for (Object[] f : own) {
+            steps.add(new Step("fish-front-" + f[3], SETTLE_TICKS, (mc, p) -> {
+                view(mc, 2);
+                place(p, 180, 0);
+                hold(p, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+            }));
+        }
+        steps.add(new Step("fish-side-setup", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 0);
+            hold(p, null);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Pescador"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -3.5, 270, 0);
+            turn(side, 225);
+            side.inventory.setInventorySlotContents(0, fish("tucunare", 35, 0));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+        }));
+        Object[][] others = { { "tucunare", 35.0, 0, "tucunare" }, { "dourado.ouro", 95.0, 1, "dourado-ouro" },
+            { "peixe-lua.iridio", 300.0, 3, "peixe-lua-iridio" }, { "peixe-akasha.iridio", 150.0, 1, "akasha" },
+            { "baiacu.prata", 30.0, 3, "baiacu-prata" }, { "leviathan.ouro", 2200.0, 0, "leviathan-ouro" } };
+        for (Object[] f : others) {
+            steps.add(
+                new Step(
+                    "fish-side-" + f[3],
+                    SETTLE_TICKS,
+                    (mc, p) -> {
+                        side.inventory.setInventorySlotContents(0, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+                    }));
+        }
+        steps.add(new Step("fish-side-walk", 12, (mc, p) -> everyTick = () -> {
+            side.limbSwing += 0.9F;
+            side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+        }));
     }
 
     /**
