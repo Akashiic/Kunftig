@@ -14,6 +14,7 @@ import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.item.EntityItemFrame;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
@@ -48,10 +49,14 @@ public final class RodRenderHarness {
     private EntityOtherPlayerMP side;
     private PrintWriter out;
     private boolean launched;
+    private int menuTicks;
+    private int pausedTicks;
     private int index = -1;
     private int ticks;
     private boolean shotPending;
     private boolean done;
+    /** Runs on every client tick of the current step (camera turns, walking), or null. */
+    private Runnable everyTick;
 
     private interface Action {
 
@@ -96,6 +101,10 @@ public final class RodRenderHarness {
     private static void hold(EntityPlayerMP p, ItemStack stack) {
         p.inventory.setInventorySlotContents(p.inventory.currentItem, stack);
         p.inventoryContainer.detectAndSendChanges();
+        // The client too: a heavy modpack's integrated server can take seconds to sync the slot.
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.thePlayer.inventory
+            .setInventorySlotContents(mc.thePlayer.inventory.currentItem, stack == null ? null : stack.copy());
     }
 
     private static void place(EntityPlayerMP p, float yaw, float pitch) {
@@ -112,6 +121,23 @@ public final class RodRenderHarness {
             place(p, 180, 10);
             view(mc, 0);
             hold(p, rod("akashicfishing:vara/vara-solar"));
+        }));
+        // The inertia (balanco): a turn to the right leaves the tip to the left; stopping, it swings past the middle.
+        steps.add(new Step("fp-sway-turning-right", 4, (mc, p) -> everyTick = () -> mc.thePlayer.rotationYaw += 12));
+        steps.add(new Step("fp-sway-overshoot", 7, (mc, p) -> everyTick = null));
+        steps.add(new Step("fp-sway-looking-up", 4, (mc, p) -> everyTick = () -> mc.thePlayer.rotationPitch -= 6));
+        steps.add(new Step("fp-sway-fast-turn", 3, (mc, p) -> everyTick = () -> mc.thePlayer.rotationYaw += 30));
+        steps.add(new Step("fp-sway-fast-overshoot", 6, (mc, p) -> everyTick = null));
+        steps.add(new Step("fp-sway-strafe-right", 6, (mc, p) -> {
+            float yaw = (float) Math.toRadians(mc.thePlayer.rotationYaw);
+            everyTick = () -> mc.thePlayer.setPosition(
+                mc.thePlayer.posX - Math.cos(yaw) * 0.25,
+                mc.thePlayer.posY,
+                mc.thePlayer.posZ - Math.sin(yaw) * 0.25);
+        }));
+        steps.add(new Step("fp-sway-rest", 60, (mc, p) -> {
+            everyTick = null;
+            place(p, 180, 10);
         }));
         steps.add(
             new Step(
@@ -170,6 +196,42 @@ public final class RodRenderHarness {
             }
         }));
         steps.add(new Step("side-catch", 10, (mc, p) -> {}));
+        // Both hands on the rod while walking (no walking swing), then an item in Backhand's off hand: one hand.
+        steps.add(new Step("side-walk-fight", 12, (mc, p) -> {
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("briga", RodModels.INSTANCE.clock());
+            }
+            everyTick = () -> {
+                side.limbSwing += 0.9F;
+                side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+            };
+        }));
+        steps.add(new Step("side-fight-offhand", 12, (mc, p) -> {
+            everyTick = null;
+            report("backhand offhand: " + setOffhand(side, new ItemStack(Items.apple)));
+        }));
+        // The other side: the left arm on the rod, walking, and let go with an item in Backhand's off hand.
+        steps.add(new Step("side-left-fight", 15, (mc, p) -> {
+            everyTick = null;
+            setOffhand(side, null);
+            turn(side, 90);
+            RodModels.INSTANCE.timeline(side)
+                .server("briga", RodModels.INSTANCE.clock());
+        }));
+        steps.add(new Step("side-left-walk-fight", 12, (mc, p) -> everyTick = () -> {
+            side.limbSwing += 0.9F;
+            side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+        }));
+        steps.add(new Step("side-left-offhand", 12, (mc, p) -> {
+            everyTick = null;
+            setOffhand(side, new ItemStack(Items.apple));
+        }));
+        steps.add(new Step("side-left-idle", 15, (mc, p) -> {
+            setOffhand(side, null);
+            RodModels.INSTANCE.timeline(side)
+                .server("parada", RodModels.INSTANCE.clock());
+        }));
         steps.add(new Step("ground-and-frame", SETTLE_TICKS, (mc, p) -> {
             mc.theWorld.removeEntityFromWorld(side.getEntityId());
             WorldServer w = p.getServerForPlayer();
@@ -205,10 +267,21 @@ public final class RodRenderHarness {
         if (event.phase != TickEvent.Phase.END || done) {
             return;
         }
-        if (!launched && mc.currentScreen instanceof GuiMainMenu) {
-            // Not from GuiOpenEvent: the main menu first opens while the game is still starting.
+        // Any menu, not only vanilla's: modpacks replace it (TEOF's AkashicCinematicMenu). Not from GuiOpenEvent: the
+        // main menu first opens while the game is still starting.
+        if (!launched && mc.theWorld == null
+            && (mc.currentScreen instanceof GuiMainMenu || mc.currentScreen != null && ++menuTicks > 60)) {
             launched = true;
             mc.gameSettings.pauseOnLostFocus = false;
+            // Under Xvfb the grabbed pointer sends stray deltas every frame: only the harness turns the camera.
+            mc.mouseHelper = new net.minecraft.util.MouseHelper() {
+
+                @Override
+                public void mouseXYChange() {
+                    deltaX = 0;
+                    deltaY = 0;
+                }
+            };
             WorldSettings settings = new WorldSettings(
                 1L,
                 WorldSettings.GameType.CREATIVE,
@@ -225,9 +298,22 @@ public final class RodRenderHarness {
         EntityPlayerMP p = server == null ? null
             : server.getConfigurationManager()
                 .func_152612_a(mc.thePlayer.getCommandSenderName());
-        if (p == null || shotPending) {
+        if (p == null) {
             return;
         }
+        if (shotPending) {
+            // A slow client (software GL) can run several ticks before the frame is drawn: keep the motion going so
+            // the shot shows it, not the spring already coming back.
+            if (everyTick != null && !mc.isGamePaused()) {
+                everyTick.run();
+            }
+            return;
+        }
+        // Modpacks open screens on join (TEOF: the pause menu, with the window unfocused under Xvfb); a paused
+        // singleplayer game stops the ticks, and with them the animations, the inertia and the cast.
+        closeScreens(mc);
+        mc.ingameGUI.getChatGUI()
+            .clearChatMessages();
         if (index < 0) {
             p.getServerForPlayer()
                 .setWorldTime(6000);
@@ -237,13 +323,32 @@ public final class RodRenderHarness {
             steps.get(0).action.run(mc, p);
             return;
         }
+        if (mc.isGamePaused()) {
+            pausedTicks++;
+            return; // the game (and Kunftig's tick) stands still: so does the harness
+        }
+        if (everyTick != null) {
+            everyTick.run();
+        }
         if (++ticks >= steps.get(index).wait) {
             shotPending = true;
         }
     }
 
+    /** Closes whatever screen is open (Xvfb gives the window no focus: the pause menu comes back every frame). */
+    private void closeScreens(Minecraft mc) {
+        mc.gameSettings.pauseOnLostFocus = false;
+        if (mc.currentScreen != null) {
+            mc.displayGuiScreen(null);
+        }
+    }
+
     @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.START && index >= 0 && !done) {
+            closeScreens(Minecraft.getMinecraft());
+            return;
+        }
         if (event.phase != TickEvent.Phase.END || !shotPending || done) {
             return;
         }
@@ -262,7 +367,12 @@ public final class RodRenderHarness {
                         RodModels.INSTANCE.timeline(mc.thePlayer)
                             .state()))
                 + " line="
-                + (mc.thePlayer != null && mc.thePlayer.fishEntity != null));
+                + (mc.thePlayer != null && mc.thePlayer.fishEntity != null)
+                + " paused="
+                + pausedTicks
+                + " sway="
+                + sway(mc));
+        pausedTicks = 0;
         shotPending = false;
         ticks = 0;
         index++;
@@ -277,6 +387,41 @@ public final class RodRenderHarness {
         EntityPlayerMP p = server.getConfigurationManager()
             .func_152612_a(mc.thePlayer.getCommandSenderName());
         steps.get(index).action.run(mc, p);
+    }
+
+    private static String sway(Minecraft mc) {
+        com.akashic.kunftig.rodmodel.RodModelIndex.Resolved r = mc.thePlayer == null ? null
+            : RodModels.INSTANCE.resolve(mc.thePlayer.getHeldItem());
+        float[][] s = r == null ? null : RodModels.INSTANCE.firstPersonSway(r.model);
+        if (s == null) {
+            return "-";
+        }
+        return String.format(
+            java.util.Locale.ROOT,
+            "root(up %.1f, left %.1f) bend(up %.1f, left %.1f) deg",
+            Math.toDegrees(s[0][0]),
+            Math.toDegrees(s[0][1]),
+            Math.toDegrees(s[1][0]),
+            Math.toDegrees(s[1][1]));
+    }
+
+    private static void turn(EntityOtherPlayerMP e, float yaw) {
+        e.setPositionAndRotation(e.posX, e.posY, e.posZ, yaw, 0);
+        e.rotationYawHead = e.prevRotationYawHead = yaw;
+        e.renderYawOffset = e.prevRenderYawOffset = yaw;
+        e.prevRotationYaw = yaw;
+    }
+
+    /** Backhand's off hand, by reflection (absent Backhand: false). */
+    private static boolean setOffhand(EntityPlayer player, ItemStack stack) {
+        try {
+            Class.forName("xonin.backhand.api.core.BackhandUtils")
+                .getMethod("setPlayerOffhandItem", EntityPlayer.class, ItemStack.class)
+                .invoke(null, player, stack);
+            return true;
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return false;
+        }
     }
 
     private void report(String line) {

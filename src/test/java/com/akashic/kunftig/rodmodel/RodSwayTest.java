@@ -17,7 +17,7 @@ class RodSwayTest {
             s.tick(15, 0, 0, 0, 1); // turning right, 15 degrees per tick
         }
         float lagging = s.root(1)[1] * DEG;
-        assertTrue(lagging > 1.5F, "a vara fica para trás (+Y, ponta à esquerda): " + lagging);
+        assertTrue(lagging > 1.5F, "a vara fica para trás (ponta à esquerda): " + lagging);
         assertTrue(s.bend(1)[1] * DEG > lagging, "a ponta curva mais que o cabo gira");
         float least = Float.MAX_VALUE;
         for (int i = 0; i < 40; i++) {
@@ -46,13 +46,41 @@ class RodSwayTest {
     }
 
     @Test
-    void steppingRightLeavesTheTipLeftAndRollsIt() {
+    void steppingRightLeavesTheTipLeft() {
         RodSway s = new RodSway();
         for (int i = 0; i < 8; i++) {
             s.tick(0, 0, 0.2F, 0, 1);
         }
         assertTrue(s.root(1)[1] > 0);
-        assertTrue(s.root(1)[2] > 0);
+        assertTrue(s.bend(1)[1] > 0);
+    }
+
+    @Test
+    void theLagMovesTheTipThatWayWhereverTheRodPoints() {
+        float up = 0.1F;
+        float left = 0.2F;
+        // held up on the screen, pointing ahead, and tilted ahead-up-right
+        for (float[] rod : new float[][] { { 0, 1, 0 }, { 0, 0, -1 }, { 0.3F, 0.8F, -0.5F } }) {
+            float[] w = RodSway.eyeRotation(rod, new float[] { 0, left });
+            float[] d = cross(w, rod);
+            assertTrue(d[0] < 0, "à esquerda: " + d[0]);
+            assertEquals(0, dot(d, rod), 1e-5, "sem esticar a vara");
+            float[] v = RodSway.eyeRotation(rod, new float[] { up, 0 });
+            float[] e = cross(v, rod);
+            if (Math.abs(rod[1]) < 0.99F) {
+                assertTrue(e[1] > 0, "para cima: " + e[1]);
+            }
+        }
+        // the up of a rod held straight up moves nothing (it would only stretch it)
+        assertArrayEquals(new float[3], RodSway.eyeRotation(new float[] { 0, 1, 0 }, new float[] { up, 0 }));
+    }
+
+    private static float[] cross(float[] a, float[] b) {
+        return new float[] { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
+    }
+
+    private static float dot(float[] a, float[] b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     }
 
     @Test

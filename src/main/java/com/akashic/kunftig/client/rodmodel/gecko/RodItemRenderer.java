@@ -89,7 +89,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     private String tipBone;
     private float[] tipPoint;
     private float[] tipEye;
-    /** First person: the inertia of this frame ({@code balanco}), or null. */
+    /** First person: the inertia of this frame ({@code balanco}, {up, left} lag in radians), or null. */
     private float[] swayRoot;
     private float[] swayBend;
     private String swayPivot;
@@ -316,12 +316,18 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     }
 
     private static float[] scaled(float[] v, float f) {
-        return new float[] { v[0] * f, v[1] * f, v[2] * f };
+        float[] out = v.clone();
+        for (int i = 0; i < out.length; i++) {
+            out[i] *= f;
+        }
+        return out;
     }
 
     /**
-     * The inertia ({@link RodSway}): an eye-space rotation about the bone's pivot, turned into the bone's own frame
-     * through the GL model-view and GeckoLib's matrix so far (mirrored or not), added before the bone's animation.
+     * The inertia ({@link RodSway}): the lag of the tip (up, left, as seen from the camera) becomes an eye-space
+     * rotation
+     * about the bone's pivot that moves the bone's +Y that way, turned into the bone's own frame through the GL
+     * model-view and GeckoLib's matrix so far (mirrored or not), added before the bone's animation.
      */
     private void sway(GeoBone bone) {
         float[] eye = null;
@@ -342,7 +348,9 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
                 eyeLinear[r * 3 + c] = modelView[r] * b[c] + modelView[4 + r] * b[3 + c] + modelView[8 + r] * b[6 + c];
             }
         }
-        float[] local = RodSway.toLocal(eyeLinear, eye);
+        // the rod's direction here (the bone's +Y) in eye space: the axis that moves its tip up or left
+        float[] along = { eyeLinear[1], eyeLinear[4], eyeLinear[7] };
+        float[] local = RodSway.toLocal(eyeLinear, RodSway.eyeRotation(along, eye));
         MATRIX_STACK.rotateZ(local[2]);
         MATRIX_STACK.rotateY(local[1]);
         MATRIX_STACK.rotateX(local[0]);

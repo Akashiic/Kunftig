@@ -7,8 +7,10 @@ package com.akashic.kunftig.rodmodel;
  * whips). Vanilla's own sway (the arm following the camera at a tenth of the lag) and the view bobbing stay; this is
  * on top of them. Pure math, ticked 20 times per second and interpolated for the frame; no Minecraft classes.
  * <p>
- * Eye space: X to the right, Y up, the camera looking down -Z. A positive rotation about Y swings the tip to the left,
- * one about X lifts it, one about Z rolls it to the left.
+ * The springs give how far the tip lags, in degrees: up (negative: down) and left (negative: right), as seen from the
+ * camera. {@link #eyeRotation} turns that into a rotation of eye space (X right, Y up, looking down -Z) about the axis
+ * that moves the tip that way, from the rod's own direction: a rod held up on the screen swings sideways about the
+ * view axis, one pointing ahead about the vertical axis.
  */
 public final class RodSway {
 
@@ -20,7 +22,6 @@ public final class RodSway {
     /** Degrees of lag per block per tick of movement (sideways, vertical). */
     static final float ROOT_STEP = 22F;
     static final float BEND_STEP = 30F;
-    static final float ROLL_STEP = 18F;
     static final float ROOT_FALL = 10F;
     static final float BEND_FALL = 16F;
 
@@ -61,10 +62,9 @@ public final class RodSway {
         }
     }
 
-    private final Spring[] root = { new Spring(ROOT_K, ROOT_C), new Spring(ROOT_K, ROOT_C),
-        new Spring(ROOT_K, ROOT_C) };
-    private final Spring[] bend = { new Spring(BEND_K, BEND_C), new Spring(BEND_K, BEND_C),
-        new Spring(BEND_K, BEND_C) };
+    /** {up, left} of the whole rod and of the bend. */
+    private final Spring[] root = { new Spring(ROOT_K, ROOT_C), new Spring(ROOT_K, ROOT_C) };
+    private final Spring[] bend = { new Spring(BEND_K, BEND_C), new Spring(BEND_K, BEND_C) };
 
     /**
      * One client tick.
@@ -77,29 +77,27 @@ public final class RodSway {
      */
     public void tick(float turnYaw, float turnPitch, float right, float up, float strength) {
         float s = Math.max(0, strength);
-        // Turning right leaves the tip to the left (+Y); looking up (pitch decreasing) leaves it low (-X); going up
-        // leaves it low too; stepping right leaves it left and rolls it left.
+        // Turning right or stepping right leaves the tip to the left; looking up (pitch decreasing) or going up
+        // leaves it low.
         root[0].step(s * clamp(ROOT_TURN * turnPitch - ROOT_FALL * up, ROOT_MAX));
         root[1].step(s * clamp(ROOT_TURN * turnYaw + ROOT_STEP * right, ROOT_MAX));
-        root[2].step(s * clamp(ROLL_STEP * right, ROOT_MAX / 2));
         bend[0].step(s * clamp(BEND_TURN * turnPitch - BEND_FALL * up, BEND_MAX));
         bend[1].step(s * clamp(BEND_TURN * turnYaw + BEND_STEP * right, BEND_MAX));
-        bend[2].step(s * clamp(ROLL_STEP * right, BEND_MAX / 2));
     }
 
-    /** The whole rod's rotation about the grip, eye space, radians (a rotation vector). */
+    /** How far the whole rod lags about the grip: {up, left}, radians. */
     public float[] root(float partial) {
         return vector(root, partial);
     }
 
-    /** The bend of the rod, eye space, radians: shared among the bending bones. */
+    /** How far the bend lags: {up, left}, radians, shared among the bending bones. */
     public float[] bend(float partial) {
         return vector(bend, partial);
     }
 
     /** Back at rest (the rod just came to the hand). */
     public void reset() {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             root[i].reset();
             bend[i].reset();
         }
@@ -107,7 +105,7 @@ public final class RodSway {
 
     /** Whether the rod is (nearly) at rest: nothing to add to the draw. */
     public boolean resting() {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             if (Math.abs(root[i].value) + Math.abs(root[i].speed) + Math.abs(bend[i].value) + Math.abs(bend[i].speed)
                 > 1e-3F) {
                 return false;
@@ -117,7 +115,33 @@ public final class RodSway {
     }
 
     private static float[] vector(Spring[] s, float partial) {
-        return new float[] { s[0].at(partial) * RAD, s[1].at(partial) * RAD, s[2].at(partial) * RAD };
+        return new float[] { s[0].at(partial) * RAD, s[1].at(partial) * RAD };
+    }
+
+    /**
+     * The eye-space rotation vector that moves the tip of a rod pointing along {@code rod} (eye space, any length)
+     * {@code lag[0]} radians up and {@code lag[1]} radians to the left: about {@code rod x direction}, so the tip moves
+     * along the direction (the part of it across the rod). A direction along the rod moves nothing.
+     */
+    public static float[] eyeRotation(float[] rod, float[] lag) {
+        float[] out = new float[3];
+        addAbout(out, rod, 0, 1, 0, lag[0]);
+        addAbout(out, rod, -1, 0, 0, lag[1]);
+        return out;
+    }
+
+    private static void addAbout(float[] out, float[] r, float dx, float dy, float dz, float angle) {
+        float ax = r[1] * dz - r[2] * dy;
+        float ay = r[2] * dx - r[0] * dz;
+        float az = r[0] * dy - r[1] * dx;
+        float len = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        float rlen = (float) Math.sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]);
+        if (!(len > 1e-4F * rlen)) {
+            return;
+        }
+        out[0] += ax / len * angle;
+        out[1] += ay / len * angle;
+        out[2] += az / len * angle;
     }
 
     private static float clamp(float v, float max) {
