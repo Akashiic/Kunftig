@@ -74,6 +74,7 @@ public final class RodModelIndex {
                 "ticks_por_quadro",
                 "transicao_ticks",
                 "balanco",
+                "linha_pendurada",
                 "estados",
                 "luz",
                 "translucido",
@@ -378,6 +379,21 @@ public final class RodModelIndex {
             sway = new RodModelDef.Sway((String) pivot, new ArrayList<>(bones(b, "curva")), strength);
         }
 
+        RodModelDef.HangingLine hangingLine = null;
+        if (o.containsKey("linha_pendurada")) {
+            Map<?, ?> l = object(o, "linha_pendurada");
+            Object bone = l.get("osso");
+            if (!(bone instanceof String && BONE.matcher((String) bone)
+                .matches())) {
+                throw new Invalid("linha_pendurada.osso must be a bone name");
+            }
+            float length = (float) number(l, "comprimento", 16);
+            if (!(length > 0) || length > 1000) {
+                throw new Invalid("linha_pendurada.comprimento must be above 0 (model pixels)");
+            }
+            hangingLine = new RodModelDef.HangingLine((String) bone, length);
+        }
+
         return new RodModelDef(
             id,
             geo,
@@ -399,7 +415,8 @@ public final class RodModelIndex {
             contexts,
             qualityBones,
             transitions,
-            sway);
+            sway,
+            hangingLine);
     }
 
     private static Map<?, ?> object(Map<?, ?> o, String field) throws Invalid {

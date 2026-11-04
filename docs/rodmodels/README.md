@@ -34,6 +34,7 @@ Sem GeckoLib, sem o pack, com o modelo quebrado ou com `-Dkunftig.rodModels.disa
 | Linha | mixin em `RenderFish` | a linha sai do locator `linha` (capturado no osso `ponta`) na cor de `cor_da_linha` |
 | Braço | mixin em `ModelBiped.setRotationAngles` | soma a rotação do braço do estado (o levantar de item do vanilla, −18°, sai: as animações já seguram a vara à frente); com a mão esquerda livre (vanilla e Backhand), também `braco_esquerdo`, e nos estados `duas_maos` o balanço de andar sai dos dois braços para as mãos não largarem a vara. Com a linha fora, o braço é o `braco_com_a_linha` do estado (se houver), e a troca entre as duas poses mistura em `transicao_ticks.vara` quando a linha sai ou volta |
 | Balanço | `rodmodel/RodSway` (molas amortecidas, testado) + `RodItemRenderer#sway` | primeira pessoa, só o jogador local: o giro da câmera e o passo (lado, cima) de cada tick puxam molas que dizem quanto a ponta fica para trás (para cima/baixo e para os lados, como a câmera vê), uma para a vara inteira na pega (`pivo`) e uma para a curva (`curva`, mais solta, para a ponta chicotear). O eixo da rotação sai da direção da própria vara no espaço do olho (`direção × lado`), então a ponta anda para o lado na tela qualquer que seja a pose; depois vai ao referencial de cada osso pela matriz do GL e do GeckoLib (espelhado ou não). Soma ao balanço do vanilla, que continua |
+| Linha pendurada | `rodmodel/RodPendulum` (testado) + `RodItemRenderer#hang` | um pêndulo por jogador e vista (primeira pessoa ou não): a ponta da linha, levada do espaço do olho ao mundo pela matriz da câmera (lida no `RenderWorldLastEvent`) e pela posição dela; a gravidade e a aceleração da ponta movem a linha; o osso gira para a direção dela antes da animação |
 | Graveto | mixin em `RenderPlayer.renderEquippedItems` | com a linha fora, o 1.7.10 desenha um graveto em terceira pessoa; a vara 3D fica (esconde a própria linha pendurada) |
 
 Cuidados com o GeckoLib 1.0.4 (lidos no código do commit `9af9be1`, conferidos no jogo e tratados aqui):
@@ -87,6 +88,7 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | `pega` | não | o ponto do modelo que vai para a mão (pixels) |
 | `display` | sim, por contexto | `rotation` (graus, sinais do Bedrock), `translation` (pixels), `scale`, aplicados depois de levar a `pega` à origem |
 | `contextos` | não | onde desenhar em 3D (padrão: os de `display`) |
+| `linha_pendurada` | não | a linha pendurada na ponta (com a linha recolhida): `osso` (pendurado ao longo do seu -Y) e `comprimento` (pixels do modelo). Vira um pêndulo no mundo: a gravidade a puxa para baixo, ela fica para trás quando a ponta se move e volta ao meio, amortecida. Sem ele, a linha segue o modelo |
 | `balanco` | não | a inércia em primeira pessoa: `pivo` (o osso que gira na pega, a raiz), `curva` (os ossos que dividem a curvatura, do cabo à ponta) e `forca` (0 a 3, padrão 1). Sem ele, só o balanço do vanilla |
 
 `nome`, `controladores`, `molang` e `quando` são para pessoas e ferramentas, e chaves com `_` são comentários. Outro
@@ -141,6 +143,8 @@ Cadente no chão; as quatro qualidades (normal, prata, ouro, irídio), cada uma 
 * Primeira pessoa igual à prévia (`vara-solar-primeira-pessoa.gif`, quadro de `parada`): ponta em (0,64; 0,50) da tela
   contra (0,65; 0,49) na prévia.
 * Terceira pessoa de perfil (outro jogador) igual à prévia de ação em `parada`, `briga` e `captura`, com o braço.
+* **A verificar**: a linha pendurada (`linha_pendurada`) apontando para baixo em F5 e em outro jogador, balançando ao andar
+  e ao virar e voltando ao meio.
 * **A verificar**: o balanço em primeira pessoa (`balanco`): girar a câmera para a direita deixa a ponta para a
   esquerda e ela volta passando um pouco do meio; olhar para cima ou pular deixa a ponta para baixo; andar de lado
   deixa a ponta para trás e inclina a vara. A linha acompanha a ponta.

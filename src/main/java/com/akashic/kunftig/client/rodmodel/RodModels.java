@@ -25,6 +25,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.client.C17PacketCustomPayload;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderPlayerEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.BufferUtils;
@@ -625,6 +626,25 @@ public final class RodModels implements IResourceManagerReloadListener {
     // Line tip
 
     /** {@code RenderPlayerEvent.Pre}: the view matrix the player (and his rod) is drawn with. */
+    private final float[] viewMatrix = new float[16];
+    private boolean viewKnown;
+
+    /**
+     * The camera's view matrix of the frame (column-major), read when the world is done (before the hand): entities
+     * and the hand drawn in this frame use it (the entities, the one of the frame before). Null before the first frame.
+     */
+    public float[] viewMatrix() {
+        return viewKnown ? viewMatrix : null;
+    }
+
+    @SubscribeEvent
+    public void onRenderWorldLast(RenderWorldLastEvent event) {
+        if (installed) {
+            readMatrix(GL11.GL_MODELVIEW_MATRIX, viewMatrix);
+            viewKnown = true;
+        }
+    }
+
     @SubscribeEvent
     public void onRenderPlayer(RenderPlayerEvent.Pre event) {
         if (resolve(event.entityPlayer.getHeldItem()) == null) {

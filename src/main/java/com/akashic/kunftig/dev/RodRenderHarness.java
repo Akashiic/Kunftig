@@ -85,6 +85,10 @@ public final class RodRenderHarness {
                 Files.readAllBytes(new File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").toPath()),
                 StandardCharsets.UTF_8).trim()
                     .split("\\s+");
+            if (mode.length == 1 && mode[0].equals("perf")) {
+                RodPerfHarness.install();
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("server")) {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
@@ -245,6 +249,19 @@ public final class RodRenderHarness {
             setOffhand(side, null);
             RodModels.INSTANCE.timeline(side)
                 .server("parada", RodModels.INSTANCE.clock());
+        }));
+        // The hanging line (linha_pendurada): straight down at rest, trailing while walking, swinging back on a stop.
+        steps.add(new Step("side-left-hang-rest", 40, (mc, p) -> {}));
+        steps.add(new Step("side-left-hang-walk", 8, (mc, p) -> everyTick = () -> {
+            side.setPosition(side.posX - 0.2, side.posY, side.posZ);
+            side.limbSwing += 0.9F;
+            side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+        }));
+        steps.add(new Step("side-left-hang-stop", 5, (mc, p) -> everyTick = null));
+        steps.add(new Step("side-left-hang-catch", 12, (mc, p) -> {
+            side.setPosition(side.posX + 1.6, side.posY, side.posZ);
+            RodModels.INSTANCE.timeline(side)
+                .server("captura", RodModels.INSTANCE.clock());
         }));
         // Both hands only once the line is out: waiting with the line in the water, then the line back, then a cast.
         steps.add(new Step("side-left-idle-line-out", 15, (mc, p) -> {

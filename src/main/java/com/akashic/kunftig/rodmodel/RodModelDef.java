@@ -98,6 +98,21 @@ public final class RodModelDef {
     }
 
     /**
+     * The line hanging from the tip ({@code linha_pendurada}): a bone that hangs along its -Y and swings with gravity
+     * (a pendulum in world space), and its length in model pixels.
+     */
+    public static final class HangingLine {
+
+        public final String bone;
+        public final float lengthPixels;
+
+        public HangingLine(String bone, float lengthPixels) {
+            this.bone = bone;
+            this.lengthPixels = lengthPixels;
+        }
+    }
+
+    /**
      * A display transform, in the manifest's convention (that of the previews and Blockbench): after the grip is
      * brought to the origin, scale, rotate (degrees, Bedrock signs, Z then Y then X) and translate (1/16 block).
      */
@@ -168,13 +183,15 @@ public final class RodModelDef {
     public final Map<String, Integer> transitions;
     /** May be null: no inertia in first person. */
     public final Sway sway;
+    /** May be null: the hanging line follows the rod as modeled. */
+    public final HangingLine hangingLine;
 
     RodModelDef(String id, String geo, String animations, String arm, String texture,
         NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
         Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
         float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
         Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
-        Map<String, Integer> transitions, Sway sway) {
+        Map<String, Integer> transitions, Sway sway, HangingLine hangingLine) {
         this.id = id;
         this.geo = geo;
         this.animations = animations;
@@ -196,6 +213,7 @@ public final class RodModelDef {
         this.qualityBones = Collections.unmodifiableMap(qualityBones);
         this.transitions = Collections.unmodifiableMap(transitions);
         this.sway = sway;
+        this.hangingLine = hangingLine;
     }
 
     /** The blend of a controller between animations, in ticks (0: none). */
