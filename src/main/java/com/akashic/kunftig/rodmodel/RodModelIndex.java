@@ -59,8 +59,38 @@ public final class RodModelIndex {
 
     private static final Resolved NONE = new Resolved(null, null, 0, false);
 
+    /**
+     * Fields of a rod Kunftig knows: those it reads, and those the pack keeps for people and tools ({@code nome},
+     * {@code controladores}, {@code molang}). Anything else is listed by {@link #ignored()}.
+     */
+    public static final Set<String> KNOWN_FIELDS = Collections.unmodifiableSet(
+        new LinkedHashSet<>(
+            java.util.Arrays.asList(
+                "geo",
+                "animacoes",
+                "braco",
+                "textura",
+                "texturas_mutacao",
+                "ticks_por_quadro",
+                "transicao_ticks",
+                "estados",
+                "luz",
+                "translucido",
+                "mutacao",
+                "qualidade",
+                "ponta_da_linha",
+                "esconder_com_a_linha_na_agua",
+                "cor_da_linha",
+                "pega",
+                "display",
+                "contextos",
+                "nome",
+                "controladores",
+                "molang")));
+
     private final Map<String, RodModelDef> models = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
+    private final List<String> ignored = new ArrayList<>();
     private final Map<String, Resolved> resolved = new HashMap<>();
 
     /** Rods by id ({@code namespace:key}), in the order declared; later packs override earlier ones. */
@@ -71,6 +101,11 @@ public final class RodModelIndex {
     /** Problems found, one line each. */
     public List<String> errors() {
         return Collections.unmodifiableList(errors);
+    }
+
+    /** Fields of the rods this Kunftig does not know and leaves aside (a newer pack, or a typo), one line each. */
+    public List<String> ignored() {
+        return Collections.unmodifiableList(ignored);
     }
 
     public boolean isEmpty() {
@@ -165,6 +200,12 @@ public final class RodModelIndex {
             if (!(e.getValue() instanceof Map)) {
                 errors.add(where + ": expected an object");
                 continue;
+            }
+            for (Object field : ((Map<?, ?>) e.getValue()).keySet()) {
+                if (!KNOWN_FIELDS.contains(String.valueOf(field)) && !String.valueOf(field)
+                    .startsWith("_")) {
+                    ignored.add(where + ": field '" + field + "' is not read by this Kunftig");
+                }
             }
             try {
                 RodModelDef def = model(namespace, namespace + ":" + key, (Map<?, ?>) e.getValue());
@@ -262,6 +303,27 @@ public final class RodModelIndex {
 
         float[] grip = o.containsKey("pega") ? vector(o.get("pega"), "pega") : new float[3];
 
+        Map<String, List<String>> qualityBones = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : object(o, "qualidade").entrySet()) {
+            String quality = String.valueOf(e.getKey());
+            if (!STATE.matcher(quality)
+                .matches()) {
+                throw new Invalid("qualidade: invalid quality '" + quality + "'");
+            }
+            qualityBones.put(
+                quality,
+                Collections.unmodifiableList(new ArrayList<>(bones(e.getValue(), "qualidade." + quality))));
+        }
+
+        Map<String, Integer> transitions = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : object(o, "transicao_ticks").entrySet()) {
+            Object v = e.getValue();
+            if (!(v instanceof Double) || (Double) v < 0 || (Double) v > 100 || (Double) v != Math.floor((Double) v)) {
+                throw new Invalid("transicao_ticks." + e.getKey() + " must be a whole number of ticks, 0 to 100");
+            }
+            transitions.put(String.valueOf(e.getKey()), ((Double) v).intValue());
+        }
+
         Map<String, RodModelDef.Display> displays = new LinkedHashMap<>();
         for (Map.Entry<?, ?> e : object(o, "display").entrySet()) {
             String context = String.valueOf(e.getKey());
@@ -301,7 +363,9 @@ public final class RodModelIndex {
             lineColors,
             grip,
             displays,
-            contexts);
+            contexts,
+            qualityBones,
+            transitions);
     }
 
     private static Map<?, ?> object(Map<?, ?> o, String field) throws Invalid {

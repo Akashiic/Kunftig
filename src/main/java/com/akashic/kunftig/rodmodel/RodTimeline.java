@@ -24,6 +24,8 @@ public final class RodTimeline {
     private boolean lineOut;
     private String state;
     private long start;
+    private String previous;
+    private long previousStart;
     private float tension;
     private long lastSeen;
 
@@ -35,6 +37,16 @@ public final class RodTimeline {
     /** The client tick the current state started at. */
     public long start() {
         return start;
+    }
+
+    /** The state before the current one (for blending into it), or null. */
+    public String previous() {
+        return previous;
+    }
+
+    /** The client tick the previous state started at. */
+    public long previousStart() {
+        return previousStart;
     }
 
     /** The fight's tension, 0 to 1. */
@@ -117,8 +129,7 @@ public final class RodTimeline {
 
     /** A state from the server (or the debug command), started at {@code startTick}. */
     public void server(String newState, long startTick) {
-        state = newState;
-        start = startTick;
+        begin(newState, startTick);
     }
 
     public void setTension(float value) {
@@ -126,6 +137,8 @@ public final class RodTimeline {
     }
 
     private void begin(String newState, long at) {
+        previous = state;
+        previousStart = start;
         state = newState;
         start = at;
     }

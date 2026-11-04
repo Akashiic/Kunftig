@@ -41,6 +41,7 @@ class RodPackCheckTest {
             RodModelIndex index = new RodModelIndex();
             index.add(ns.getName(), read(manifest), manifest.getPath());
             problems.addAll(index.errors());
+            problems.addAll(index.ignored()); // a field the pack relies on and this Kunftig does not read
             for (RodModelDef rod : index.models()
                 .values()) {
                 rods++;
@@ -69,6 +70,13 @@ class RodPackCheckTest {
         named.addAll(rod.translucentBones);
         named.addAll(rod.boneStages.keySet());
         named.addAll(rod.hiddenWhileCast);
+        for (List<String> stone : rod.qualityBones.values()) {
+            named.addAll(stone);
+        }
+        if (!rod.qualityBones.isEmpty() && !rod.qualityBones.containsKey(RodModelDef.DEFAULT_QUALITY)) {
+            problems
+                .add(p + "qualidade has no \"" + RodModelDef.DEFAULT_QUALITY + "\" (items without a quality suffix)");
+        }
         if (rod.tipBone != null) {
             named.add(rod.tipBone);
         }

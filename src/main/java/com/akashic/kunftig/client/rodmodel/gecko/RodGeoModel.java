@@ -117,8 +117,8 @@ final class RodGeoModel extends AnimatedGeoModel<RodAnimatable> {
             .getAnimationControllers()
             .values()) {
             if (c instanceof RodAnimatable.Controller && ((RodAnimatable.Controller) c).pendingOffset) {
-                // GeckoLib started the clip now; count its time from the state's start instead.
-                ((AnimationController) c).tickOffset = rod.start;
+                // GeckoLib started the clip now; count its time from the state's start (after the blend) instead.
+                ((AnimationController) c).tickOffset = ((RodAnimatable.Controller) c).offset;
                 ((RodAnimatable.Controller) c).pendingOffset = false;
             }
         }

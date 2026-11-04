@@ -14,6 +14,9 @@
         "6": ["textures/vara3d/vara-solar_m6_0.png", "textures/vara3d/vara-solar_m6_1.png", "textures/vara3d/vara-solar_m6_2.png"]
       },
       "ticks_por_quadro": 3,
+      "transicao_ticks": { "vara": 3, "aura": 4 },
+      "qualidade": { "normal": ["qualidade_normal"], "prata": ["qualidade_prata"], "ouro": ["qualidade_ouro"], "iridio": ["qualidade_iridio"] },
+      "campo_do_futuro": true,
       "estados": {
         "parada": { "vara": "animation.vara-solar.parada", "aura": "animation.vara-solar.aura", "braco": "animation.braco.parada", "laco": true },
         "lancar": { "vara": "animation.vara-solar.lancar", "aura": "animation.vara-solar.aura", "braco": "animation.braco.lancar", "laco": false },

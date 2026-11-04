@@ -3,6 +3,7 @@ package com.akashic.kunftig.client.rodmodel.gecko;
 import java.nio.FloatBuffer;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -69,6 +70,11 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     private final Map<RodModelDef, RodAnimatable> rods = new IdentityHashMap<>();
     /** Per rod: the bones drawn outside the opaque pass. */
     private final Map<RodModelDef, Map<String, Pass>> passMaps = new IdentityHashMap<>();
+    /**
+     * Per rod: the bones that may be hidden (mutation stages, the hanging line, quality stones), each with the
+     * qualities it belongs to (empty when it is not a quality stone).
+     */
+    private final Map<RodModelDef, Map<String, Set<String>>> controlled = new IdentityHashMap<>();
     private final Set<RodModelDef> broken = Collections.newSetFromMap(new IdentityHashMap<>());
     private RodModelIndex rodsOf;
     private final FloatBuffer glMatrix = BufferUtils.createFloatBuffer(16);
@@ -192,6 +198,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         if (rodsOf != models.index()) {
             rods.clear(); // resources reloaded: new rods, new GeckoLib models
             passMaps.clear();
+            controlled.clear();
             broken.clear();
             rodsOf = models.index();
         }
@@ -211,6 +218,20 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
                 map.put(name, passOf(def, name));
             }
             passMaps.put(def, map);
+            Map<String, Set<String>> hideable = new HashMap<>();
+            for (String bone : def.boneStages.keySet()) {
+                hideable.put(bone, new HashSet<>());
+            }
+            for (String bone : def.hiddenWhileCast) {
+                hideable.put(bone, new HashSet<>());
+            }
+            for (Map.Entry<String, java.util.List<String>> q : def.qualityBones.entrySet()) {
+                for (String bone : q.getValue()) {
+                    hideable.computeIfAbsent(bone, k -> new HashSet<>())
+                        .add(q.getKey());
+                }
+            }
+            controlled.put(def, hideable);
         }
         return a;
     }
@@ -229,6 +250,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         rod.start = timeline != null ? timeline.start() : 0;
         rod.tension = timeline != null ? timeline.tension() : 0;
         int key = player != null ? models.animationKey(player) : RodModels.SHARED_KEY;
+        rod.key = key;
         // The hanging line goes while the line is out, except while casting: the cast animation whips it away.
         boolean lineOut = player != null && player.fishEntity != null && !RodModelDef.CAST.equals(state);
 
@@ -252,7 +274,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
 
             rod.model.texture = models.location(def.textureFor(r.stage, models.clock()));
             rod.model.setLivingAnimations(rod, key, null);
-            boolean[] used = hide(rod.model.bones(model), def, r.stage, lineOut);
+            boolean[] used = hide(rod.model.bones(model), def, r.stage, r.quality, lineOut);
 
             boolean capture = player != null && def.tipBone != null
                 && (RodModelDef.FIRST_PERSON.equals(context) || RodModelDef.THIRD_PERSON.equals(context));
@@ -303,21 +325,22 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     }
 
     /**
-     * Hides the bones of higher mutation stages and the hanging line while it is out; returns which passes have
-     * something to draw.
+     * Hides the bones of higher mutation stages, the quality stones of other qualities (an item without a quality
+     * suffix shows {@code normal}'s; hiding a bone hides its children) and the hanging line while it is out; returns
+     * which passes have something to draw.
      */
-    private boolean[] hide(Map<String, GeoBone> bones, RodModelDef def, int stage, boolean lineOut) {
-        for (Map.Entry<String, Integer> e : def.boneStages.entrySet()) {
+    private boolean[] hide(Map<String, GeoBone> bones, RodModelDef def, int stage, String quality, boolean lineOut) {
+        String shown = def.shownQuality(quality);
+        for (Map.Entry<String, Set<String>> e : controlled.get(def)
+            .entrySet()) {
             GeoBone b = bones.get(e.getKey());
-            if (b != null) {
-                b.setHidden(stage < e.getValue() || lineOut && def.hiddenWhileCast.contains(e.getKey()));
+            if (b == null) {
+                continue;
             }
-        }
-        for (String name : def.hiddenWhileCast) {
-            GeoBone b = bones.get(name);
-            if (b != null && !def.boneStages.containsKey(name)) {
-                b.setHidden(lineOut);
-            }
+            Set<String> qualities = e.getValue();
+            b.setHidden(
+                !def.showsAt(e.getKey(), stage) || lineOut && def.hiddenWhileCast.contains(e.getKey())
+                    || !qualities.isEmpty() && !qualities.contains(shown));
         }
         boolean[] used = new boolean[Pass.values().length];
         used[Pass.OPAQUE.ordinal()] = true;

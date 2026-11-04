@@ -43,6 +43,15 @@ class RodDisplaysTest {
     }
 
     @Test
+    void wrapTakesTheShortWay() {
+        float twoPi = (float) (Math.PI * 2);
+        assertEquals(0.5F, RodMatrix.wrap(0.5F), EPS);
+        assertEquals(0.5F, RodMatrix.wrap(0.5F - 2 * twoPi), EPS); // a crank two turns in: no turns back
+        assertEquals(-0.5F, RodMatrix.wrap(-0.5F + 3 * twoPi), EPS);
+        assertEquals((float) -Math.PI, RodMatrix.wrap((float) Math.PI), EPS);
+    }
+
+    @Test
     void undoingVanillaLeavesTheDisplayAlone() {
         RodModelDef.Display d = new RodModelDef.Display(
             new float[] { 15, -45, 10 },

@@ -111,6 +111,19 @@ class RodTimelineTest {
     }
 
     @Test
+    void remembersThePreviousStateForBlending() {
+        RodTimeline t = new RodTimeline();
+        t.observe(0, ROD, false, CLIPS);
+        t.server("briga", 10);
+        t.server("captura", 50);
+        assertEquals("briga", t.previous());
+        assertEquals(10, t.previousStart());
+        t.observe(82, ROD, false, CLIPS);
+        assertEquals("parada", t.state());
+        assertEquals("captura", t.previous());
+    }
+
+    @Test
     void aServerStateBeforeThePlayerAppearsIsKept() {
         RodTimeline t = new RodTimeline();
         t.server("briga", 5);

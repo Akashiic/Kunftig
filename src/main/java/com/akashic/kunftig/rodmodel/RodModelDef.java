@@ -23,6 +23,12 @@ public final class RodModelDef {
     public static final String DRAW = "sacar";
     public static final String CAST = "lancar";
 
+    /** The quality of an item model without a quality suffix. */
+    public static final String DEFAULT_QUALITY = "normal";
+    /** The animation controllers. */
+    public static final String ROD_CONTROLLER = "vara";
+    public static final String AURA_CONTROLLER = "aura";
+
     /** The animations of one state: rod (controller "vara"), aura (controller "aura"), arm, and whether it loops. */
     public static final class Clips {
 
@@ -105,12 +111,17 @@ public final class RodModelDef {
     public final float[] grip;
     public final Map<String, Display> displays;
     public final Set<String> contexts;
+    /** Quality to the bones shown only for it (the quality stone); empty when the rod has none. */
+    public final Map<String, List<String>> qualityBones;
+    /** Controller ({@link #ROD_CONTROLLER}, {@link #AURA_CONTROLLER}) to its blend between animations, in ticks. */
+    public final Map<String, Integer> transitions;
 
     RodModelDef(String id, String geo, String animations, String arm, String texture,
         NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
         Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
         float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
-        Map<String, Display> displays, Set<String> contexts) {
+        Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
+        Map<String, Integer> transitions) {
         this.id = id;
         this.geo = geo;
         this.animations = animations;
@@ -129,6 +140,22 @@ public final class RodModelDef {
         this.grip = grip;
         this.displays = Collections.unmodifiableMap(displays);
         this.contexts = Collections.unmodifiableSet(contexts);
+        this.qualityBones = Collections.unmodifiableMap(qualityBones);
+        this.transitions = Collections.unmodifiableMap(transitions);
+    }
+
+    /** The blend of a controller between animations, in ticks (0: none). */
+    public int transition(String controller) {
+        Integer t = transitions.get(controller);
+        return t == null ? 0 : t;
+    }
+
+    /**
+     * The quality whose stone shows for an item of {@code quality} (null: no suffix): itself when the rod declares it,
+     * else {@link #DEFAULT_QUALITY}.
+     */
+    public String shownQuality(String quality) {
+        return quality != null && qualityBones.containsKey(quality) ? quality : DEFAULT_QUALITY;
     }
 
     /** The texture of a mutation stage at a client tick (stage 6 cycles through its frames). */

@@ -163,12 +163,13 @@ public final class RodRenderHarness {
                     .setTension(0.8F);
             }
         }));
-        steps.add(new Step("side-catch", 12, (mc, p) -> {
+        steps.add(new Step("side-catch-blend", 2, (mc, p) -> {
             if (RodModels.INSTANCE.active()) {
                 RodModels.INSTANCE.timeline(side)
                     .server("captura", RodModels.INSTANCE.clock());
             }
         }));
+        steps.add(new Step("side-catch", 10, (mc, p) -> {}));
         steps.add(new Step("ground-and-frame", SETTLE_TICKS, (mc, p) -> {
             mc.theWorld.removeEntityFromWorld(side.getEntityId());
             WorldServer w = p.getServerForPlayer();
@@ -182,6 +183,19 @@ public final class RodRenderHarness {
             item.lifespan = 1000000;
             w.spawnEntityInWorld(item);
             place(p, 180, 25);
+        }));
+        steps.add(new Step("quality-stones", SETTLE_TICKS, (mc, p) -> {
+            WorldServer w = p.getServerForPlayer();
+            String[] qualities = { "", ".prata", ".ouro", ".iridio" };
+            for (int i = 0; i < qualities.length; i++) {
+                int x = i - 2;
+                w.setBlock(x, 4, -2, Blocks.stone);
+                w.setBlock(x, 5, -2, Blocks.stone);
+                EntityItemFrame f = new EntityItemFrame(w, x, 5, -2, 0);
+                f.setDisplayedItem(rod("akashicfishing:vara/vara-solar" + qualities[i]));
+                w.spawnEntityInWorld(f);
+            }
+            p.playerNetServerHandler.setPlayerLocation(-0.5, 4, 1.2, 180, 4);
         }));
     }
 

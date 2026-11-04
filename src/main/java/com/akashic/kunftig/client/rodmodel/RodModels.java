@@ -247,11 +247,12 @@ public final class RodModels implements IResourceManagerReloadListener {
                 return c != null && c.loop;
             }
 
+            /** The clip plus the blend into it: the clip starts once the blend is over. */
             @Override
             public int lengthTicks(String state) {
                 RodModelDef.Clips c = rod == null ? null : rod.states.get(state);
                 BedrockAnimations.Clip clip = c == null || anims == null ? null : anims.clip(c.rod);
-                return clip == null ? 20 : clip.lengthTicks();
+                return (clip == null ? 20 : clip.lengthTicks()) + rod.transition(RodModelDef.ROD_CONTROLLER);
             }
         };
     }
@@ -447,16 +448,30 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         RodTimeline t = timelines.get(player.getEntityId());
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
-        RodModelDef.Clips c = r.model.clips(state);
         BedrockAnimations arm = animations.get(r.model.arm);
-        BedrockAnimations.Clip clip = c == null || arm == null ? null : arm.clip(c.arm);
+        BedrockAnimations.Clip clip = armClip(r.model, arm, state);
         if (clip == null) {
             return null;
         }
-        double seconds = t == null ? 0 : t.seconds(clock, partialTicks);
-        float[] deg = clip.rotation(ARM_BONE, seconds);
+        // Like the rod: the clip starts once the blend into it is over, and the blend starts from the previous pose.
+        int blend = r.model.transition(RodModelDef.ROD_CONTROLLER);
+        double ticks = t == null ? blend : Math.max(0, clock - t.start() + partialTicks);
+        float[] deg = clip.rotation(ARM_BONE, Math.max(0, ticks - blend) / 20);
+        BedrockAnimations.Clip before = t == null ? null : armClip(r.model, arm, t.previous());
+        if (before != null && ticks < blend) {
+            float[] from = before.rotation(ARM_BONE, Math.max(0, t.start() - t.previousStart() - blend) / 20.0);
+            float f = (float) (ticks / blend);
+            for (int i = 0; i < 3; i++) {
+                deg[i] = from[i] + (deg[i] - from[i]) * f;
+            }
+        }
         return new float[] { (float) Math.toRadians(deg[0]), (float) Math.toRadians(deg[1]),
             (float) Math.toRadians(deg[2]) };
+    }
+
+    private static BedrockAnimations.Clip armClip(RodModelDef rod, BedrockAnimations arm, String state) {
+        RodModelDef.Clips c = state == null ? null : rod.clips(state);
+        return c == null || arm == null ? null : arm.clip(c.arm);
     }
 
     /** Whether a cast player keeps his 3D rod in third person (vanilla swaps it for a stick). */

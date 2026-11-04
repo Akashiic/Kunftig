@@ -89,6 +89,43 @@ class RodModelIndexTest {
     }
 
     @Test
+    void qualityStonesTransitionsAndIgnoredFields() throws IOException {
+        RodModelIndex index = fixture();
+        RodModelDef rod = index.models()
+            .get("akashicfishing:vara/vara-solar");
+        assertEquals(java.util.Arrays.asList("qualidade_ouro"), rod.qualityBones.get("ouro"));
+        // The item's quality, normal without a suffix or for a quality the rod does not have.
+        assertEquals("ouro", rod.shownQuality("ouro"));
+        assertEquals(RodModelDef.DEFAULT_QUALITY, rod.shownQuality(null));
+        assertEquals(RodModelDef.DEFAULT_QUALITY, rod.shownQuality("diamante"));
+        assertEquals(3, rod.transition(RodModelDef.ROD_CONTROLLER));
+        assertEquals(4, rod.transition(RodModelDef.AURA_CONTROLLER));
+        assertEquals(0, rod.transition("outro"));
+        // What the reader does not know is listed, not an error; nome, controladores and molang are known.
+        assertEquals(
+            1,
+            index.ignored()
+                .size(),
+            index.ignored()
+                .toString());
+        assertTrue(
+            index.ignored()
+                .get(0)
+                .contains("campo_do_futuro"));
+        index.add(
+            "x",
+            "{\"_formato\": 1, \"modelos\": {\"v\": {\"geo\": \"g\", \"animacoes\": \"a\", \"textura\": \"t\","
+                + " \"estados\": {\"parada\": {\"vara\": \"p\"}}, \"transicao_ticks\": {\"vara\": 2.5}}}}",
+            "bad-transition");
+        assertTrue(
+            index.errors()
+                .get(
+                    index.errors()
+                        .size() - 1)
+                .contains("transicao_ticks"));
+    }
+
+    @Test
     void mutationsTexturesAndLineColors() throws IOException {
         RodModelDef rod = fixture().models()
             .get("akashicfishing:vara/vara-solar");

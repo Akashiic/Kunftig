@@ -194,6 +194,16 @@ public final class RodMatrix {
         return r;
     }
 
+    /** An angle in radians brought to [-PI, PI): the same rotation, the short way from 0. */
+    public static float wrap(float radians) {
+        double twoPi = Math.PI * 2;
+        double r = (radians + Math.PI) % twoPi;
+        if (r < 0) {
+            r += twoPi;
+        }
+        return (float) (r - Math.PI);
+    }
+
     /** The point {@code (x, y, z, 1)} transformed. */
     public float[] transform(float x, float y, float z) {
         return new float[] { m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13],

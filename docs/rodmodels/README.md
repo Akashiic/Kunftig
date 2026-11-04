@@ -58,6 +58,12 @@ Cuidados com o GeckoLib 1.0.4 (lidos no código do commit `9af9be1`, conferidos 
 * **Estado de GL**: o GeckoLib tem um cache próprio (`GlStateManager`); o Kunftig repõe o estado do GL depois de
   desenhar e deixa o cache coerente com ele.
 * `catmullrom` é linear e degraus são dois keyframes: o pack já vem amostrado; nada a fazer no cliente.
+* **Transições** (`transicao_ticks`): o GeckoLib mistura a partir dos *snapshots* dos ossos da chave
+  (`rotação − repouso`), copiados no instante da troca. Os giros contínuos (manivela, órbitas, anéis) acumulam voltas;
+  antes de cada troca, o Kunftig traz cada snapshot para menos de meia volta do repouso, e a mistura vai pelo caminho
+  curto. Quem vê um jogador já no meio de um estado não mistura: entra direto no tempo certo. Nos dois casos o tempo
+  da animação é o do estado menos a transição, e os estados que tocam uma vez duram a animação mais a transição. O
+  braço mistura do mesmo jeito, a partir da pose do estado anterior.
 
 ## O manifesto (`_formato: 1`)
 
@@ -74,12 +80,16 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | `mutacao` | não | estágio → ossos que só aparecem a partir dele (esconder um osso esconde os filhos) |
 | `ponta_da_linha` | não | `osso` e `posicao` (repouso, pixels) de onde a linha sai; sem ele, a linha do vanilla |
 | `esconder_com_a_linha_na_agua` | não | ossos escondidos com a linha fora (exceto durante `lancar`, que os tira no chicote) |
+| `qualidade` | não | qualidade → ossos que só aparecem nela (a pedra no pé do cabo); a do item vem do sufixo, sem sufixo `normal` (também para uma qualidade que a vara não declara) |
+| `transicao_ticks` | não | controlador (`vara`, `aura`) → ticks de mistura ao trocar de animação (padrão 0) |
 | `cor_da_linha` | não | estágio → `rrggbb`, vale do estágio para cima; sem ele, preta |
 | `pega` | não | o ponto do modelo que vai para a mão (pixels) |
 | `display` | sim, por contexto | `rotation` (graus, sinais do Bedrock), `translation` (pixels), `scale`, aplicados depois de levar a `pega` à origem |
 | `contextos` | não | onde desenhar em 3D (padrão: os de `display`) |
 
-Campos desconhecidos (`nome`, `controladores`, `molang`, `quando`, chaves com `_`) são ignorados. Um modelo com erro
+`nome`, `controladores`, `molang` e `quando` são para pessoas e ferramentas, e chaves com `_` são comentários. Outro
+campo que o Kunftig não conheça é deixado de lado e listado no log (`... is not read by this Kunftig`); o
+`RodPackCheckTest` o acusa como problema. Um modelo com erro
 fica de fora (ícone 2D) e o erro vai para o log (`Kunftig 3D rods: ...`) e para `/kunftigclient rods`.
 
 ### Referencial do `display`
@@ -118,10 +128,11 @@ O display experimentado sai no chat e no log como JSON, pronto para o `DISPLAY` 
 
 ![Varas 3D no cliente 1.7.10](harness.png)
 
-Da esquerda para a direita, de cima para baixo: Akáshica na Ascensão em briga (tensão 1, a vara verga); Solar no
-estágio 4 com a linha fora, saindo da ponta na cor da aura; Solar em terceira pessoa com a linha fora (sem virar
-graveto); outro jogador de perfil em briga e em parada (braço acompanhando); Vara de Coral na moldura e Estrela Cadente
-no chão.
+Da esquerda para a direita, de cima para baixo (pack da `claude/kind-ride-ts9apr` em `3731164`, hastes longas):
+Akáshica na Ascensão em briga (tensão 1, a vara verga); Solar no estágio 4 com a linha fora, saindo da ponta na cor da
+aura; Solar em terceira pessoa em briga, com a linha fora (sem virar graveto); outro jogador de perfil em parada e em
+briga; o mesmo 2 ticks depois de passar de briga a captura (a transição no meio); Vara de Coral na moldura e Estrela
+Cadente no chão; as quatro qualidades (normal, prata, ouro, irídio), cada uma com a sua pedra no pé do cabo.
 
 * O GeckoLib 1.0.4 monta as 8 geometrias do pack (UV por face, `inflate`, rotação de cubo) e toca as animações, com
   `query.tensao` vergando a vara na briga.
@@ -131,6 +142,8 @@ no chão.
 * A linha sai da ponta em primeira e terceira pessoa, na cor do estágio; a linha pendurada some com a boia fora; em
   terceira pessoa a vara não vira graveto.
 * Estágio 6 (texturas animadas e coroa), véu translúcido do estágio 4, moldura (diagonal) e chão.
+* Uma pedra de qualidade por vara: a do item (normal, prata, ouro, irídio).
+* A troca de briga para captura passa por uma pose intermediária, sem salto nem giro de volta.
 * Vara sem modelo 3D e cliente sem GeckoLib: exatamente como antes (ícone 2D, graveto, linha preta).
 
 Falta ver no cliente do TEOF, com Angelica, Backhand e NecroTempus, e com vários jogadores (desempenho): ver
