@@ -91,6 +91,24 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | `linha_pendurada` | não | a linha pendurada na ponta (com a linha recolhida): `osso` (pendurado ao longo do seu -Y) e `comprimento` (pixels do modelo). Vira um pêndulo no mundo: a gravidade a puxa para baixo, ela fica para trás quando a ponta se move e volta ao meio, amortecida. Sem ele, a linha segue o modelo |
 | `balanco` | não | a inércia em primeira pessoa: `pivo` (o osso que gira na pega, a raiz), `curva` (os ossos que dividem a curvatura, do cabo à ponta) e `forca` (0 a 3, padrão 1). Sem ele, só o balanço do vanilla |
 
+### Modelos que não são varas (peixes)
+
+O mesmo manifesto desenha outros objetos segurados na mão: os peixes do AkashicFishing (`tools/peixe3d` lá). Os campos
+acima continuam valendo (estados, braço, `luz`, `translucido`, `qualidade`, `display`, `contextos`, `balanco`...),
+mais estes:
+
+| Campo | Obrigatório | O quê |
+|---|---|---|
+| `itens` | não | os itens (`namespace:nome`) em que o renderer desenha o modelo; padrão `["minecraft:fishing_rod"]`. O Kunftig se põe nesses itens quando o pack é lido, por cima de qualquer renderer que já tenham (que continua com os itens sem modelo 3D) |
+| `estados.<s>.modelo` | não | o mesmo que `vara`, para um modelo que não é vara |
+| `tamanho` | não | o tamanho vem de um número dos dados do item (`PublicBukkitValues.<chave>`, o PDC do Bukkit): `chave`, `unidades_por_bloco`, `comprimento` (pixels do modelo, de ponta a ponta), `minimo` e `maximo` (blocos) e `padrao` (o valor de um item sem ele). O modelo é desenhado com `valor / unidades_por_bloco` blocos de comprimento, escalado em volta da pega |
+| `faixas` | não (precisa de `tamanho`) | faixas de tamanho, da menor para a maior: `ate` (inclusive; a última não tem), `estados` (estado tocado -> estado de `estados`), `display` (substitui o do modelo nos contextos dela) e `pega`. Um peixe grande é segurado com as duas mãos, um gigante acima da cabeça. Trocar para um peixe de outra faixa toca o `sacar` de novo |
+| `texturas_qualidade` | não | qualidade -> textura (ou lista de quadros, a cada `ticks_por_quadro`), por cima da textura do estágio; `normal` vale para itens sem sufixo |
+
+Em terceira pessoa, o 1.7.10 transforma um item plano (o peixe) diferente de um item "3D" que gira em volta (a vara):
+`RodDisplays` desfaz a transformação certa para cada um (`Item#isFull3D`, `shouldRotateAroundWhenRendering`), e o
+`display` fica no mesmo referencial nos dois casos.
+
 `nome`, `controladores`, `molang` e `quando` são para pessoas e ferramentas, e chaves com `_` são comentários. Outro
 campo que o Kunftig não conheça é deixado de lado e listado no log (`... is not read by this Kunftig`); o
 `RodPackCheckTest` o acusa como problema. Um modelo com erro
@@ -123,7 +141,7 @@ O display experimentado sai no chat e no log como JSON, pronto para o `DISPLAY` 
 * `./gradlew test`: manifesto, sufixos, texturas e cores por estágio, amostragem das animações, máquina de estados,
   protocolo, rastreador do servidor, matrizes do `display` (desfazer o vanilla devolve exatamente o `display`).
 * `./gradlew :test -ProdPack=<pasta do pack>`: confere um pack de verdade (todo arquivo, osso e animação citados
-  existem). O pack do AkashicFishing (branch `claude/kind-ride-ts9apr`): 8 varas, nenhum problema.
+  existem). O pack do AkashicFishing (branch `claude/kind-ride-ts9apr`): 8 varas e 34 peixes, nenhum problema.
 * Harness visual (desenvolvimento): com um arquivo `kunftig-rod-harness` em `run/client` e o pack em
   `run/client/resourcepacks`, `./gradlew runClient` abre um mundo plano, segura varas com modelos reais, toca estados,
   lança a linha e salva `screenshots/rods-*.png` de cada contexto (`dev/RodRenderHarness`, fora do jar).
