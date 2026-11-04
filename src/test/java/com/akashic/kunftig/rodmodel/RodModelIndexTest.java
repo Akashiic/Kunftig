@@ -47,7 +47,15 @@ class RodModelIndexTest {
         assertTrue(rod.states.get("parada").loop);
         assertFalse(rod.states.get("lancar").loop);
         assertTrue(rod.states.get("briga").twoHands);
-        assertFalse(rod.states.get("parada").twoHands, "sem duas_maos: uma mão");
+        // parada: one hand while just holding it, both once the line is out (cast)
+        RodModelDef.Clips idle = rod.states.get("parada");
+        assertFalse(idle.twoHands(false), "só segurando: uma mão");
+        assertTrue(idle.twoHands(true), "com a linha na água: duas mãos");
+        assertEquals("animation.braco.parada", idle.arm(false));
+        assertEquals("animation.braco.parada_linha", idle.arm(true));
+        RodModelDef.Clips cast = rod.states.get("lancar");
+        assertFalse(cast.twoHands(true), "sem duas_maos: uma mão, com ou sem linha");
+        assertEquals(cast.arm, cast.arm(true), "sem braco_com_a_linha: o mesmo braço");
         assertEquals("animation.vara-solar.aura_briga", rod.states.get("briga").aura);
         assertNull(rod.states.get("sacar").aura);
         assertNull(rod.states.get("sacar").arm);

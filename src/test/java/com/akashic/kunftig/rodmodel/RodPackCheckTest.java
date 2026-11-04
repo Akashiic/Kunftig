@@ -98,8 +98,10 @@ class RodPackCheckTest {
                     problems.add(p + s.getKey() + ": no animation '" + clip + "' in " + rod.animations);
                 }
             }
-            if (c.arm != null && arm != null && arm.clip(c.arm) == null) {
-                problems.add(p + s.getKey() + ": no arm animation '" + c.arm + "' in " + rod.arm);
+            for (String armClip : Arrays.asList(c.arm, c.armWithLine)) {
+                if (armClip != null && arm != null && arm.clip(armClip) == null) {
+                    problems.add(p + s.getKey() + ": no arm animation '" + armClip + "' in " + rod.arm);
+                }
             }
         }
         if (anims != null) {

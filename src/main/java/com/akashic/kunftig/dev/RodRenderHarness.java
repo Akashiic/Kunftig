@@ -16,6 +16,7 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.item.EntityItemFrame;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
@@ -232,6 +233,21 @@ public final class RodRenderHarness {
             RodModels.INSTANCE.timeline(side)
                 .server("parada", RodModels.INSTANCE.clock());
         }));
+        // Both hands only once the line is out: waiting with the line in the water, then the line back, then a cast.
+        steps.add(new Step("side-left-idle-line-out", 15, (mc, p) -> {
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX - 4, side.posY - 1, side.posZ, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("side-left-line-back", 15, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(-4243);
+            side.fishEntity = null;
+        }));
+        steps.add(
+            new Step(
+                "side-left-cast",
+                6,
+                (mc, p) -> RodModels.INSTANCE.timeline(side)
+                    .server("lancar", RodModels.INSTANCE.clock())));
         steps.add(new Step("ground-and-frame", SETTLE_TICKS, (mc, p) -> {
             mc.theWorld.removeEntityFromWorld(side.getEntityId());
             WorldServer w = p.getServerForPlayer();

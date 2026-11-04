@@ -38,21 +38,45 @@ public final class RodModelDef {
         public final String arm;
         public final boolean loop;
         /**
-         * Both hands on the rod ({@code duas_maos}): vanilla's walking swing leaves the arms, or the hands would let go
-         * of the rod while walking.
+         * The arm animation while the line is out ({@code braco_com_a_linha}), or null: {@link #arm} either way. A rod
+         * held idle with both hands once it is cast, with one before.
+         */
+        public final String armWithLine;
+        /**
+         * Both hands on the rod ({@code duas_maos: true}): vanilla's walking swing leaves the arms, or the hands would
+         * let go of the rod while walking.
          */
         public final boolean twoHands;
+        /** Both hands only while the line is out ({@code duas_maos: "com_a_linha"}). */
+        public final boolean twoHandsWithLine;
 
         Clips(String rod, String aura, String arm, boolean loop) {
-            this(rod, aura, arm, loop, false);
+            this(rod, aura, arm, null, loop, false, false);
         }
 
         Clips(String rod, String aura, String arm, boolean loop, boolean twoHands) {
+            this(rod, aura, arm, null, loop, twoHands, false);
+        }
+
+        Clips(String rod, String aura, String arm, String armWithLine, boolean loop, boolean twoHands,
+            boolean twoHandsWithLine) {
             this.rod = rod;
             this.aura = aura;
             this.arm = arm;
+            this.armWithLine = armWithLine;
             this.loop = loop;
             this.twoHands = twoHands;
+            this.twoHandsWithLine = twoHandsWithLine;
+        }
+
+        /** The arm animation, with the line out or not. */
+        public String arm(boolean line) {
+            return line && armWithLine != null ? armWithLine : arm;
+        }
+
+        /** Whether both hands hold the rod, with the line out or not. */
+        public boolean twoHands(boolean line) {
+            return twoHands || line && twoHandsWithLine;
         }
     }
 

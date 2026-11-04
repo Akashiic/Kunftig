@@ -1,7 +1,9 @@
 package com.akashic.kunftig.rodmodel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -108,6 +110,21 @@ class RodTimelineTest {
         assertEquals("captura", t.state());
         t.observe(252, ROD, false, CLIPS);
         assertEquals("parada", t.state());
+    }
+
+    @Test
+    void notesWhenTheLineGoesOutAndComesBack() {
+        RodTimeline t = new RodTimeline();
+        t.observe(0, ROD, false, CLIPS);
+        assertFalse(t.lineOut());
+        t.observe(10, ROD, true, CLIPS);
+        assertTrue(t.lineOut());
+        assertEquals(10, t.lineSince());
+        t.observe(11, ROD, true, CLIPS);
+        assertEquals(10, t.lineSince(), "a linha continua fora");
+        t.observe(40, ROD, false, CLIPS);
+        assertFalse(t.lineOut());
+        assertEquals(40, t.lineSince());
     }
 
     @Test

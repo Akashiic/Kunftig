@@ -89,6 +89,9 @@ public final class RodModelIndex {
                 "controladores",
                 "molang")));
 
+    /** {@code duas_maos}: both hands only while the line is out (cast, in the water). */
+    static final String WITH_LINE = "com_a_linha";
+
     private final Map<String, RodModelDef> models = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
     private final List<String> ignored = new ArrayList<>();
@@ -266,10 +269,21 @@ public final class RodModelIndex {
             String aura = text(s, "aura", false, "estados." + name);
             String armClip = text(s, "braco", false, "estados." + name);
             Object loop = s.get("laco");
+            String armWithLine = text(s, "braco_com_a_linha", false, "estados." + name);
             Object twoHands = s.get("duas_maos");
+            if (twoHands != null && !(twoHands instanceof Boolean) && !WITH_LINE.equals(twoHands)) {
+                throw new Invalid("estados." + name + ".duas_maos must be true, false or \"" + WITH_LINE + "\"");
+            }
             states.put(
                 name,
-                new RodModelDef.Clips(rod, aura, armClip, Boolean.TRUE.equals(loop), Boolean.TRUE.equals(twoHands)));
+                new RodModelDef.Clips(
+                    rod,
+                    aura,
+                    armClip,
+                    armWithLine,
+                    Boolean.TRUE.equals(loop),
+                    Boolean.TRUE.equals(twoHands),
+                    WITH_LINE.equals(twoHands)));
         }
         if (!states.containsKey(RodModelDef.IDLE)) {
             throw new Invalid("estados needs \"" + RodModelDef.IDLE + "\"");

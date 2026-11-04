@@ -18,7 +18,7 @@
       "qualidade": { "normal": ["qualidade_normal"], "prata": ["qualidade_prata"], "ouro": ["qualidade_ouro"], "iridio": ["qualidade_iridio"] },
       "campo_do_futuro": true,
       "estados": {
-        "parada": { "vara": "animation.vara-solar.parada", "aura": "animation.vara-solar.aura", "braco": "animation.braco.parada", "laco": true },
+        "parada": { "vara": "animation.vara-solar.parada", "aura": "animation.vara-solar.aura", "braco": "animation.braco.parada", "braco_com_a_linha": "animation.braco.parada_linha", "duas_maos": "com_a_linha", "laco": true },
         "lancar": { "vara": "animation.vara-solar.lancar", "aura": "animation.vara-solar.aura", "braco": "animation.braco.lancar", "laco": false },
         "briga": { "vara": "animation.vara-solar.briga", "aura": "animation.vara-solar.aura_briga", "braco": "animation.braco.briga", "laco": true, "duas_maos": true, "quando": "o minigame" },
         "sacar": { "vara": "animation.vara-solar.sacar", "laco": false }

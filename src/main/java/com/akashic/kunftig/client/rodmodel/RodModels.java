@@ -515,26 +515,48 @@ public final class RodModels implements IResourceManagerReloadListener {
             return null; // no arm pose, or the rod stays flat in third person
         }
         RodTimeline t = timelines.get(player.getEntityId());
-        String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
         BedrockAnimations arm = animations.get(r.model.arm);
-        BedrockAnimations.Clip clip = armClip(r.model, arm, state);
+        boolean line = player.fishEntity != null;
+        float[] deg = armPose(r.model, arm, t, bone, line);
+        if (deg == null) {
+            return null;
+        }
+        // The line went out or came back: the arms move from the other pose (one hand to both, or back).
+        int blend = r.model.transition(RodModelDef.ROD_CONTROLLER);
+        double sinceLine = t == null ? blend : clock - t.lineSince() + partialTicks;
+        if (t != null && sinceLine < blend) {
+            float[] from = armPose(r.model, arm, t, bone, !line);
+            if (from != null) {
+                float f = (float) (sinceLine / blend);
+                for (int i = 0; i < 3; i++) {
+                    deg[i] = from[i] + (deg[i] - from[i]) * f;
+                }
+            }
+        }
+        return new float[] { (float) Math.toRadians(deg[0]), (float) Math.toRadians(deg[1]),
+            (float) Math.toRadians(deg[2]) };
+    }
+
+    /** The arm bone's pose (degrees) in the player's state, with the line out or not, blended from the state before. */
+    private float[] armPose(RodModelDef rod, BedrockAnimations arm, RodTimeline t, String bone, boolean line) {
+        String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
+        BedrockAnimations.Clip clip = armClip(rod, arm, state, line);
         if (clip == null || !clip.animates(bone)) {
             return null;
         }
         // Like the rod: the clip starts once the blend into it is over, and the blend starts from the previous pose.
-        int blend = r.model.transition(RodModelDef.ROD_CONTROLLER);
+        int blend = rod.transition(RodModelDef.ROD_CONTROLLER);
         double ticks = t == null ? blend : Math.max(0, clock - t.start() + partialTicks);
         float[] deg = clip.rotation(bone, Math.max(0, ticks - blend) / 20);
-        BedrockAnimations.Clip before = t == null ? null : armClip(r.model, arm, t.previous());
-        if (before != null && ticks < blend) {
+        BedrockAnimations.Clip before = t == null ? null : armClip(rod, arm, t.previous(), line);
+        if (before != null && ticks < blend && before.animates(bone)) {
             float[] from = before.rotation(bone, Math.max(0, t.start() - t.previousStart() - blend) / 20.0);
             float f = (float) (ticks / blend);
             for (int i = 0; i < 3; i++) {
                 deg[i] = from[i] + (deg[i] - from[i]) * f;
             }
         }
-        return new float[] { (float) Math.toRadians(deg[0]), (float) Math.toRadians(deg[1]),
-            (float) Math.toRadians(deg[2]) };
+        return deg;
     }
 
     /**
@@ -549,7 +571,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         RodTimeline t = timelines.get(player.getEntityId());
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
         RodModelDef.Clips c = r.model.clips(state);
-        return c != null && c.twoHands;
+        return c != null && c.twoHands(player.fishEntity != null);
     }
 
     private static volatile java.lang.invoke.MethodHandle backhandOffhand;
@@ -588,9 +610,9 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
     }
 
-    private static BedrockAnimations.Clip armClip(RodModelDef rod, BedrockAnimations arm, String state) {
+    private static BedrockAnimations.Clip armClip(RodModelDef rod, BedrockAnimations arm, String state, boolean line) {
         RodModelDef.Clips c = state == null ? null : rod.clips(state);
-        return c == null || arm == null ? null : arm.clip(c.arm);
+        return c == null || arm == null ? null : arm.clip(c.arm(line));
     }
 
     /** Whether a cast player keeps his 3D rod in third person (vanilla swaps it for a stick). */

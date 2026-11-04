@@ -335,9 +335,9 @@ if (KunftigApi.apiVersion() >= 6 && KunftigApi.isHologramsAvailable()) {
 Clientes com Kunftig **e** GeckoLib (o do TEOF, `geckolib-unofficial-1.7.10-1.0.4`) desenham em 3D as varas que o
 resource pack declara em `assets/<namespace>/kunftig/item_models_3d.json`, animadas, na mão (primeira e terceira
 pessoa), no chão e na moldura (o pack escolhe onde, `contextos`), com a linha saindo da ponta e os braços acompanhando
-(as duas mãos na vara quando o estado pede e a mão esquerda está livre). O item é o mesmo do ícone 2D
-(seção 9): `KunftigItems.setModel(item, new NamespacedKey(plugin, "vara/vara-solar.ouro.m3"))` usa o modelo 3D
-`vara/vara-solar`, qualidade `ouro`, estágio de mutação 3. No inventário fica o ícone 2D. Formato do manifesto,
+(as duas mãos na vara quando o estado pede, por exemplo só com a linha na água, e a mão esquerda está livre). O item
+é o mesmo do ícone 2D (seção 9): `KunftigItems.setModel(item, new NamespacedKey(plugin, "vara/vara-solar.ouro.m3"))`
+usa o modelo 3D `vara/vara-solar`, qualidade `ouro`, estágio de mutação 3. No inventário fica o ícone 2D. Formato do manifesto,
 detalhes e testes: [rodmodels/README.md](rodmodels/README.md).
 
 O cliente sabe sozinho quando a vara vai para a mão (`sacar`), quando a linha sai (`lancar`) e quando volta

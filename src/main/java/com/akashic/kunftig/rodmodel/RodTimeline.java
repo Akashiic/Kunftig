@@ -22,6 +22,7 @@ public final class RodTimeline {
     private String held;
     private boolean seen;
     private boolean lineOut;
+    private long lineSince;
     private String state;
     private long start;
     private String previous;
@@ -57,6 +58,16 @@ public final class RodTimeline {
     /** Seconds into the current state. */
     public double seconds(long now, float partialTicks) {
         return Math.max(0, now - start + partialTicks) / 20.0;
+    }
+
+    /** Whether the player's line was out at the last {@link #observe}. */
+    public boolean lineOut() {
+        return lineOut;
+    }
+
+    /** The client tick the line last went out or came back (for blending the arms between the two poses). */
+    public long lineSince() {
+        return lineSince;
     }
 
     /** The last tick {@link #observe} saw the player. */
@@ -96,6 +107,9 @@ public final class RodTimeline {
             if (now - start >= length) {
                 begin(RodModelDef.IDLE, start + length);
             }
+        }
+        if (line != lineOut) {
+            lineSince = now;
         }
         if (line && !lineOut) {
             cast(now, clips);
