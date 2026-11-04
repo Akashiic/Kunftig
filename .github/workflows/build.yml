@@ -35,14 +35,27 @@ jobs:
       - name: Build, unit tests, MockBukkit integration tests, 1.7.10 API gates (mod and plugin)
         run: ./gradlew build checkLegacyBukkitApi -PlegacyBukkitApi=build/legacy-bukkit/bukkit-1.7.10.jar
 
+      # The mod (the jar for mods/, on the server and on the client) and, apart, the API for plugin builds.
+      # Untagged versions are 0.1.0-dev-<sha>: exclude the dev jars by suffix, never by "-dev" anywhere in the
+      # name, or the mod itself is left out (it was, up to 23954a5: the artifact had only kunftig-api).
       - uses: actions/upload-artifact@v4
         with:
-          name: kunftig-jars
+          name: kunftig-mod
+          if-no-files-found: error
           path: |
             build/libs/kunftig-*.jar
-            !build/libs/*-dev*.jar
+            !build/libs/*-dev.jar
+            !build/libs/*-dev-preshadow.jar
             !build/libs/*-sources.jar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kunftig-api
+          if-no-files-found: error
+          path: |
             api/build/libs/kunftig-api-*.jar
+            !api/build/libs/*-javadoc.jar
+            !api/build/libs/*-sources.jar
 
       - uses: actions/upload-artifact@v4
         if: failure()

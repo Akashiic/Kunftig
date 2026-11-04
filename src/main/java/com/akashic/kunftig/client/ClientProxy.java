@@ -31,6 +31,7 @@ public final class ClientProxy extends CommonProxy {
             .bus()
             .register(this);
         ClientCommandHandler.instance.registerCommand(new KunftigClientCommand());
+        com.akashic.kunftig.client.compat.NecroTempusTitleFallback.install();
         if (!Boolean.getBoolean("kunftig.holograms.disable")) {
             MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.hologram.HologramClient.INSTANCE);
         }
