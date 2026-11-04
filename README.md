@@ -3,6 +3,9 @@
 Backports of features from recent Minecraft versions to **1.7.10** (Forge + UniMixins): one mod jar for the client
 and the server (Thermos/Crucible 1.7.10), plus the `kunftig-api` artifact for plugins.
 
+Each CI run (Actions) uploads two artifacts: **`kunftig-mod`**, the jar for `mods/` (server and client), and
+**`kunftig-api`**, only for compiling plugins. The API jar is not a mod: in `mods/` it does nothing.
+
 > Versão em português: [README.pt-BR.md](README.pt-BR.md). The design study is in Portuguese:
 > [docs/nametags/ESTUDO.md](docs/nametags/ESTUDO.md); the protocol spec is in English:
 > [docs/nametags/PROTOCOL.md](docs/nametags/PROTOCOL.md).

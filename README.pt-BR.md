@@ -3,6 +3,9 @@
 Backports de recursos de versões recentes do Minecraft para o **1.7.10** (Forge + UniMixins). Um único jar de mod,
 no cliente e no servidor (Thermos/Crucible 1.7.10), mais a API `kunftig-api` para plugins.
 
+Cada build do CI (Actions) publica dois artefatos: **`kunftig-mod`**, o jar que vai na pasta `mods/` (servidor e
+cliente), e **`kunftig-api`**, só para compilar plugins. O jar da API não é um mod: na pasta `mods/` ele não faz nada.
+
 > English version: [README.md](README.md).
 
 ## Recurso 1: motor de nametags modernas no cliente (experimental)
