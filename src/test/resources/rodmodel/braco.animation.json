@@ -1,0 +1,19 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.braco.parada": {
+      "loop": true, "animation_length": 4.0,
+      "bones": { "braco_direito": { "rotation": { "0": [-28, 0, 0], "2": [-32, 0, 4], "4": [-28, 0, 0] } } }
+    },
+    "animation.braco.lancar": {
+      "animation_length": 0.9,
+      "bones": { "braco_direito": { "rotation": {
+        "0": [-30, 0, 0],
+        "0.5": { "pre": [-80, 0, 0], "post": [-60, 0, 0] },
+        "0.5000001": [-60, 0, 0],
+        "0.9": [-30, 0, 0] } } }
+    },
+    "animation.braco.fixa": { "bones": { "braco_direito": { "rotation": [10, 20, 30] } } },
+    "animation.braco.molang": { "bones": { "braco_direito": { "rotation": { "0": ["-5", "query.tensao * 10", 0], "1": [5, 0, 0] } } } }
+  }
+}

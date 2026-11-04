@@ -1,0 +1,46 @@
+{
+  "_formato": 1,
+  "_leia": "fixture in the format of AkashicFishing's resourcepack/assets/akashicfishing/kunftig/item_models_3d.json",
+  "modelos": {
+    "vara/vara-solar": {
+      "nome": "Vara Solar",
+      "geo": "akashicfishing:geo/vara/vara-solar.geo.json",
+      "animacoes": "akashicfishing:animations/vara/vara-solar.animation.json",
+      "braco": "akashicfishing:animations/vara/braco.animation.json",
+      "textura": "akashicfishing:textures/vara3d/vara-solar.png",
+      "texturas_mutacao": {
+        "1": "akashicfishing:textures/vara3d/vara-solar_m1.png",
+        "2": "akashicfishing:textures/vara3d/vara-solar_m2.png",
+        "6": ["textures/vara3d/vara-solar_m6_0.png", "textures/vara3d/vara-solar_m6_1.png", "textures/vara3d/vara-solar_m6_2.png"]
+      },
+      "ticks_por_quadro": 3,
+      "estados": {
+        "parada": { "vara": "animation.vara-solar.parada", "aura": "animation.vara-solar.aura", "braco": "animation.braco.parada", "laco": true },
+        "lancar": { "vara": "animation.vara-solar.lancar", "aura": "animation.vara-solar.aura", "braco": "animation.braco.lancar", "laco": false },
+        "briga": { "vara": "animation.vara-solar.briga", "aura": "animation.vara-solar.aura_briga", "braco": "animation.braco.briga", "laco": true, "quando": "o minigame" },
+        "sacar": { "vara": "animation.vara-solar.sacar", "laco": false }
+      },
+      "controladores": { "vara": ["vara", "linha"], "aura": ["raios", "m4_aura_1"] },
+      "luz": ["raios", "m4_aura_1"],
+      "translucido": ["m4_aura_1"],
+      "mutacao": { "2": ["m2_estrela"], "4": ["m4_aura_1", "m2_estrela"] },
+      "ponta_da_linha": { "osso": "ponta", "locator": "linha", "posicao": [0, 32.4, 0] },
+      "esconder_com_a_linha_na_agua": ["linha"],
+      "cor_da_linha": { "0": "ffe9a8", "1": "fff0b0", "6": "ffffff" },
+      "pega": [0, 4.5, 0],
+      "display": {
+        "primeira_pessoa": { "rotation": [15, -45, 10], "translation": [-7.5, -10.5, -15], "scale": 0.4 },
+        "terceira_pessoa": { "rotation": [80, 0, 0], "translation": [0, 0, 0], "scale": 0.6 },
+        "chao": { "rotation": [90, 0, 0], "translation": [0, 0, 0], "scale": 0.4 },
+        "moldura": { "rotation": [0, 0, -45], "translation": [0, 0, 0], "scale": 0.4 }
+      },
+      "contextos": ["primeira_pessoa", "terceira_pessoa", "chao"],
+      "molang": { "query.tensao": "0 a 1" }
+    },
+    "vara/sem-parada": {
+      "geo": "akashicfishing:geo/x.geo.json", "animacoes": "akashicfishing:animations/x.json", "textura": "akashicfishing:textures/x.png",
+      "estados": { "briga": { "vara": "animation.x.briga" } }
+    },
+    "vara/Maiuscula": { "geo": "a:b", "animacoes": "a:b", "textura": "a:b", "estados": { "parada": { "vara": "x" } } }
+  }
+}

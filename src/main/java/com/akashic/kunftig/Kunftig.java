@@ -11,6 +11,7 @@ import com.akashic.kunftig.diagnostics.BukkitApiSelfCheck;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 
 /**
@@ -75,11 +76,17 @@ public final class Kunftig {
             install("com.akashic.kunftig.bukkit.particle.BukkitParticleBridge");
             install("com.akashic.kunftig.bukkit.player.BukkitPlayerBridge");
             install("com.akashic.kunftig.bukkit.hologram.BukkitHologramBridge");
+            install("com.akashic.kunftig.bukkit.rod.BukkitRodBridge");
         }
     }
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         proxy.init(event);
+    }
+
+    @Mod.EventHandler
+    public void postInit(FMLPostInitializationEvent event) {
+        proxy.postInit(event);
     }
 }

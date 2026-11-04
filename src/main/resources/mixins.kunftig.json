@@ -19,7 +19,12 @@
     "itemmodel.ItemStackModelMixin",
     "itemmodel.EntityPlayerCastIconMixin",
     "fishing.NetHandlerPlayClientFishingMixin",
-    "hologram.NetHandlerPlayClientHologramMixin"
+    "hologram.NetHandlerPlayClientHologramMixin",
+    "rodmodel.NetHandlerPlayClientRodMixin",
+    "rodmodel.RenderFishLineMixin",
+    "rodmodel.ModelBipedRodArmMixin",
+    "rodmodel.RenderPlayerCastRodMixin",
+    "rodmodel.ItemFishingRodCastMixin"
   ],
   "server": []
 }

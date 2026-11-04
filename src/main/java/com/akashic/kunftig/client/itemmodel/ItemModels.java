@@ -84,7 +84,7 @@ public final class ItemModels {
     }
 
     /** {@code PublicBukkitValues."kunftig:model"} of an item tag, or null. */
-    static String modelOf(NBTTagCompound tag) {
+    public static String modelOf(NBTTagCompound tag) {
         if (tag == null || !tag.hasKey(ItemModelIndex.NBT_ROOT, 10)) {
             return null;
         }

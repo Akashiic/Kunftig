@@ -10,4 +10,12 @@ repositories {
             includeGroup("org.bukkit")
         }
     }
+    // GeckoLib Unofficial 1.7.10 (compile-only, for the 3D rods): the same jar the TEOF modpack ships.
+    maven {
+        name = "CurseMaven"
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup("curse.maven")
+        }
+    }
 }
