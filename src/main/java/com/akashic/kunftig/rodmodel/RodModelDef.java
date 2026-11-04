@@ -37,12 +37,22 @@ public final class RodModelDef {
         /** May be null: the arm keeps vanilla's pose. */
         public final String arm;
         public final boolean loop;
+        /**
+         * Both hands on the rod ({@code duas_maos}): vanilla's walking swing leaves the arms, or the hands would let go
+         * of the rod while walking.
+         */
+        public final boolean twoHands;
 
         Clips(String rod, String aura, String arm, boolean loop) {
+            this(rod, aura, arm, loop, false);
+        }
+
+        Clips(String rod, String aura, String arm, boolean loop, boolean twoHands) {
             this.rod = rod;
             this.aura = aura;
             this.arm = arm;
             this.loop = loop;
+            this.twoHands = twoHands;
         }
     }
 

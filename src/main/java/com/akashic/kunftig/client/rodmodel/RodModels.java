@@ -54,8 +54,9 @@ public final class RodModels implements IResourceManagerReloadListener {
 
     public static final RodModels INSTANCE = new RodModels();
 
-    /** The arm bone of the arm animations. */
+    /** The arm bones of the arm animations: the right arm holds the grip, the left one (two hands) the rod. */
     public static final String ARM_BONE = "braco_direito";
+    public static final String LEFT_ARM_BONE = "braco_esquerdo";
     /** Animation key of entities that are not players (rods on the ground, in frames, held by mobs). */
     public static final int SHARED_KEY = 1;
     private static final int FIRST_PLAYER_KEY = 2;
@@ -442,6 +443,15 @@ public final class RodModels implements IResourceManagerReloadListener {
      * its state, or null to leave the arm alone.
      */
     public float[] armRotation(EntityPlayer player) {
+        return armRotation(player, ARM_BONE);
+    }
+
+    /**
+     * The rotation (radians) of an arm bone ({@link #ARM_BONE} or {@link #LEFT_ARM_BONE}) for a player holding a 3D
+     * rod,
+     * or null when the rod has no arm animation for its state or the clip leaves that arm alone.
+     */
+    public float[] armRotation(EntityPlayer player, String bone) {
         RodModelIndex.Resolved r = resolve(player.getHeldItem());
         if (r == null || r.model.arm == null || !r.model.drawsIn(RodModelDef.THIRD_PERSON)) {
             return null; // no arm pose, or the rod stays flat in third person
@@ -450,16 +460,16 @@ public final class RodModels implements IResourceManagerReloadListener {
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
         BedrockAnimations arm = animations.get(r.model.arm);
         BedrockAnimations.Clip clip = armClip(r.model, arm, state);
-        if (clip == null) {
+        if (clip == null || !clip.animates(bone)) {
             return null;
         }
         // Like the rod: the clip starts once the blend into it is over, and the blend starts from the previous pose.
         int blend = r.model.transition(RodModelDef.ROD_CONTROLLER);
         double ticks = t == null ? blend : Math.max(0, clock - t.start() + partialTicks);
-        float[] deg = clip.rotation(ARM_BONE, Math.max(0, ticks - blend) / 20);
+        float[] deg = clip.rotation(bone, Math.max(0, ticks - blend) / 20);
         BedrockAnimations.Clip before = t == null ? null : armClip(r.model, arm, t.previous());
         if (before != null && ticks < blend) {
-            float[] from = before.rotation(ARM_BONE, Math.max(0, t.start() - t.previousStart() - blend) / 20.0);
+            float[] from = before.rotation(bone, Math.max(0, t.start() - t.previousStart() - blend) / 20.0);
             float f = (float) (ticks / blend);
             for (int i = 0; i < 3; i++) {
                 deg[i] = from[i] + (deg[i] - from[i]) * f;
@@ -467,6 +477,57 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         return new float[] { (float) Math.toRadians(deg[0]), (float) Math.toRadians(deg[1]),
             (float) Math.toRadians(deg[2]) };
+    }
+
+    /**
+     * Whether the player's rod is held with both hands in its current state ({@code duas_maos}): while it is, the
+     * walking swing leaves the arms (the hands would let go of the rod).
+     */
+    public boolean twoHanded(EntityPlayer player) {
+        RodModelIndex.Resolved r = resolve(player.getHeldItem());
+        if (r == null) {
+            return false;
+        }
+        RodTimeline t = timelines.get(player.getEntityId());
+        String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
+        RodModelDef.Clips c = r.model.clips(state);
+        return c != null && c.twoHands;
+    }
+
+    private static volatile java.lang.invoke.MethodHandle backhandOffhand;
+    private static volatile boolean backhandLooked;
+
+    /**
+     * Whether the player holds something in Backhand's off hand (then the left arm is Backhand's and the rod is held
+     * with one hand). Resolved once, by reflection; false without Backhand or if its API changed.
+     */
+    public static boolean offhandBusy(EntityPlayer player) {
+        if (!backhandLooked) {
+            synchronized (RodModels.class) {
+                if (!backhandLooked) {
+                    try {
+                        Class<?> utils = Class.forName("xonin.backhand.api.core.BackhandUtils");
+                        backhandOffhand = java.lang.invoke.MethodHandles.publicLookup()
+                            .findStatic(
+                                utils,
+                                "getOffhandItem",
+                                java.lang.invoke.MethodType.methodType(ItemStack.class, EntityPlayer.class));
+                    } catch (Throwable ignored) {
+                        backhandOffhand = null; // no Backhand, or another API: only heldItemLeft counts
+                    }
+                    backhandLooked = true;
+                }
+            }
+        }
+        java.lang.invoke.MethodHandle h = backhandOffhand;
+        if (h == null) {
+            return false;
+        }
+        try {
+            return (ItemStack) h.invoke(player) != null;
+        } catch (Throwable e) {
+            return false;
+        }
     }
 
     private static BedrockAnimations.Clip armClip(RodModelDef rod, BedrockAnimations arm, String state) {

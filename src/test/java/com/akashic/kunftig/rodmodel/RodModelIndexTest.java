@@ -46,6 +46,8 @@ class RodModelIndexTest {
         assertEquals(3, rod.ticksPerFrame);
         assertTrue(rod.states.get("parada").loop);
         assertFalse(rod.states.get("lancar").loop);
+        assertTrue(rod.states.get("briga").twoHands);
+        assertFalse(rod.states.get("parada").twoHands, "sem duas_maos: uma mão");
         assertEquals("animation.vara-solar.aura_briga", rod.states.get("briga").aura);
         assertNull(rod.states.get("sacar").aura);
         assertNull(rod.states.get("sacar").arm);

@@ -32,7 +32,7 @@ Sem GeckoLib, sem o pack, com o modelo quebrado ou com `-Dkunftig.rodModels.disa
 | Desenho | `client/rodmodel/gecko/*` | `IItemRenderer` da vara vanilla, por cima de qualquer outro já registrado (que continua com as varas sem modelo 3D); a mão secundária do Backhand fica com o ícone 2D |
 | Posições | `rodmodel/RodDisplays` | desfaz as transformações que o 1.7.10 e o Forge aplicam a um item plano e aplica o `display` do manifesto no referencial das prévias |
 | Linha | mixin em `RenderFish` | a linha sai do locator `linha` (capturado no osso `ponta`) na cor de `cor_da_linha` |
-| Braço | mixin em `ModelBiped.setRotationAngles` | soma a rotação do braço do estado (o levantar de item do vanilla, −18°, sai: as animações já seguram a vara à frente) |
+| Braço | mixin em `ModelBiped.setRotationAngles` | soma a rotação do braço do estado (o levantar de item do vanilla, −18°, sai: as animações já seguram a vara à frente); com a mão esquerda livre (vanilla e Backhand), também `braco_esquerdo`, e nos estados `duas_maos` o balanço de andar sai dos dois braços para as mãos não largarem a vara |
 | Graveto | mixin em `RenderPlayer.renderEquippedItems` | com a linha fora, o 1.7.10 desenha um graveto em terceira pessoa; a vara 3D fica (esconde a própria linha pendurada) |
 
 Cuidados com o GeckoLib 1.0.4 (lidos no código do commit `9af9be1`, conferidos no jogo e tratados aqui):
@@ -73,9 +73,9 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | Campo | Obrigatório | O quê |
 |---|---|---|
 | `geo`, `animacoes`, `textura` | sim | geometria, animações e textura do estágio 0 |
-| `braco` | não | animações do braço (osso `braco_direito`); sem ele, o braço fica como no vanilla |
+| `braco` | não | animações dos braços (ossos `braco_direito` e, opcional, `braco_esquerdo`); sem ele, os braços ficam como no vanilla. O esquerdo só se mexe com a mão esquerda livre (sem item do vanilla nem da mão secundária do Backhand) |
 | `texturas_mutacao` | não | estágio → textura, ou lista de quadros (troca a cada `ticks_por_quadro`, padrão 3); um estágio sem entrada usa o de baixo |
-| `estados` | sim, com `parada` | estado → `vara` (controlador "vara", obrigatório), `aura` (controlador "aura"), `braco`, `laco` |
+| `estados` | sim, com `parada` | estado → `vara` (controlador "vara", obrigatório), `aura` (controlador "aura"), `braco`, `laco`, `duas_maos` (as duas mãos na vara: o balanço de andar sai dos braços; padrão `false`) |
 | `luz`, `translucido` | não | ossos com brilho máximo / desenhados depois, sem escrever profundidade (por osso, sem herança) |
 | `mutacao` | não | estágio → ossos que só aparecem a partir dele (esconder um osso esconde os filhos) |
 | `ponta_da_linha` | não | `osso` e `posicao` (repouso, pixels) de onde a linha sai; sem ele, a linha do vanilla |
@@ -139,6 +139,8 @@ Cadente no chão; as quatro qualidades (normal, prata, ouro, irídio), cada uma 
 * Primeira pessoa igual à prévia (`vara-solar-primeira-pessoa.gif`, quadro de `parada`): ponta em (0,64; 0,50) da tela
   contra (0,65; 0,49) na prévia.
 * Terceira pessoa de perfil (outro jogador) igual à prévia de ação em `parada`, `briga` e `captura`, com o braço.
+* **A verificar**: as duas mãos (`braco_esquerdo`) em `mordida`, `briga` e `recolher`, parado e andando; com um item
+  na mão secundária do Backhand, o braço esquerdo fica como no vanilla.
 * A linha sai da ponta em primeira e terceira pessoa, na cor do estágio; a linha pendurada some com a boia fora; em
   terceira pessoa a vara não vira graveto.
 * Estágio 6 (texturas animadas e coroa), véu translúcido do estágio 4, moldura (diagonal) e chão.

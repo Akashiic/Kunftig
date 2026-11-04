@@ -265,7 +265,10 @@ public final class RodModelIndex {
             String aura = text(s, "aura", false, "estados." + name);
             String armClip = text(s, "braco", false, "estados." + name);
             Object loop = s.get("laco");
-            states.put(name, new RodModelDef.Clips(rod, aura, armClip, Boolean.TRUE.equals(loop)));
+            Object twoHands = s.get("duas_maos");
+            states.put(
+                name,
+                new RodModelDef.Clips(rod, aura, armClip, Boolean.TRUE.equals(loop), Boolean.TRUE.equals(twoHands)));
         }
         if (!states.containsKey(RodModelDef.IDLE)) {
             throw new Invalid("estados needs \"" + RodModelDef.IDLE + "\"");

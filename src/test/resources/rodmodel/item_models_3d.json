@@ -20,7 +20,7 @@
       "estados": {
         "parada": { "vara": "animation.vara-solar.parada", "aura": "animation.vara-solar.aura", "braco": "animation.braco.parada", "laco": true },
         "lancar": { "vara": "animation.vara-solar.lancar", "aura": "animation.vara-solar.aura", "braco": "animation.braco.lancar", "laco": false },
-        "briga": { "vara": "animation.vara-solar.briga", "aura": "animation.vara-solar.aura_briga", "braco": "animation.braco.briga", "laco": true, "quando": "o minigame" },
+        "briga": { "vara": "animation.vara-solar.briga", "aura": "animation.vara-solar.aura_briga", "braco": "animation.braco.briga", "laco": true, "duas_maos": true, "quando": "o minigame" },
         "sacar": { "vara": "animation.vara-solar.sacar", "laco": false }
       },
       "controladores": { "vara": ["vara", "linha"], "aura": ["raios", "m4_aura_1"] },
