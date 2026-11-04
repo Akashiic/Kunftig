@@ -28,6 +28,8 @@ dependencies {
     // jar of the TEOF modpack: draws the 3D fishing rods (issue #13). Compile-only and optional at runtime: the classes
     // that touch it live in client.rodmodel.gecko and load only when the mod "geckolib3" is present.
     compileOnly(rfg.deobf("curse.maven:geckolib-unofficial-1-7-10-989311:7074949"))
+    // In ./gradlew runClient too, to see the rods (never in the published jar or its POM).
+    runtimeOnlyNonPublishable(rfg.deobf("curse.maven:geckolib-unofficial-1-7-10-989311:7074949"))
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")

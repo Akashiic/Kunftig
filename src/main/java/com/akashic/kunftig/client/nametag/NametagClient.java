@@ -88,9 +88,18 @@ public final class NametagClient {
             KnpProtocol.MIN_VERSION,
             KnpProtocol.VERSION,
             capabilities,
-            Kunftig.NAME + "/" + Tags.VERSION);
+            clientVersion());
         handler.addToSendQueue(new C17PacketCustomPayload(KnpProtocol.CHANNEL, KnpCodec.encode(hello)));
         debug("-> {}", hello);
+    }
+
+    /**
+     * {@code Kunftig/<version>}, cut to what the protocol carries: a local build of a long branch has a long version
+     * ({@code <sha>-<branch>+<sha>-dirty}) and writing it whole threw on every join.
+     */
+    static String clientVersion() {
+        String v = Kunftig.NAME + "/" + Tags.VERSION;
+        return v.length() > KnpProtocol.MAX_VERSION_STRING ? v.substring(0, KnpProtocol.MAX_VERSION_STRING) : v;
     }
 
     /**

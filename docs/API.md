@@ -77,6 +77,7 @@ public void onEnable() {
 | `...api.bukkit.persistence` | `KunftigItems.setModel`/`getModel` (ícone do item por NBT) | `CustomModelData` (1.14+) e `item_model` (1.21.4+) | 4 |
 | `...api.bukkit.fishing`, `...api.bukkit.player` | `ModernFishHook#setReelLocked`, `setCatchAimedAtAngler`; `KunftigPlayers.isHotbarSwitch` | — | 5 |
 | `...api.bukkit.hologram` | `KunftigHolograms`, `Hologram` (texto flutuante no mundo) | `TextDisplay` (1.19.4+) | 6 |
+| `...api.bukkit.rod` | `KunftigRods` (estado da vara 3D: mordida, briga com tensão, captura...) | — | 7 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -329,3 +330,35 @@ if (KunftigApi.apiVersion() >= 6 && KunftigApi.isHologramsAvailable()) {
 * Os hologramas **não sobrevivem** a um reinício: o plugin cria de novo no `onEnable` os que devem ficar.
 * Thread principal. `-Dkunftig.holograms.disable=true` desliga tudo (servidor e cliente).
 
+## 12. Varas 3D: o estado da vara para quem vê (API 7)
+
+Clientes com Kunftig **e** GeckoLib (o do TEOF, `geckolib-unofficial-1.7.10-1.0.4`) desenham em 3D as varas que o
+resource pack declara em `assets/<namespace>/kunftig/item_models_3d.json`, animadas, na mão (primeira e terceira
+pessoa), no chão e na moldura, com a linha saindo da ponta e o braço acompanhando. O item é o mesmo do ícone 2D
+(seção 9): `KunftigItems.setModel(item, new NamespacedKey(plugin, "vara/vara-solar.ouro.m3"))` usa o modelo 3D
+`vara/vara-solar`, qualidade `ouro`, estágio de mutação 3. No inventário fica o ícone 2D. Formato do manifesto,
+detalhes e testes: [rodmodels/README.md](rodmodels/README.md).
+
+O cliente sabe sozinho quando a vara vai para a mão (`sacar`), quando a linha sai (`lancar`) e quando volta
+(`parada`). O resto só o servidor sabe:
+
+```java
+if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
+    KunftigRods.setState(player, KunftigRods.BITE);    // no KunftigFishEvent BITE
+    KunftigRods.setState(player, KunftigRods.FIGHT);   // o minigame começou...
+    KunftigRods.setTension(player, tensao);            // ...a cada tick dele, de 0 a 1 (a vara verga)
+    KunftigRods.setState(player, KunftigRods.CATCH);   // venceu; ou IDLE se o peixe escapou
+}
+```
+
+* Estados: `IDLE` (`parada`), `BITE` (`mordida`), `FIGHT` (`briga`), `REEL` (`recolher`), `CATCH` (`captura`), ou
+  qualquer outro nome que o pack declare em `estados` (`a-z`, `0-9`, `_`, até 32). Os que não são laço tocam uma vez e
+  voltam a `parada`; o mesmo estado de novo recomeça (uma segunda mordida). Vale o evento mais recente: do servidor
+  ou do próprio cliente (trocar de item, lançar, a linha voltar).
+* O jogador e quem estiver a até 96 blocos no mesmo mundo, com Kunftig, recebem; quem chega depois recebe o estado já
+  andando (no ponto certo da animação). A tensão vai no máximo uma vez por tick, em centésimos, só quando muda: pode
+  chamar `setTension` em todo tick do minigame.
+* Canal `kunftig:rod` (mensagem crua, como `kunftig:holo`). Sem Kunftig, sem GeckoLib ou sem o pack, o jogador vê a
+  vara 2D de sempre e nada quebra.
+* Thread principal. `KunftigRods.drawsRodModels(player)` diz se o cliente desenha varas 3D.
+  `-Dkunftig.rodModels.disable=true` no cliente desliga as varas 3D (ícone 2D).

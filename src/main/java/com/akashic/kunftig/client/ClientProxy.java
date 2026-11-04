@@ -53,12 +53,26 @@ public final class ClientProxy extends CommonProxy {
         RgbSupport.refresh();
     }
 
+    @Override
+    public void postInit(FMLPostInitializationEvent event) {
+        installRodModels();
+        if (new java.io.File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").isFile()) {
+            try {
+                // Development only: the class is absent from release jars.
+                Class.forName("com.akashic.kunftig.dev.RodRenderHarness")
+                    .getMethod("install")
+                    .invoke(null);
+            } catch (ReflectiveOperationException | LinkageError e) {
+                Kunftig.LOG.error("Kunftig: rod harness unavailable", e);
+            }
+        }
+    }
+
     /**
      * 3D rods (issue #13): GeckoLib's side only when GeckoLib is loaded, reflectively, so that no GeckoLib class is
      * touched without it; after the other mods' init, to keep any fishing rod renderer they registered.
      */
-    @Override
-    public void postInit(FMLPostInitializationEvent event) {
+    private static void installRodModels() {
         if (RodModels.disabled()) {
             Kunftig.LOG.warn("Kunftig 3D rods disabled by -Dkunftig.rodModels.disable=true");
             return;

@@ -195,7 +195,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         index = read;
         animations = anims;
-        timelines.clear(); // states refer to the old rods
+        forgetAll(); // states and keys refer to the old rods
         if (!read.isEmpty()) {
             Kunftig.LOG.info(
                 "Kunftig 3D rods: {} rod(s) read{}",
@@ -401,10 +401,14 @@ public final class RodModels implements IResourceManagerReloadListener {
     // ----------------------------------------------------------------------------------------------------------------
     // Network
 
-    /** At the end of {@code handleJoinGame}: a new connection, so new entities; and ask for rod states. */
+    /**
+     * At the end of {@code handleJoinGame}: a new connection, so new entities; and ask for rod states. Whenever
+     * GeckoLib
+     * can draw, even before any pack declares a rod: a server's resource pack arrives after the join.
+     */
     public void onJoinGame(NetHandlerPlayClient handler) {
         forgetAll();
-        if (active()) {
+        if (installed) {
             handler.addToSendQueue(
                 new C17PacketCustomPayload("REGISTER", RodWire.CHANNEL.getBytes(StandardCharsets.UTF_8)));
         }
@@ -438,8 +442,8 @@ public final class RodModels implements IResourceManagerReloadListener {
      */
     public float[] armRotation(EntityPlayer player) {
         RodModelIndex.Resolved r = resolve(player.getHeldItem());
-        if (r == null || r.model.arm == null) {
-            return null;
+        if (r == null || r.model.arm == null || !r.model.drawsIn(RodModelDef.THIRD_PERSON)) {
+            return null; // no arm pose, or the rod stays flat in third person
         }
         RodTimeline t = timelines.get(player.getEntityId());
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();

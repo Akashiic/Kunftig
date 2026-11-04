@@ -61,6 +61,16 @@ item with an icon from the resource pack (listed in `assets/<namespace>/kunftig/
 hand, on the ground and in item frames, on clients with Kunftig; other clients see the base item's icon. See
 [docs/API.md](docs/API.md), section 9 (Portuguese).
 
+## Feature 6: animated 3D fishing rods (client + server)
+
+With **GeckoLib Unofficial 1.0.4** on the client (the TEOF modpack's), the rods a resource pack declares in
+`assets/<namespace>/kunftig/item_models_3d.json` are drawn as animated Bedrock models in hand (first and third
+person), on the ground and in item frames, with mutation stages, glowing and translucent parts, the fishing line
+leaving the tip and the arm following each state. Plugins send what only the server knows (bite, fight with tension,
+catch) through `KunftigRods` (API 7). Without GeckoLib or the pack, or with `-Dkunftig.rodModels.disable=true`, rods
+keep their 2D icons. See [docs/rodmodels/README.md](docs/rodmodels/README.md) and [docs/API.md](docs/API.md),
+section 12 (Portuguese).
+
 ## Repository layout
 
 | Path | Contents |

@@ -52,6 +52,15 @@ item aparecer com um ícone do resource pack (listado em `assets/<namespace>/kun
 na mão, no chão e em molduras, para clientes com o Kunftig; os demais veem o ícone do item base. Veja
 [docs/API.md](docs/API.md), seção 9.
 
+## Recurso 6: varas de pesca 3D animadas (cliente + servidor)
+
+Com o **GeckoLib Unofficial 1.0.4** no cliente (o do TEOF), as varas que o resource pack declara em
+`assets/<namespace>/kunftig/item_models_3d.json` aparecem em 3D (modelos Bedrock), animadas, na mão (primeira e
+terceira pessoa), no chão e na moldura: mutações por estágio, brilho e translucidez, a linha saindo da ponta e o braço
+acompanhando cada estado. O plugin informa o que só o servidor sabe (mordida, briga com tensão, captura) por
+`KunftigRods` (API 7). Sem GeckoLib, sem o pack ou com `-Dkunftig.rodModels.disable=true`, fica o ícone 2D. Veja
+[docs/rodmodels/README.md](docs/rodmodels/README.md) e [docs/API.md](docs/API.md), seção 12.
+
 **Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
 [docs/API.md](docs/API.md).
 
@@ -96,8 +105,9 @@ reportar: [docs/upstream/playercontainerfix-early-bukkit-load.md](docs/upstream/
 ## Kill-switches do cliente
 
 `-Dkunftig.nametag.disable=true`, `-Dkunftig.nametag.visibility.disable=true`, `-Dkunftig.particles.disable=true`,
-`-Dkunftig.itemModels.disable=true`; configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
-`/kunftigclient` (no cliente) diz se o protocolo de nametags está ativo no servidor.
+`-Dkunftig.itemModels.disable=true`, `-Dkunftig.rodModels.disable=true` (varas 3D); configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
+`/kunftigclient` (no cliente) diz se o protocolo de nametags está ativo no servidor; `/kunftigclient rods` mostra o
+estado das varas 3D e ajuda a ajustá-las no jogo.
 
 ## Compilar
 

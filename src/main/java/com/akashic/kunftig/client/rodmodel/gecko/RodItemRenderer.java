@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.ItemRenderer;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -32,11 +33,15 @@ import com.akashic.kunftig.rodmodel.RodModelDef;
 import com.akashic.kunftig.rodmodel.RodModelIndex;
 import com.akashic.kunftig.rodmodel.RodTimeline;
 
+import software.bernie.geckolib3.file.AnimationFileLoader;
+import software.bernie.geckolib3.file.GeoModelLoader;
 import software.bernie.geckolib3.geo.render.built.GeoBone;
 import software.bernie.geckolib3.geo.render.built.GeoCube;
 import software.bernie.geckolib3.geo.render.built.GeoModel;
 import software.bernie.geckolib3.model.provider.GeoModelProvider;
+import software.bernie.geckolib3.molang.MolangRegistrar;
 import software.bernie.geckolib3.renderers.geo.IGeoRenderer;
+import software.bernie.geckolib3.resource.GeckoLibCache;
 
 /**
  * Draws the fishing rods that have a 3D model (issue #13) in the hand (first and third person), on the ground and in
@@ -214,6 +219,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         RodModels models = RodModels.INSTANCE;
         RodModelDef def = r.model;
         RodAnimatable rod = rod(def);
+        loadIntoGecko(rod.model);
         GeoModel model = rod.model.getModel(rod.model.geo); // also registers the bones for animation
 
         EntityPlayer player = holder instanceof EntityPlayer ? (EntityPlayer) holder : null;
@@ -229,7 +235,8 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         RodModelDef.Display display = models.display(def, context);
         RodMatrix transform;
         if (RodModelDef.FIRST_PERSON.equals(context)) {
-            transform = RodDisplays.firstPerson(display, def.grip, holder.getSwingProgress(models.partialTicks()));
+            float swing = holder == null ? 0 : holder.getSwingProgress(models.partialTicks());
+            transform = RodDisplays.firstPerson(display, def.grip, swing);
         } else if (RodModelDef.THIRD_PERSON.equals(context)) {
             transform = RodDisplays.thirdPerson(display, def.grip);
         } else {
@@ -264,6 +271,34 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             current = null;
             tipBone = null;
             GL11.glPopMatrix();
+        }
+    }
+
+    /**
+     * Puts the rod's geometry and animations in GeckoLib's cache. GeckoLib 1.0.4 only scans the packs FML lists at
+     * start-up (vanilla's and the mods'), never the resource packs a player or a server selects, where the rods come
+     * from; read through the resource manager, they come from whichever pack has them. Checked on every draw: each
+     * resource reload gives GeckoLib new maps.
+     */
+    private static void loadIntoGecko(RodGeoModel model) {
+        GeckoLibCache cache = GeckoLibCache.getInstance();
+        IResourceManager resources = Minecraft.getMinecraft()
+            .getResourceManager();
+        if (!cache.getGeoModels()
+            .containsKey(model.geo)) {
+            cache.getGeoModels()
+                .put(
+                    model.geo,
+                    GeoModelLoader.getInstance()
+                        .loadModel(resources, model.geo));
+        }
+        if (!cache.getAnimations()
+            .containsKey(model.animations)) {
+            cache.getAnimations()
+                .put(
+                    model.animations,
+                    AnimationFileLoader.getInstance()
+                        .loadAllAnimations(MolangRegistrar.getParser(), model.animations, resources));
         }
     }
 
