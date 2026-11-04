@@ -80,6 +80,12 @@ class RodPackCheckTest {
         if (rod.tipBone != null) {
             named.add(rod.tipBone);
         }
+        if (rod.sway != null) {
+            if (rod.sway.pivot != null) {
+                named.add(rod.sway.pivot);
+            }
+            named.addAll(rod.sway.bend);
+        }
         for (String bone : named) {
             if (!bones.contains(bone)) {
                 problems.add(p + "bone '" + bone + "' is not in " + rod.geo);
