@@ -79,6 +79,19 @@ public final class RodRenderHarness {
 
     /** Called reflectively by the client proxy when the trigger file exists. */
     public static void install() {
+        // "server <host> <port>" in the trigger file: the server mode (RodServerHarness)
+        try {
+            String[] mode = new String(
+                Files.readAllBytes(new File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").toPath()),
+                StandardCharsets.UTF_8).trim()
+                    .split("\\s+");
+            if (mode.length == 3 && mode[0].equals("server")) {
+                RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
+                return;
+            }
+        } catch (IOException | NumberFormatException e) {
+            Kunftig.LOG.warn("Kunftig rod harness: unreadable trigger file, running the render harness", e);
+        }
         RodRenderHarness h = new RodRenderHarness();
         h.plan();
         FMLCommonHandler.instance()
