@@ -36,6 +36,8 @@ public final class RodModelIndex {
     private static final Pattern BONE = Pattern.compile("[^\\s]{1,64}");
     private static final Pattern STATE = Pattern.compile("[a-z0-9_]{1,32}");
     private static final Pattern COLOR = Pattern.compile("#?[0-9a-fA-F]{6}");
+    private static final Pattern ITEM = Pattern.compile("[a-zA-Z0-9_.-]+:[a-zA-Z0-9_./-]+");
+    private static final Pattern DATA_KEY = Pattern.compile("[a-z0-9._-]+:[a-z0-9/._-]+");
     private static final int MAX_DEPTH = 10;
     private static final int MAX_STAGE = 99;
     private static final int RESOLVE_CACHE = 512;
@@ -86,6 +88,10 @@ public final class RodModelIndex {
                 "pega",
                 "display",
                 "contextos",
+                "itens",
+                "tamanho",
+                "faixas",
+                "texturas_qualidade",
                 "nome",
                 "controladores",
                 "molang")));
@@ -266,7 +272,9 @@ public final class RodModelIndex {
                 throw new Invalid("invalid state '" + name + "' (a-z 0-9 _, with an object)");
             }
             Map<?, ?> s = (Map<?, ?>) e.getValue();
-            String rod = text(s, "vara", true, "estados." + name);
+            // "modelo" says the same as "vara" for a model that is not a rod (a fish): the model's own animation
+            String rod = s.containsKey("modelo") && !s.containsKey("vara") ? text(s, "modelo", true, "estados." + name)
+                : text(s, "vara", true, "estados." + name);
             String aura = text(s, "aura", false, "estados." + name);
             String armClip = text(s, "braco", false, "estados." + name);
             Object loop = s.get("laco");
@@ -343,24 +351,7 @@ public final class RodModelIndex {
             transitions.put(String.valueOf(e.getKey()), ((Double) v).intValue());
         }
 
-        Map<String, RodModelDef.Display> displays = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> e : object(o, "display").entrySet()) {
-            String context = String.valueOf(e.getKey());
-            if (!(e.getValue() instanceof Map)) {
-                throw new Invalid("display." + context + " must be an object");
-            }
-            Map<?, ?> d = (Map<?, ?>) e.getValue();
-            float[] rotation = d.containsKey("rotation") ? vector(d.get("rotation"), "display." + context + ".rotation")
-                : new float[3];
-            float[] translation = d.containsKey("translation")
-                ? vector(d.get("translation"), "display." + context + ".translation")
-                : new float[3];
-            float scale = (float) number(d, "scale", 1);
-            if (!(scale > 0)) {
-                throw new Invalid("display." + context + ".scale must be above 0");
-            }
-            displays.put(context, new RodModelDef.Display(rotation, translation, scale));
-        }
+        Map<String, RodModelDef.Display> displays = displays(object(o, "display"), "display");
         Set<String> contexts = o.containsKey("contextos") ? bones(o, "contextos")
             : new LinkedHashSet<>(displays.keySet());
 
@@ -394,6 +385,112 @@ public final class RodModelIndex {
             hangingLine = new RodModelDef.HangingLine((String) bone, length);
         }
 
+        List<String> items = new ArrayList<>();
+        if (o.containsKey("itens")) {
+            Object list = o.get("itens");
+            if (!(list instanceof List) || ((List<?>) list).isEmpty()) {
+                throw new Invalid("itens must be a list of item names like \"minecraft:fish\"");
+            }
+            for (Object item : (List<?>) list) {
+                if (!(item instanceof String) || !ITEM.matcher((String) item)
+                    .matches()) {
+                    throw new Invalid("itens: invalid item '" + item + "' (namespace:name)");
+                }
+                items.add((String) item);
+            }
+        } else {
+            items.addAll(RodModelDef.DEFAULT_ITEMS);
+        }
+
+        RodModelDef.Size size = null;
+        if (o.containsKey("tamanho")) {
+            Map<?, ?> t = object(o, "tamanho");
+            Object key = t.get("chave");
+            if (!(key instanceof String) || !DATA_KEY.matcher((String) key)
+                .matches()) {
+                throw new Invalid("tamanho.chave must be a key of the item's data like \"akashicfishing:tamanho-cm\"");
+            }
+            double units = number(t, "unidades_por_bloco", 1);
+            double length = number(t, "comprimento", 16);
+            double min = number(t, "minimo", 0.05);
+            double max = number(t, "maximo", 64);
+            if (!(units > 0) || !(length > 0) || !(min > 0) || !(max >= min) || max > 64) {
+                throw new Invalid(
+                    "tamanho: unidades_por_bloco and comprimento above 0, 0 < minimo <= maximo <= 64 (blocks)");
+            }
+            size = new RodModelDef.Size((String) key, units, (float) length, min, max, number(t, "padrao", units));
+        }
+
+        List<RodModelDef.Band> bands = new ArrayList<>();
+        if (o.containsKey("faixas")) {
+            if (size == null) {
+                throw new Invalid("faixas needs tamanho (the size the bands are of)");
+            }
+            Object list = o.get("faixas");
+            if (!(list instanceof List) || ((List<?>) list).isEmpty()) {
+                throw new Invalid("faixas must be a list of bands, smallest first");
+            }
+            List<?> raw = (List<?>) list;
+            double last = Double.NEGATIVE_INFINITY;
+            for (int i = 0; i < raw.size(); i++) {
+                String where = "faixas[" + i + "]";
+                if (!(raw.get(i) instanceof Map)) {
+                    throw new Invalid(where + " must be an object");
+                }
+                Map<?, ?> f = (Map<?, ?>) raw.get(i);
+                boolean lastBand = i == raw.size() - 1;
+                double upTo;
+                if (f.containsKey("ate")) {
+                    upTo = number(f, "ate", 0);
+                    if (!(upTo > last)) {
+                        throw new Invalid(where + ".ate must grow from band to band");
+                    }
+                } else if (lastBand) {
+                    upTo = Double.POSITIVE_INFINITY;
+                } else {
+                    throw new Invalid(where + " needs \"ate\" (only the last band has no limit)");
+                }
+                last = upTo;
+                Map<String, String> bandStates = new LinkedHashMap<>();
+                for (Map.Entry<?, ?> e : object(f, "estados").entrySet()) {
+                    String from = String.valueOf(e.getKey());
+                    Object to = e.getValue();
+                    if (!(to instanceof String) || !states.containsKey(to)) {
+                        throw new Invalid(where + ".estados." + from + " must name a state of estados");
+                    }
+                    bandStates.put(from, (String) to);
+                }
+                Object name = f.get("nome");
+                bands.add(
+                    new RodModelDef.Band(
+                        name instanceof String ? (String) name : "faixa " + i,
+                        upTo,
+                        bandStates,
+                        displays(object(f, "display"), where + ".display")));
+            }
+        }
+
+        Map<String, List<String>> qualityTextures = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : object(o, "texturas_qualidade").entrySet()) {
+            String quality = String.valueOf(e.getKey());
+            if (!STATE.matcher(quality)
+                .matches()) {
+                throw new Invalid("texturas_qualidade: invalid quality '" + quality + "'");
+            }
+            List<String> frames = new ArrayList<>();
+            if (e.getValue() instanceof List) {
+                for (Object f : (List<?>) e.getValue()) {
+                    frames.add(location(ns, f, "texturas_qualidade." + quality));
+                }
+            } else {
+                frames.add(location(ns, e.getValue(), "texturas_qualidade." + quality));
+            }
+            if (frames.isEmpty()) {
+                throw new Invalid("texturas_qualidade." + quality + " has no texture");
+            }
+            qualityTextures.put(quality, Collections.unmodifiableList(frames));
+        }
+
         return new RodModelDef(
             id,
             geo,
@@ -416,7 +513,33 @@ public final class RodModelIndex {
             qualityBones,
             transitions,
             sway,
-            hangingLine);
+            hangingLine,
+            items,
+            size,
+            bands,
+            qualityTextures);
+    }
+
+    private static Map<String, RodModelDef.Display> displays(Map<?, ?> o, String field) throws Invalid {
+        Map<String, RodModelDef.Display> displays = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : o.entrySet()) {
+            String context = String.valueOf(e.getKey());
+            String where = field + "." + context;
+            if (!(e.getValue() instanceof Map)) {
+                throw new Invalid(where + " must be an object");
+            }
+            Map<?, ?> d = (Map<?, ?>) e.getValue();
+            float[] rotation = d.containsKey("rotation") ? vector(d.get("rotation"), where + ".rotation")
+                : new float[3];
+            float[] translation = d.containsKey("translation") ? vector(d.get("translation"), where + ".translation")
+                : new float[3];
+            float scale = (float) number(d, "scale", 1);
+            if (!(scale > 0)) {
+                throw new Invalid(where + ".scale must be above 0");
+            }
+            displays.put(context, new RodModelDef.Display(rotation, translation, scale));
+        }
+        return displays;
     }
 
     private static Map<?, ?> object(Map<?, ?> o, String field) throws Invalid {

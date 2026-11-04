@@ -38,11 +38,29 @@ public final class RodDisplays {
      * around ({@code ItemFishingRod}) after the arm's {@code postRender}, Forge's part included.
      */
     static RodMatrix thirdPersonChain() {
-        return RodMatrix.identity()
-            .translate(-0.0625F, 0.4375F, 0.0625F)
-            .rotateZ(180)
-            .translate(0, -0.125F, 0)
-            .translate(0, 0.1875F, 0)
+        return thirdPersonChain(true, true);
+    }
+
+    /**
+     * {@link #thirdPersonChain()} for any item: full-3D ({@code Item#isFull3D}, rotating around or not) or flat (a
+     * fish: scaled 0.375 and turned 60, -90, 20 degrees).
+     */
+    static RodMatrix thirdPersonChain(boolean full3D, boolean rotatesAround) {
+        RodMatrix m = RodMatrix.identity()
+            .translate(-0.0625F, 0.4375F, 0.0625F);
+        if (!full3D) {
+            m = m.translate(0.25F, 0.1875F, -0.1875F)
+                .scale(0.375F, 0.375F, 0.375F)
+                .rotateZ(60)
+                .rotateX(-90)
+                .rotateZ(20);
+            return m.multiply(forgeEquipped());
+        }
+        if (rotatesAround) {
+            m = m.rotateZ(180)
+                .translate(0, -0.125F, 0);
+        }
+        return m.translate(0, 0.1875F, 0)
             .scale(0.625F, -0.625F, 0.625F)
             .rotateX(-100)
             .rotateY(45)
@@ -71,6 +89,14 @@ public final class RodDisplays {
      * @param swing the player's swing progress ({@code getSwingProgress(partialTicks)}), whose rotations are undone
      */
     public static RodMatrix firstPerson(RodModelDef.Display d, float[] grip, float swing) {
+        return firstPerson(d, grip, swing, true);
+    }
+
+    /**
+     * {@link #firstPerson(RodModelDef.Display, float[], float)} for any item: vanilla turns an item that rotates around
+     * ({@code Item#shouldRotateAroundWhenRendering}, the fishing rod) by 180 degrees, and no other.
+     */
+    public static RodMatrix firstPerson(RodModelDef.Display d, float[] grip, float swing, boolean rotatesAround) {
         float f6 = (float) Math.sin(swing * swing * Math.PI);
         float f7 = (float) Math.sin(Math.sqrt(swing) * Math.PI);
         // ItemRenderer#renderItemInFirstPerson after translate(0.56, -0.52 - equip, -0.72):
@@ -80,9 +106,11 @@ public final class RodDisplays {
             .rotateY(-f6 * 20)
             .rotateZ(-f7 * 20)
             .rotateX(-f7 * 80)
-            .scale(0.4F, 0.4F, 0.4F)
-            .rotateY(180)
-            .multiply(forgeEquipped());
+            .scale(0.4F, 0.4F, 0.4F);
+        if (rotatesAround) {
+            applied = applied.rotateY(180);
+        }
+        applied = applied.multiply(forgeEquipped());
         return applied.inverse()
             .translate(-0.56F, 0.52F, 0.72F)
             .multiply(display(d, grip, 0, 0));
@@ -94,7 +122,12 @@ public final class RodDisplays {
      * down.
      */
     public static RodMatrix thirdPerson(RodModelDef.Display d, float[] grip) {
-        return thirdPersonChain().inverse()
+        return thirdPerson(d, grip, true, true);
+    }
+
+    /** {@link #thirdPerson(RodModelDef.Display, float[])} for any item ({@link #thirdPersonChain(boolean, boolean)}). */
+    public static RodMatrix thirdPerson(RodModelDef.Display d, float[] grip, boolean full3D, boolean rotatesAround) {
+        return thirdPersonChain(full3D, rotatesAround).inverse()
             .scale(-1, -1, 1)
             .multiply(display(d, grip, PX, -10 * PX));
     }

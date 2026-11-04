@@ -177,7 +177,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             return;
         }
         try {
-            draw(r, context(type), holder);
+            draw(r, context(type), holder, stack);
         } catch (RuntimeException | LinkageError e) {
             broken.add(r.model);
             if (loggedErrors++ < MAX_LOGGED_ERRORS) {
@@ -255,7 +255,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         return a;
     }
 
-    private void draw(RodModelIndex.Resolved r, String context, EntityLivingBase holder) {
+    private void draw(RodModelIndex.Resolved r, String context, EntityLivingBase holder, ItemStack stack) {
         RodModels models = RodModels.INSTANCE;
         RodModelDef def = r.model;
         RodAnimatable rod = rod(def);
@@ -265,7 +265,9 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         EntityPlayer player = holder instanceof EntityPlayer ? (EntityPlayer) holder : null;
         RodTimeline timeline = player != null ? models.timeline(player) : null;
         String state = timeline != null && timeline.state() != null ? timeline.state() : RodModelDef.IDLE;
-        rod.clips = def.clips(state);
+        // A model with size bands (a fish) is held as its size says: its own states and display, scaled to its size.
+        RodModelDef.Band band = RodModels.band(stack, def);
+        rod.clips = def.clips(state, band);
         rod.start = timeline != null ? timeline.start() : 0;
         rod.tension = timeline != null ? timeline.tension() : 0;
         int key = player != null ? models.animationKey(player) : RodModels.SHARED_KEY;
@@ -273,13 +275,21 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         // The hanging line goes while the line is out, except while casting: the cast animation whips it away.
         boolean lineOut = player != null && player.fishEntity != null && !RodModelDef.CAST.equals(state);
 
-        RodModelDef.Display display = models.display(def, context);
+        RodModelDef.Display display = RodModelDef.scaled(models.display(def, context, band),
+            RodModels.sizeScale(stack, def));
         RodMatrix transform;
         if (RodModelDef.FIRST_PERSON.equals(context)) {
             float swing = holder == null ? 0 : holder.getSwingProgress(models.partialTicks());
-            transform = RodDisplays.firstPerson(display, def.grip, swing);
+            transform = RodDisplays.firstPerson(display, def.grip, swing, stack.getItem()
+                .shouldRotateAroundWhenRendering());
         } else if (RodModelDef.THIRD_PERSON.equals(context)) {
-            transform = RodDisplays.thirdPerson(display, def.grip);
+            transform = RodDisplays.thirdPerson(
+                display,
+                def.grip,
+                stack.getItem()
+                    .isFull3D(),
+                stack.getItem()
+                    .shouldRotateAroundWhenRendering());
         } else {
             transform = RodDisplays.entity(display, def.grip);
         }
@@ -291,7 +301,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             glMatrix.flip();
             GL11.glMultMatrix(glMatrix);
 
-            rod.model.texture = models.location(def.textureFor(r.stage, models.clock()));
+            rod.model.texture = models.location(def.textureFor(r.quality, r.stage, models.clock()));
             rod.model.setLivingAnimations(rod, key, null);
             boolean[] used = hide(rod.model.bones(model), def, r.stage, r.quality, lineOut);
 

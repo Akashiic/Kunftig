@@ -80,6 +80,33 @@ class RodDisplaysTest {
     }
 
     @Test
+    void aFlatItemIsUndoneToo() {
+        // A fish (not full 3D, not rotating around) gets other vanilla transforms; the display ends up the same.
+        RodModelDef.Display d = new RodModelDef.Display(new float[] { 0, 90, 30 }, new float[] { 2, -1, 4 }, 1.3F);
+        float[] grip = { 0, 3, 1 };
+        RodMatrix vanilla = RodMatrix.identity()
+            .translate(0.56F, -0.52F, -0.72F)
+            .rotateY(45)
+            .scale(0.4F, 0.4F, 0.4F)
+            .multiply(RodDisplays.forgeEquipped());
+        assertMatrix(RodDisplays.display(d, grip, 0, 0), vanilla.multiply(RodDisplays.firstPerson(d, grip, 0, false)));
+        RodMatrix flatChain = RodMatrix.identity()
+            .translate(-0.0625F, 0.4375F, 0.0625F)
+            .translate(0.25F, 0.1875F, -0.1875F)
+            .scale(0.375F, 0.375F, 0.375F)
+            .rotateZ(60)
+            .rotateX(-90)
+            .rotateZ(20)
+            .multiply(RodDisplays.forgeEquipped());
+        RodMatrix expected = RodMatrix.identity()
+            .scale(-1, -1, 1)
+            .multiply(RodDisplays.display(d, grip, 1 / 16F, -10 / 16F));
+        assertMatrix(expected, flatChain.multiply(RodDisplays.thirdPerson(d, grip, false, false)));
+        // the rod's own chain is unchanged
+        assertMatrix(RodDisplays.thirdPersonChain(), RodDisplays.thirdPersonChain(true, true));
+    }
+
+    @Test
     void theGripLandsOnTheFrameOrigin() {
         // Bedrock grip (0, 4.5, 0) px is GeckoLib (0, 4.5/16, 0): the display brings it to the translation.
         RodModelDef.Display d = new RodModelDef.Display(new float[] { 80, 0, 0 }, new float[] { 16, 8, 0 }, 0.6F);
