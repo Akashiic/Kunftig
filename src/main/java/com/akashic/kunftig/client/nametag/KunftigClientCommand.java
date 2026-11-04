@@ -6,6 +6,8 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.akashic.kunftig.Tags;
+import com.akashic.kunftig.client.rodmodel.RodModelCommand;
+import com.akashic.kunftig.client.rodmodel.RodModels;
 import com.akashic.kunftig.common.protocol.KnpProtocol;
 
 /** {@code /kunftigclient}: client-side diagnostics, so support can tell at once whether the protocol is active. */
@@ -18,7 +20,7 @@ public final class KunftigClientCommand extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/kunftigclient";
+        return "/kunftigclient | " + RodModelCommand.USAGE;
     }
 
     @Override
@@ -33,6 +35,10 @@ public final class KunftigClientCommand extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length > 0 && "rods".equalsIgnoreCase(args[0])) {
+            RodModelCommand.process(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
         int version = NametagClient.negotiatedVersion();
         String session = version == 0 ? EnumChatFormatting.RED + "inactive (this server does not run Kunftig)"
             : EnumChatFormatting.GREEN + "protocol " + version + ", server " + NametagClient.serverVersion();
@@ -50,5 +56,7 @@ public final class KunftigClientCommand extends CommandBase {
                     + NametagClient.styleCount()
                     + " | color mode: "
                     + RgbSupport.current()));
+        sender
+            .addChatMessage(new ChatComponentText(EnumChatFormatting.GRAY + "3D rods: " + RodModels.INSTANCE.status()));
     }
 }

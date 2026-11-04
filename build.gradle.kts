@@ -3,8 +3,12 @@ plugins {
     id("com.gtnewhorizons.gtnhconvention")
 }
 
+// The resource pack for RodPackCheckTest (3D rods, issue #13): ./gradlew :test -ProdPack=<folder with assets/>
+val rodPack: String? = providers.gradleProperty("rodPack").orNull?.let { rootProject.file(it).absolutePath }
+
 tasks.test {
     useJUnitPlatform()
+    rodPack?.let { systemProperty("kunftig.rodPack", it) }
 }
 
 /*
