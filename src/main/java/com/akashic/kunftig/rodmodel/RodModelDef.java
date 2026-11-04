@@ -57,6 +57,23 @@ public final class RodModelDef {
     }
 
     /**
+     * The rod's inertia in first person ({@code balanco}): the bone that swings about the grip (the root, whose pivot
+     * is the grip) and the bones that share the bend, from the grip to the tip.
+     */
+    public static final class Sway {
+
+        public final String pivot;
+        public final List<String> bend;
+        public final float strength;
+
+        public Sway(String pivot, List<String> bend, float strength) {
+            this.pivot = pivot;
+            this.bend = Collections.unmodifiableList(new java.util.ArrayList<>(bend));
+            this.strength = strength;
+        }
+    }
+
+    /**
      * A display transform, in the manifest's convention (that of the previews and Blockbench): after the grip is
      * brought to the origin, scale, rotate (degrees, Bedrock signs, Z then Y then X) and translate (1/16 block).
      */
@@ -125,13 +142,15 @@ public final class RodModelDef {
     public final Map<String, List<String>> qualityBones;
     /** Controller ({@link #ROD_CONTROLLER}, {@link #AURA_CONTROLLER}) to its blend between animations, in ticks. */
     public final Map<String, Integer> transitions;
+    /** May be null: no inertia in first person. */
+    public final Sway sway;
 
     RodModelDef(String id, String geo, String animations, String arm, String texture,
         NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
         Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
         float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
         Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
-        Map<String, Integer> transitions) {
+        Map<String, Integer> transitions, Sway sway) {
         this.id = id;
         this.geo = geo;
         this.animations = animations;
@@ -152,6 +171,7 @@ public final class RodModelDef {
         this.contexts = Collections.unmodifiableSet(contexts);
         this.qualityBones = Collections.unmodifiableMap(qualityBones);
         this.transitions = Collections.unmodifiableMap(transitions);
+        this.sway = sway;
     }
 
     /** The blend of a controller between animations, in ticks (0: none). */

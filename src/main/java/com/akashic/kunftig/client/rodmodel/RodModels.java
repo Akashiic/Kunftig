@@ -36,6 +36,7 @@ import com.akashic.kunftig.rodmodel.BedrockAnimations;
 import com.akashic.kunftig.rodmodel.RodMatrix;
 import com.akashic.kunftig.rodmodel.RodModelDef;
 import com.akashic.kunftig.rodmodel.RodModelIndex;
+import com.akashic.kunftig.rodmodel.RodSway;
 import com.akashic.kunftig.rodmodel.RodTimeline;
 import com.akashic.kunftig.rodmodel.RodWire;
 
@@ -81,6 +82,18 @@ public final class RodModels implements IResourceManagerReloadListener {
     private final Map<Integer, Tip> thirdPersonTips = new HashMap<>();
     private final FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
     private final float[] playerView = new float[16];
+
+    /**
+     * The local player's rod inertia in first person ({@code balanco}); -Dkunftig.rodSway.disable=true turns it off.
+     */
+    private static final boolean SWAY_DISABLED = Boolean.getBoolean("kunftig.rodSway.disable");
+    private final RodSway sway = new RodSway();
+    private RodModelDef swayRod;
+    private float swayYaw;
+    private float swayPitch;
+    private double swayX;
+    private double swayY;
+    private double swayZ;
     private int playerViewEntity = Integer.MIN_VALUE;
     private long clock;
     private long frame;
@@ -348,6 +361,7 @@ public final class RodModels implements IResourceManagerReloadListener {
             }
             t.observe(clock, rod == null ? null : rod.id, p.fishEntity != null, clips(rod));
         }
+        tickSway(mc.thePlayer);
         for (Iterator<Map.Entry<Integer, RodTimeline>> it = timelines.entrySet()
             .iterator(); it.hasNext();) {
             Map.Entry<Integer, RodTimeline> e = it.next();
@@ -357,6 +371,50 @@ public final class RodModels implements IResourceManagerReloadListener {
                 forgetKey(e.getKey());
             }
         }
+    }
+
+    /**
+     * The local player's camera turn and movement this tick drive the rod's inertia. A rod just taken (or another rod)
+     * starts at rest: the first tick only samples.
+     */
+    private void tickSway(EntityPlayer player) {
+        RodModelIndex.Resolved r = player == null || SWAY_DISABLED ? null : resolve(player.getHeldItem());
+        RodModelDef rod = r == null || r.model.sway == null ? null : r.model;
+        if (rod != swayRod) {
+            swayRod = rod;
+            sway.reset();
+        } else if (rod != null) {
+            float yaw = (float) Math.toRadians(player.rotationYaw);
+            double dx = player.posX - swayX;
+            double dz = player.posZ - swayZ;
+            // the camera's right in the world: facing (-sin yaw, 0, cos yaw), right (-cos yaw, 0, -sin yaw)
+            float right = (float) (-Math.cos(yaw) * dx - Math.sin(yaw) * dz);
+            sway.tick(
+                RodSway.turn(player.rotationYaw, swayYaw),
+                player.rotationPitch - swayPitch,
+                right,
+                (float) (player.posY - swayY),
+                rod.sway.strength);
+        }
+        if (player != null) {
+            swayYaw = player.rotationYaw;
+            swayPitch = player.rotationPitch;
+            swayX = player.posX;
+            swayY = player.posY;
+            swayZ = player.posZ;
+        }
+    }
+
+    /**
+     * The first-person inertia of this rod for the frame, or null: {root, bend} rotation vectors in eye space
+     * (radians).
+     */
+    public float[][] firstPersonSway(RodModelDef rod) {
+        if (rod == null || rod != swayRod || sway.resting()) {
+            return null;
+        }
+        float partial = partialTicks();
+        return new float[][] { sway.root(partial), sway.bend(partial) };
     }
 
     private void forgetKey(int entityId) {

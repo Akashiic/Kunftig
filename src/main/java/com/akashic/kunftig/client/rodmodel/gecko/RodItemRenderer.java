@@ -32,6 +32,7 @@ import com.akashic.kunftig.rodmodel.RodDisplays;
 import com.akashic.kunftig.rodmodel.RodMatrix;
 import com.akashic.kunftig.rodmodel.RodModelDef;
 import com.akashic.kunftig.rodmodel.RodModelIndex;
+import com.akashic.kunftig.rodmodel.RodSway;
 import com.akashic.kunftig.rodmodel.RodTimeline;
 
 import software.bernie.geckolib3.file.AnimationFileLoader;
@@ -88,6 +89,12 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     private String tipBone;
     private float[] tipPoint;
     private float[] tipEye;
+    /** First person: the inertia of this frame ({@code balanco}), or null. */
+    private float[] swayRoot;
+    private float[] swayBend;
+    private String swayPivot;
+    private java.util.List<String> swayBones = Collections.emptyList();
+    private final float[] eyeLinear = new float[9];
 
     RodItemRenderer(IItemRenderer previous) {
         this.previous = previous;
@@ -281,7 +288,16 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             tipBone = capture ? def.tipBone : null;
             tipPoint = capture ? RodDisplays.geckoPoint(def.tipRest) : null;
             tipEye = null;
-            if (capture) {
+            float[][] sway = RodModelDef.FIRST_PERSON.equals(context) && player == Minecraft.getMinecraft().thePlayer
+                ? models.firstPersonSway(def)
+                : null;
+            if (sway != null) {
+                swayRoot = sway[0];
+                swayBones = def.sway.bend;
+                swayBend = swayBones.isEmpty() ? null : scaled(sway[1], 1F / swayBones.size());
+                swayPivot = def.sway.pivot;
+            }
+            if (capture || sway != null) {
                 models.readMatrix(GL11.GL_MODELVIEW_MATRIX, modelView);
             }
             Minecraft.getMinecraft().renderEngine.bindTexture(rod.model.texture);
@@ -292,8 +308,44 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         } finally {
             current = null;
             tipBone = null;
+            swayRoot = swayBend = null;
+            swayPivot = null;
+            swayBones = Collections.emptyList();
             GL11.glPopMatrix();
         }
+    }
+
+    private static float[] scaled(float[] v, float f) {
+        return new float[] { v[0] * f, v[1] * f, v[2] * f };
+    }
+
+    /**
+     * The inertia ({@link RodSway}): an eye-space rotation about the bone's pivot, turned into the bone's own frame
+     * through the GL model-view and GeckoLib's matrix so far (mirrored or not), added before the bone's animation.
+     */
+    private void sway(GeoBone bone) {
+        float[] eye = null;
+        if (swayRoot != null && bone.getName()
+            .equals(swayPivot)) {
+            eye = swayRoot;
+        } else if (swayBend != null && swayBones.contains(bone.getName())) {
+            eye = swayBend;
+        }
+        if (eye == null) {
+            return;
+        }
+        javax.vecmath.Matrix4f m = MATRIX_STACK.getModelMatrix();
+        float[] b = { m.m00, m.m01, m.m02, m.m10, m.m11, m.m12, m.m20, m.m21, m.m22 };
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                // GL's model-view is column-major
+                eyeLinear[r * 3 + c] = modelView[r] * b[c] + modelView[4 + r] * b[3 + c] + modelView[8 + r] * b[6 + c];
+            }
+        }
+        float[] local = RodSway.toLocal(eyeLinear, eye);
+        MATRIX_STACK.rotateZ(local[2]);
+        MATRIX_STACK.rotateY(local[1]);
+        MATRIX_STACK.rotateX(local[0]);
     }
 
     /**
@@ -428,6 +480,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         MATRIX_STACK.push();
         MATRIX_STACK.translate(bone);
         MATRIX_STACK.moveToPivot(bone);
+        sway(bone);
         MATRIX_STACK.rotate(bone);
         MATRIX_STACK.scale(bone);
         MATRIX_STACK.moveBackFromPivot(bone);

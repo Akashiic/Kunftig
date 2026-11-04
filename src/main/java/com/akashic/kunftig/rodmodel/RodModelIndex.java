@@ -73,6 +73,7 @@ public final class RodModelIndex {
                 "texturas_mutacao",
                 "ticks_por_quadro",
                 "transicao_ticks",
+                "balanco",
                 "estados",
                 "luz",
                 "translucido",
@@ -348,6 +349,21 @@ public final class RodModelIndex {
         Set<String> contexts = o.containsKey("contextos") ? bones(o, "contextos")
             : new LinkedHashSet<>(displays.keySet());
 
+        RodModelDef.Sway sway = null;
+        if (o.containsKey("balanco")) {
+            Map<?, ?> b = object(o, "balanco");
+            Object pivot = b.get("pivo");
+            if (pivot != null && !(pivot instanceof String && BONE.matcher((String) pivot)
+                .matches())) {
+                throw new Invalid("balanco.pivo must be a bone name");
+            }
+            float strength = (float) number(b, "forca", 1);
+            if (strength < 0 || strength > 3) {
+                throw new Invalid("balanco.forca must be 0 to 3");
+            }
+            sway = new RodModelDef.Sway((String) pivot, new ArrayList<>(bones(b, "curva")), strength);
+        }
+
         return new RodModelDef(
             id,
             geo,
@@ -368,7 +384,8 @@ public final class RodModelIndex {
             displays,
             contexts,
             qualityBones,
-            transitions);
+            transitions,
+            sway);
     }
 
     private static Map<?, ?> object(Map<?, ?> o, String field) throws Invalid {

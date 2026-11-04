@@ -103,6 +103,9 @@ class RodModelIndexTest {
         assertEquals(3, rod.transition(RodModelDef.ROD_CONTROLLER));
         assertEquals(4, rod.transition(RodModelDef.AURA_CONTROLLER));
         assertEquals(0, rod.transition("outro"));
+        assertEquals("vara", rod.sway.pivot);
+        assertEquals(Arrays.asList("segmento1", "segmento2"), rod.sway.bend);
+        assertEquals(0.8F, rod.sway.strength, 1e-6);
         // What the reader does not know is listed, not an error; nome, controladores and molang are known.
         assertEquals(
             1,

@@ -33,6 +33,7 @@ Sem GeckoLib, sem o pack, com o modelo quebrado ou com `-Dkunftig.rodModels.disa
 | Posições | `rodmodel/RodDisplays` | desfaz as transformações que o 1.7.10 e o Forge aplicam a um item plano e aplica o `display` do manifesto no referencial das prévias |
 | Linha | mixin em `RenderFish` | a linha sai do locator `linha` (capturado no osso `ponta`) na cor de `cor_da_linha` |
 | Braço | mixin em `ModelBiped.setRotationAngles` | soma a rotação do braço do estado (o levantar de item do vanilla, −18°, sai: as animações já seguram a vara à frente); com a mão esquerda livre (vanilla e Backhand), também `braco_esquerdo`, e nos estados `duas_maos` o balanço de andar sai dos dois braços para as mãos não largarem a vara |
+| Balanço | `rodmodel/RodSway` (molas amortecidas, testado) + `RodItemRenderer#sway` | primeira pessoa, só o jogador local: o giro da câmera e o passo (lado, cima) de cada tick puxam duas molas por eixo, a vara inteira na pega (`pivo`) e a curva (`curva`, mais solta, para a ponta chicotear); a rotação, no espaço do olho, é levada ao referencial de cada osso pela matriz do GL e do GeckoLib (espelhado ou não). Soma ao balanço do vanilla, que continua |
 | Graveto | mixin em `RenderPlayer.renderEquippedItems` | com a linha fora, o 1.7.10 desenha um graveto em terceira pessoa; a vara 3D fica (esconde a própria linha pendurada) |
 
 Cuidados com o GeckoLib 1.0.4 (lidos no código do commit `9af9be1`, conferidos no jogo e tratados aqui):
@@ -86,6 +87,7 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | `pega` | não | o ponto do modelo que vai para a mão (pixels) |
 | `display` | sim, por contexto | `rotation` (graus, sinais do Bedrock), `translation` (pixels), `scale`, aplicados depois de levar a `pega` à origem |
 | `contextos` | não | onde desenhar em 3D (padrão: os de `display`) |
+| `balanco` | não | a inércia em primeira pessoa: `pivo` (o osso que gira na pega, a raiz), `curva` (os ossos que dividem a curvatura, do cabo à ponta) e `forca` (0 a 3, padrão 1). Sem ele, só o balanço do vanilla |
 
 `nome`, `controladores`, `molang` e `quando` são para pessoas e ferramentas, e chaves com `_` são comentários. Outro
 campo que o Kunftig não conheça é deixado de lado e listado no log (`... is not read by this Kunftig`); o
@@ -139,6 +141,9 @@ Cadente no chão; as quatro qualidades (normal, prata, ouro, irídio), cada uma 
 * Primeira pessoa igual à prévia (`vara-solar-primeira-pessoa.gif`, quadro de `parada`): ponta em (0,64; 0,50) da tela
   contra (0,65; 0,49) na prévia.
 * Terceira pessoa de perfil (outro jogador) igual à prévia de ação em `parada`, `briga` e `captura`, com o braço.
+* **A verificar**: o balanço em primeira pessoa (`balanco`): girar a câmera para a direita deixa a ponta para a
+  esquerda e ela volta passando um pouco do meio; olhar para cima ou pular deixa a ponta para baixo; andar de lado
+  deixa a ponta para trás e inclina a vara. A linha acompanha a ponta.
 * **A verificar**: as duas mãos (`braco_esquerdo`) em `mordida`, `briga` e `recolher`, parado e andando; com um item
   na mão secundária do Backhand, o braço esquerdo fica como no vanilla.
 * A linha sai da ponta em primeira e terceira pessoa, na cor do estágio; a linha pendurada some com a boia fora; em

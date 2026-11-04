@@ -363,3 +363,5 @@ if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
   vara 2D de sempre e nada quebra.
 * Thread principal. `KunftigRods.drawsRodModels(player)` diz se o cliente desenha varas 3D.
   `-Dkunftig.rodModels.disable=true` no cliente desliga as varas 3D (ícone 2D).
+* Em primeira pessoa, a vara tem inércia (`balanco` no manifesto): fica para trás ao girar a câmera, andar de lado ou
+  pular, e volta com um pequeno balanço. `-Dkunftig.rodSway.disable=true` no cliente desliga só isso.
