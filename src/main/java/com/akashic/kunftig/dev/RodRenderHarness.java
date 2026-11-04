@@ -89,6 +89,15 @@ public final class RodRenderHarness {
                 RodPerfHarness.install();
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("edge")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planEdge();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (edge) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("server")) {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
@@ -132,6 +141,44 @@ public final class RodRenderHarness {
     private static void view(Minecraft mc, int mode) {
         mc.gameSettings.thirdPersonView = mode;
         mc.gameSettings.hideGUI = false; // F1 would also hide the hand
+    }
+
+    /**
+     * Another player at the left edge of the view, holding a rod across it (pointing right, into the view): the camera
+     * turns right step by step until the body leaves the view while the rod is still in it; then the same with the
+     * line out (the hook in view).
+     */
+    private void planEdge() {
+        int[] turns = { 0, 6, 10, 14, 18, 24 };
+        steps.add(new Step("edge-setup", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 0);
+            hold(p, null);
+            place(p, 180, 0);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Borda"));
+            side.setPositionAndRotation(-2.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod("akashicfishing:vara/vara-akashica.iridio.m6"));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+        }));
+        for (int t : turns) {
+            steps.add(new Step("edge-turn-" + t, 12, (mc, p) -> look(mc, p, 180 + t)));
+        }
+        steps.add(new Step("edge-line-setup", 15, (mc, p) -> {
+            look(mc, p, 180);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 4, side.posY - 1, side.posZ - 1.5, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        for (int t : turns) {
+            steps.add(new Step("edge-line-turn-" + t, 12, (mc, p) -> look(mc, p, 180 + t)));
+        }
+    }
+
+    /** Turns the camera on both sides (the server's teleport can reach the client a few frames late). */
+    private static void look(Minecraft mc, EntityPlayerMP p, float yaw) {
+        place(p, yaw, 0);
+        mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
+        mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0;
     }
 
     private void plan() {
