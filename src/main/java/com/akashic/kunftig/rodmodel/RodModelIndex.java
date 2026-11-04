@@ -466,7 +466,8 @@ public final class RodModelIndex {
                         name instanceof String ? (String) name : "faixa " + i,
                         upTo,
                         bandStates,
-                        displays(object(f, "display"), where + ".display")));
+                        displays(object(f, "display"), where + ".display"),
+                        f.containsKey("pega") ? vector(f.get("pega"), where + ".pega") : null));
             }
         }
 

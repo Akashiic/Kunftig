@@ -33,7 +33,7 @@ class HeldModelSizeTest {
         + "  {\"nome\": \"mao\", \"ate\": 60},"
         + "  {\"nome\": \"duas_maos\", \"ate\": 160, \"estados\": {\"parada\": \"parada_duas_maos\", \"sacar\": \"parada_duas_maos\"},"
         + "    \"display\": {\"terceira_pessoa\": {\"rotation\": [0, 90, 0], \"scale\": 1}}},"
-        + "  {\"nome\": \"acima\", \"estados\": {\"parada\": \"parada_acima\", \"sacar\": \"parada_acima\"}}],"
+        + "  {\"nome\": \"acima\", \"pega\": [0, -6, 2], \"estados\": {\"parada\": \"parada_acima\", \"sacar\": \"parada_acima\"}}],"
         + "\"display\": {\"primeira_pessoa\": {\"scale\": 0.5}, \"terceira_pessoa\": {\"scale\": 0.8}},"
         + "\"contextos\": [\"primeira_pessoa\", \"terceira_pessoa\"]"
         + "}}}";
@@ -85,6 +85,9 @@ class HeldModelSizeTest {
         assertEquals(90, f.display(RodModelDef.THIRD_PERSON, two).rotation[1]);
         assertEquals(0.5F, f.display(RodModelDef.FIRST_PERSON, two).scale);
         assertEquals(0.8F, f.display(RodModelDef.THIRD_PERSON, f.band(20)).scale);
+        // a band can hold the model elsewhere (pega): the giant by the belly, not by the mouth
+        assertEquals(-6F, f.grip(f.band(500))[1]);
+        assertSame(f.grip, f.grip(f.band(20)));
     }
 
     @Test
@@ -111,6 +114,11 @@ class HeldModelSizeTest {
         assertEquals("akashicfishing:textures/peixe3d/pirarucu_iridio_0.png", f.textureFor("iridio", 0, 1));
         assertEquals("akashicfishing:textures/peixe3d/pirarucu_iridio_1.png", f.textureFor("iridio", 0, 2));
         assertEquals("akashicfishing:textures/peixe3d/pirarucu_iridio_0.png", f.textureFor("iridio", 0, 4));
+        // "normal" (an item without a quality suffix) can have its own animated texture too (Peixe-Akasha)
+        RodModelDef akasha = fish(FISH.replace("\"ouro\": \"textures", "\"normal\": [\"textures/peixe3d/a_0.png\", "
+            + "\"textures/peixe3d/a_1.png\"], \"ouro\": \"textures"));
+        assertEquals("akashicfishing:textures/peixe3d/a_1.png", akasha.textureFor(null, 0, 2));
+        assertEquals("akashicfishing:textures/peixe3d/a_0.png", akasha.textureFor("normal", 0, 0));
     }
 
     @Test

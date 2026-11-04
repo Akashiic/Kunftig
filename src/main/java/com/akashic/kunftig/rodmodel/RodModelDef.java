@@ -201,12 +201,20 @@ public final class RodModelDef {
         public final double upTo;
         public final Map<String, String> states;
         public final Map<String, Display> displays;
+        /** The band's own grip ({@code pega}), or null: the model's. The model is scaled about it. */
+        public final float[] grip;
 
         public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays) {
+            this(name, upTo, states, displays, null);
+        }
+
+        public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays,
+            float[] grip) {
             this.name = name;
             this.upTo = upTo;
             this.states = Collections.unmodifiableMap(states);
             this.displays = Collections.unmodifiableMap(displays);
+            this.grip = grip == null ? null : grip.clone();
         }
 
         /** The state of {@code estados} played for {@code state} in this band. */
@@ -328,12 +336,12 @@ public final class RodModelDef {
     }
 
     /**
-     * The texture of an item of {@code quality} (null: no suffix) at a mutation stage and a client tick: the quality's
-     * own ({@code texturas_qualidade}) when the model has one, else the stage's. Animated textures cycle through their
+     * The texture of an item of {@code quality} (null: no suffix, {@link #DEFAULT_QUALITY}) at a mutation stage and a
+     * client tick: the quality's own ({@code texturas_qualidade}) when the model has one, else the stage's. Animated textures cycle through their
      * frames.
      */
     public String textureFor(String quality, int stage, long tick) {
-        List<String> frames = quality == null ? null : qualityTextures.get(quality);
+        List<String> frames = qualityTextures.get(quality == null ? DEFAULT_QUALITY : quality);
         if (frames == null) {
             Map.Entry<Integer, List<String>> e = stage > 0 ? stageTextures.floorEntry(stage) : null;
             if (e == null) {
@@ -370,6 +378,11 @@ public final class RodModelDef {
     public Display display(String context, Band band) {
         Display d = band == null ? null : band.displays.get(context);
         return d != null ? d : displays.get(context);
+    }
+
+    /** The grip in a band: the band's own, else the model's. */
+    public float[] grip(Band band) {
+        return band != null && band.grip != null ? band.grip : grip;
     }
 
     /** A display scaled by {@code factor} (the model's size). */

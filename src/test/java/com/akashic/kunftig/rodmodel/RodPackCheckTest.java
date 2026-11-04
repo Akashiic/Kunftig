@@ -131,6 +131,9 @@ class RodPackCheckTest {
         for (List<String> frames : rod.stageTextures.values()) {
             all.addAll(frames);
         }
+        for (List<String> frames : rod.qualityTextures.values()) {
+            all.addAll(frames);
+        }
         return all;
     }
 
