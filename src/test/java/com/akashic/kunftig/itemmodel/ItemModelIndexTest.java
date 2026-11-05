@@ -77,6 +77,70 @@ class ItemModelIndexTest {
     }
 
     @Test
+    void aModelCanHaveASlotCell() {
+        ItemModelIndex index = new ItemModelIndex();
+        index.add(
+            "akashicfishing",
+            "{\"tela/botao-0\": {\"icone\": \"gui/botao-0\", \"celula\": \"gui/botao-0_celula\"},"
+                + " \"tucunare\": \"fish/tucunare\", \"sem-icone\": {\"celula\": \"x\"},"
+                + " \"celula-ruim\": {\"icone\": \"ok\", \"celula\": 3}}",
+            "test");
+        assertEquals(
+            "akashicfishing:gui/botao-0",
+            index.icons()
+                .get("akashicfishing:tela/botao-0"));
+        assertEquals(
+            "akashicfishing:gui/botao-0_celula",
+            index.cells()
+                .get("akashicfishing:tela/botao-0"));
+        assertEquals(
+            "akashicfishing:fish/tucunare",
+            index.icons()
+                .get("akashicfishing:tucunare"));
+        assertEquals(
+            1,
+            index.cells()
+                .size(),
+            "only the button has a cell");
+        assertEquals(
+            2,
+            index.errors()
+                .size(),
+            index.errors()
+                .toString());
+        // a later pack that redeclares the model without a cell drops it
+        index.add("akashicfishing", "{\"tela/botao-0\": \"gui/outro\"}", "later");
+        assertEquals(
+            0,
+            index.cells()
+                .size());
+    }
+
+    @Test
+    void aSiblingEntryGivesTheCellToo() {
+        // what an older Kunftig reads as one more model (no item uses it): the pack keeps working there
+        ItemModelIndex index = new ItemModelIndex();
+        index.add(
+            "akashicfishing",
+            "{\"tela/botao-0\": \"gui/botao-0\", \"tela/botao-0.celula\": \"gui/botao-0_celula\","
+                + " \"orfa.celula\": \"gui/x\"}",
+            "test");
+        assertEquals(
+            "akashicfishing:gui/botao-0_celula",
+            index.cells()
+                .get("akashicfishing:tela/botao-0"));
+        assertEquals(
+            1,
+            index.cells()
+                .size(),
+            "a cell without its model is no cell");
+        assertEquals(
+            0,
+            index.errors()
+                .size());
+    }
+
+    @Test
     void iconNames() {
         assertEquals("ns:path/to/icon", ItemModelIndex.iconName("ns", "path/to/icon"));
         assertEquals("other:icon", ItemModelIndex.iconName("ns", "other:icon"));

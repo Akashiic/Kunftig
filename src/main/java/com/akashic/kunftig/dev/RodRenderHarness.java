@@ -56,6 +56,8 @@ public final class RodRenderHarness {
     private int ticks;
     private boolean shotPending;
     private boolean done;
+    /** The cells mode keeps its chest open (every other screen is closed: Xvfb brings the pause menu back). */
+    private boolean keepChest;
     /** Runs on every client tick of the current step (camera turns, walking), or null. */
     private Runnable everyTick;
 
@@ -85,6 +87,37 @@ public final class RodRenderHarness {
                 Files.readAllBytes(new File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").toPath()),
                 StandardCharsets.UTF_8).trim()
                     .split("\\s+");
+            if (mode.length == 1 && mode[0].equals("perf")) {
+                RodPerfHarness.install();
+                return;
+            }
+            if (mode.length == 1 && mode[0].equals("cells")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planCells();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (cells) enabled: this client will take screenshots and quit");
+                return;
+            }
+            if (mode.length == 1 && mode[0].equals("fish")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planFish();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
+                return;
+            }
+            if (mode.length == 1 && mode[0].equals("edge")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planEdge();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (edge) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("server")) {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
@@ -128,6 +161,148 @@ public final class RodRenderHarness {
     private static void view(Minecraft mc, int mode) {
         mc.gameSettings.thirdPersonView = mode;
         mc.gameSettings.hideGUI = false; // F1 would also hide the hand
+    }
+
+    /** A display item of AkashicFishing's screens: paper with a model. */
+    static ItemStack screenItem(String model) {
+        ItemStack stack = new ItemStack(Items.paper);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", "akashicfishing:" + model);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    /**
+     * Item model slot cells: a chest with the Upgrader's big button (five slots) in each state and its pipe, in the
+     * slots the plugin uses; the button must read as one piece, without the slot borders between its slots.
+     */
+    private void planCells() {
+        keepChest = true;
+        steps.add(new Step("cells-warmup", SETTLE_TICKS * 2, (mc, p) -> view(mc, 0)));
+        String[] states = { "pronto", "bloqueado", "sorteando" };
+        for (String state : states) {
+            steps.add(new Step("cells-" + state, SETTLE_TICKS, (mc, p) -> {
+                view(mc, 0);
+                net.minecraft.inventory.InventoryBasic inv = new net.minecraft.inventory.InventoryBasic(
+                    "Aprimorador",
+                    false,
+                    27);
+                for (int i = 0; i < 5; i++) {
+                    inv.setInventorySlotContents(18 + 2 + i, screenItem("tela/botao-" + state + "-" + i));
+                }
+                int[] levels = { 8, 8, 3, 0 };
+                int[] cols = { 2, 3, 5, 6 };
+                for (int i = 0; i < 4; i++) {
+                    inv.setInventorySlotContents(
+                        9 + cols[i],
+                        screenItem("tela/tubo-ciano-" + levels[i] + (i % 2 == 1 ? "-fim" : "")));
+                }
+                mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiChest(mc.thePlayer.inventory, inv));
+            }));
+        }
+    }
+
+    /** A fish of AkashicFishing as the plugin makes it: the model and the size (cm) in the item's Bukkit data. */
+    static ItemStack fish(String model, double cm, int meta) {
+        ItemStack stack = new ItemStack(Items.fish, 1, meta);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", "akashicfishing:" + model);
+        values.setDouble("akashicfishing:tamanho-cm", cm);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    /**
+     * 3D fish (held models with size bands): the local player holds one of each band in first person and in the front
+     * view, then another player holds them side on, in each quality.
+     */
+    private void planFish() {
+        Object[][] own = { { "robalo", 55.0, 0, "mao" }, { "pirarucu.ouro", 140.0, 0, "duas-maos" },
+            { "pirarucu-ancestral.iridio", 420.0, 0, "acima" }, { "leviathan", 1800.0, 0, "leviathan" },
+            { "peixe-palhaco.prata", 9.0, 2, "palhaco-prata" } };
+        for (Object[] f : own) {
+            steps.add(new Step("fish-fp-" + f[3], SETTLE_TICKS, (mc, p) -> {
+                view(mc, 0);
+                place(p, 180, 0);
+                hold(p, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+            }));
+        }
+        for (Object[] f : own) {
+            steps.add(new Step("fish-front-" + f[3], SETTLE_TICKS, (mc, p) -> {
+                view(mc, 2);
+                place(p, 180, 0);
+                hold(p, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+            }));
+        }
+        steps.add(new Step("fish-side-setup", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 0);
+            hold(p, null);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Pescador"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -3.5, 270, 0);
+            turn(side, 225);
+            side.inventory.setInventorySlotContents(0, fish("tucunare", 35, 0));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+        }));
+        Object[][] others = { { "tucunare", 35.0, 0, "tucunare" }, { "dourado.ouro", 95.0, 1, "dourado-ouro" },
+            { "peixe-lua.iridio", 300.0, 3, "peixe-lua-iridio" }, { "peixe-akasha.iridio", 150.0, 1, "akasha" },
+            { "baiacu.prata", 30.0, 3, "baiacu-prata" }, { "leviathan.ouro", 2200.0, 0, "leviathan-ouro" } };
+        for (Object[] f : others) {
+            steps.add(
+                new Step(
+                    "fish-side-" + f[3],
+                    SETTLE_TICKS,
+                    (mc, p) -> {
+                        side.inventory.setInventorySlotContents(0, fish((String) f[0], (Double) f[1], (Integer) f[2]));
+                    }));
+        }
+        steps.add(new Step("fish-side-walk", 12, (mc, p) -> everyTick = () -> {
+            side.limbSwing += 0.9F;
+            side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+        }));
+    }
+
+    /**
+     * Another player at the left edge of the view, holding a rod across it (pointing right, into the view): the camera
+     * turns right step by step until the body leaves the view while the rod is still in it; then the same with the
+     * line out (the hook in view).
+     */
+    private void planEdge() {
+        int[] turns = { 0, 6, 10, 14, 18, 24 };
+        steps.add(new Step("edge-setup", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 0);
+            hold(p, null);
+            place(p, 180, 0);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Borda"));
+            side.setPositionAndRotation(-2.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod("akashicfishing:vara/vara-akashica.iridio.m6"));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+        }));
+        for (int t : turns) {
+            steps.add(new Step("edge-turn-" + t, 12, (mc, p) -> look(mc, p, 180 + t)));
+        }
+        steps.add(new Step("edge-line-setup", 15, (mc, p) -> {
+            look(mc, p, 180);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 4, side.posY - 1, side.posZ - 1.5, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        for (int t : turns) {
+            steps.add(new Step("edge-line-turn-" + t, 12, (mc, p) -> look(mc, p, 180 + t)));
+        }
+    }
+
+    /** Turns the camera on both sides (the server's teleport can reach the client a few frames late). */
+    private static void look(Minecraft mc, EntityPlayerMP p, float yaw) {
+        place(p, yaw, 0);
+        mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
+        mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0;
     }
 
     private void plan() {
@@ -245,6 +420,19 @@ public final class RodRenderHarness {
             setOffhand(side, null);
             RodModels.INSTANCE.timeline(side)
                 .server("parada", RodModels.INSTANCE.clock());
+        }));
+        // The hanging line (linha_pendurada): straight down at rest, trailing while walking, swinging back on a stop.
+        steps.add(new Step("side-left-hang-rest", 40, (mc, p) -> {}));
+        steps.add(new Step("side-left-hang-walk", 8, (mc, p) -> everyTick = () -> {
+            side.setPosition(side.posX - 0.2, side.posY, side.posZ);
+            side.limbSwing += 0.9F;
+            side.limbSwingAmount = side.prevLimbSwingAmount = 1;
+        }));
+        steps.add(new Step("side-left-hang-stop", 5, (mc, p) -> everyTick = null));
+        steps.add(new Step("side-left-hang-catch", 12, (mc, p) -> {
+            side.setPosition(side.posX + 1.6, side.posY, side.posZ);
+            RodModels.INSTANCE.timeline(side)
+                .server("captura", RodModels.INSTANCE.clock());
         }));
         // Both hands only once the line is out: waiting with the line in the water, then the line back, then a cast.
         steps.add(new Step("side-left-idle-line-out", 15, (mc, p) -> {
@@ -367,7 +555,8 @@ public final class RodRenderHarness {
     /** Closes whatever screen is open (Xvfb gives the window no focus: the pause menu comes back every frame). */
     private void closeScreens(Minecraft mc) {
         mc.gameSettings.pauseOnLostFocus = false;
-        if (mc.currentScreen != null) {
+        if (mc.currentScreen != null
+            && !(keepChest && mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiChest)) {
             mc.displayGuiScreen(null);
         }
     }

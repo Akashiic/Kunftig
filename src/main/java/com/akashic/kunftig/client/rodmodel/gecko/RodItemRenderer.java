@@ -14,6 +14,7 @@ import net.minecraft.client.renderer.ItemRenderer;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
@@ -32,6 +33,7 @@ import com.akashic.kunftig.rodmodel.RodDisplays;
 import com.akashic.kunftig.rodmodel.RodMatrix;
 import com.akashic.kunftig.rodmodel.RodModelDef;
 import com.akashic.kunftig.rodmodel.RodModelIndex;
+import com.akashic.kunftig.rodmodel.RodPendulum;
 import com.akashic.kunftig.rodmodel.RodSway;
 import com.akashic.kunftig.rodmodel.RodTimeline;
 
@@ -95,6 +97,16 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
     private String swayPivot;
     private java.util.List<String> swayBones = Collections.emptyList();
     private final float[] eyeLinear = new float[9];
+    /** The hanging line ({@code linha_pendurada}) of this draw: its bone, or null; the turn found in the first pass. */
+    private String hangBone;
+    private float hangLength;
+    private int hangKey;
+    private boolean hangFirstPerson;
+    private float[] hangTurn;
+    /** One pendulum per player and view (first person or not), with the time of its last frame. */
+    private final Map<Integer, RodPendulum> pendulums = new HashMap<>();
+    private final Map<Integer, Long> pendulumFrames = new HashMap<>();
+    private int drawsSinceCleanup;
 
     RodItemRenderer(IItemRenderer previous) {
         this.previous = previous;
@@ -165,7 +177,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             return;
         }
         try {
-            draw(r, context(type), holder);
+            draw(r, context(type), holder, stack);
         } catch (RuntimeException | LinkageError e) {
             broken.add(r.model);
             if (loggedErrors++ < MAX_LOGGED_ERRORS) {
@@ -243,7 +255,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         return a;
     }
 
-    private void draw(RodModelIndex.Resolved r, String context, EntityLivingBase holder) {
+    private void draw(RodModelIndex.Resolved r, String context, EntityLivingBase holder, ItemStack stack) {
         RodModels models = RodModels.INSTANCE;
         RodModelDef def = r.model;
         RodAnimatable rod = rod(def);
@@ -253,7 +265,9 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         EntityPlayer player = holder instanceof EntityPlayer ? (EntityPlayer) holder : null;
         RodTimeline timeline = player != null ? models.timeline(player) : null;
         String state = timeline != null && timeline.state() != null ? timeline.state() : RodModelDef.IDLE;
-        rod.clips = def.clips(state);
+        // A model with size bands (a fish) is held as its size says: its own states and display, scaled to its size.
+        RodModelDef.Band band = RodModels.band(stack, def);
+        rod.clips = def.clips(state, band);
         rod.start = timeline != null ? timeline.start() : 0;
         rod.tension = timeline != null ? timeline.tension() : 0;
         int key = player != null ? models.animationKey(player) : RodModels.SHARED_KEY;
@@ -261,15 +275,27 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         // The hanging line goes while the line is out, except while casting: the cast animation whips it away.
         boolean lineOut = player != null && player.fishEntity != null && !RodModelDef.CAST.equals(state);
 
-        RodModelDef.Display display = models.display(def, context);
+        RodModelDef.Display display = RodModelDef
+            .scaled(models.display(def, context, band), RodModels.sizeScale(stack, def));
         RodMatrix transform;
         if (RodModelDef.FIRST_PERSON.equals(context)) {
             float swing = holder == null ? 0 : holder.getSwingProgress(models.partialTicks());
-            transform = RodDisplays.firstPerson(display, def.grip, swing);
+            transform = RodDisplays.firstPerson(
+                display,
+                def.grip(band),
+                swing,
+                stack.getItem()
+                    .shouldRotateAroundWhenRendering());
         } else if (RodModelDef.THIRD_PERSON.equals(context)) {
-            transform = RodDisplays.thirdPerson(display, def.grip);
+            transform = RodDisplays.thirdPerson(
+                display,
+                def.grip(band),
+                stack.getItem()
+                    .isFull3D(),
+                stack.getItem()
+                    .shouldRotateAroundWhenRendering());
         } else {
-            transform = RodDisplays.entity(display, def.grip);
+            transform = RodDisplays.entity(display, def.grip(band));
         }
 
         GL11.glPushMatrix();
@@ -279,7 +305,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             glMatrix.flip();
             GL11.glMultMatrix(glMatrix);
 
-            rod.model.texture = models.location(def.textureFor(r.stage, models.clock()));
+            rod.model.texture = models.location(def.textureFor(r.quality, r.stage, models.clock()));
             rod.model.setLivingAnimations(rod, key, null);
             boolean[] used = hide(rod.model.bones(model), def, r.stage, r.quality, lineOut);
 
@@ -297,7 +323,14 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
                 swayBend = swayBones.isEmpty() ? null : scaled(sway[1], 1F / swayBones.size());
                 swayPivot = def.sway.pivot;
             }
-            if (capture || sway != null) {
+            hangTurn = null;
+            hangBone = def.hangingLine != null && holder != null && !lineOut ? def.hangingLine.bone : null;
+            if (hangBone != null) {
+                hangLength = def.hangingLine.lengthPixels;
+                hangFirstPerson = RodModelDef.FIRST_PERSON.equals(context);
+                hangKey = holder.getEntityId() * 2 + (hangFirstPerson ? 1 : 0);
+            }
+            if (capture || sway != null || hangBone != null) {
                 models.readMatrix(GL11.GL_MODELVIEW_MATRIX, modelView);
             }
             Minecraft.getMinecraft().renderEngine.bindTexture(rod.model.texture);
@@ -310,10 +343,138 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
             tipBone = null;
             swayRoot = swayBend = null;
             swayPivot = null;
+            hangBone = null;
+            hangTurn = null;
             swayBones = Collections.emptyList();
             GL11.glPopMatrix();
         }
     }
+
+    /** The linear part of the current bone frame in eye space: GL's model-view times GeckoLib's matrix so far. */
+    private void updateEyeLinear(javax.vecmath.Matrix4f m) {
+        float[] b = { m.m00, m.m01, m.m02, m.m10, m.m11, m.m12, m.m20, m.m21, m.m22 };
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                // GL's model-view is column-major
+                eyeLinear[r * 3 + c] = modelView[r] * b[c] + modelView[4 + r] * b[3 + c] + modelView[8 + r] * b[6 + c];
+            }
+        }
+    }
+
+    /**
+     * The hanging line ({@link RodPendulum}): the bone is turned so that its -Y points where the pendulum hangs in the
+     * world, after its own rotation (the model's rest tilt and the state's animation), which the pendulum replaces.
+     * Worked out once per draw (first pass) from the bone's pivot in eye space, the
+     * camera's view matrix and the camera's position, and reused by the other passes.
+     */
+    private void hang(GeoBone bone) {
+        if (hangBone == null || bone.isHidden()
+            || !bone.getName()
+                .equals(hangBone)) {
+            return;
+        }
+        if (hangTurn == null) {
+            hangTurn = hangTurn(MATRIX_STACK.getModelMatrix());
+        }
+        MATRIX_STACK.rotateZ(hangTurn[2]);
+        MATRIX_STACK.rotateY(hangTurn[1]);
+        MATRIX_STACK.rotateX(hangTurn[0]);
+    }
+
+    private float[] hangTurn(javax.vecmath.Matrix4f m) {
+        float[] view = RodModels.INSTANCE.viewMatrix();
+        if (view == null) {
+            return new float[3];
+        }
+        updateEyeLinear(m);
+        float[] eye = RodMatrix.of(modelView)
+            .transform(m.m03, m.m13, m.m23);
+        double[] rel = { eye[0], eye[1], eye[2] };
+        if (!hangFirstPerson) {
+            // in the world's eye space the view also moves the camera back (third person); the hand's has no such move
+            rel[0] -= view[12];
+            rel[1] -= view[13];
+            rel[2] -= view[14];
+        }
+        // world = R^T * eye + camera (R: the view's rotation, column-major)
+        double[] world = { view[0] * rel[0] + view[1] * rel[1] + view[2] * rel[2] + RenderManager.renderPosX,
+            view[4] * rel[0] + view[5] * rel[1] + view[6] * rel[2] + RenderManager.renderPosY,
+            view[8] * rel[0] + view[9] * rel[1] + view[10] * rel[2] + RenderManager.renderPosZ };
+        float[] e = eyeLinear;
+        double det = e[0] * (e[4] * e[8] - e[5] * e[7]) - e[1] * (e[3] * e[8] - e[5] * e[6])
+            + e[2] * (e[3] * e[7] - e[4] * e[6]);
+        double length = Math.cbrt(Math.abs(det)) * hangLength / 16;
+        long now = System.nanoTime();
+        Long last = pendulumFrames.put(hangKey, now);
+        RodPendulum pendulum = pendulums.get(hangKey);
+        if (pendulum == null) {
+            pendulum = new RodPendulum();
+            pendulums.put(hangKey, pendulum);
+        }
+        double[] down = pendulum.update(last == null ? 0 : (now - last) / 1e9, world, length);
+        // back to eye space (R * world direction), then to the bone's frame (E^T, normalized: E is a scaled rotation)
+        double ux = view[0] * down[0] + view[4] * down[1] + view[8] * down[2];
+        double uy = view[1] * down[0] + view[5] * down[1] + view[9] * down[2];
+        double uz = view[2] * down[0] + view[6] * down[1] + view[10] * down[2];
+        double[] local = { e[0] * ux + e[3] * uy + e[6] * uz, e[1] * ux + e[4] * uy + e[7] * uz,
+            e[2] * ux + e[5] * uy + e[8] * uz };
+        double len = Math.sqrt(local[0] * local[0] + local[1] * local[1] + local[2] * local[2]);
+        if (!(len > 1e-9)) {
+            return new float[3];
+        }
+        for (int i = 0; i < 3; i++) {
+            local[i] /= len;
+        }
+        if (++drawsSinceCleanup > 600) {
+            drawsSinceCleanup = 0;
+            long old = now - 5_000_000_000L;
+            pendulumFrames.entrySet()
+                .removeIf(en -> {
+                    boolean stale = en.getValue() < old;
+                    if (stale) {
+                        pendulums.remove(en.getKey());
+                    }
+                    return stale;
+                });
+        }
+        float[] turn = RodPendulum.eulerTurning(new double[] { 0, -1, 0 }, local);
+        if (HANG_DEBUG && ++hangDebugCount % 30 == 0) {
+            Kunftig.LOG.info(
+                String.format(
+                    java.util.Locale.ROOT,
+                    "rod hang key=%d fp=%s eye=(%.2f %.2f %.2f) world=(%.2f %.2f %.2f) len=%.3f down=(%.2f %.2f %.2f)"
+                        + " eyeDir=(%.2f %.2f %.2f) local=(%.2f %.2f %.2f) turn=(%.1f %.1f %.1f) view0=(%.2f %.2f %.2f %.2f)",
+                    hangKey,
+                    hangFirstPerson,
+                    eye[0],
+                    eye[1],
+                    eye[2],
+                    world[0],
+                    world[1],
+                    world[2],
+                    length,
+                    down[0],
+                    down[1],
+                    down[2],
+                    ux,
+                    uy,
+                    uz,
+                    local[0],
+                    local[1],
+                    local[2],
+                    Math.toDegrees(turn[0]),
+                    Math.toDegrees(turn[1]),
+                    Math.toDegrees(turn[2]),
+                    view[0],
+                    view[5],
+                    view[10],
+                    view[14]));
+        }
+        return turn;
+    }
+
+    private static final boolean HANG_DEBUG = Boolean.getBoolean("kunftig.rodHang.debug");
+    private int hangDebugCount;
 
     private static float[] scaled(float[] v, float f) {
         float[] out = v.clone();
@@ -340,14 +501,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         if (eye == null) {
             return;
         }
-        javax.vecmath.Matrix4f m = MATRIX_STACK.getModelMatrix();
-        float[] b = { m.m00, m.m01, m.m02, m.m10, m.m11, m.m12, m.m20, m.m21, m.m22 };
-        for (int r = 0; r < 3; r++) {
-            for (int c = 0; c < 3; c++) {
-                // GL's model-view is column-major
-                eyeLinear[r * 3 + c] = modelView[r] * b[c] + modelView[4 + r] * b[3 + c] + modelView[8 + r] * b[6 + c];
-            }
-        }
+        updateEyeLinear(MATRIX_STACK.getModelMatrix());
         // the rod's direction here (the bone's +Y) in eye space: the axis that moves its tip up or left
         float[] along = { eyeLinear[1], eyeLinear[4], eyeLinear[7] };
         float[] local = RodSway.toLocal(eyeLinear, RodSway.eyeRotation(along, eye));
@@ -490,6 +644,7 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         MATRIX_STACK.moveToPivot(bone);
         sway(bone);
         MATRIX_STACK.rotate(bone);
+        hang(bone); // after the bone's own rotation (its rest tilt and its animation): the pendulum has the last word
         MATRIX_STACK.scale(bone);
         MATRIX_STACK.moveBackFromPivot(bone);
         if (tipBone != null && pass == Pass.OPAQUE && tipBone.equals(bone.getName())) {

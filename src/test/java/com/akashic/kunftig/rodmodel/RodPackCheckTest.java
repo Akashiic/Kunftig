@@ -80,6 +80,9 @@ class RodPackCheckTest {
         if (rod.tipBone != null) {
             named.add(rod.tipBone);
         }
+        if (rod.hangingLine != null) {
+            named.add(rod.hangingLine.bone);
+        }
         if (rod.sway != null) {
             if (rod.sway.pivot != null) {
                 named.add(rod.sway.pivot);
@@ -126,6 +129,9 @@ class RodPackCheckTest {
         List<String> all = new ArrayList<>();
         all.add(rod.texture);
         for (List<String> frames : rod.stageTextures.values()) {
+            all.addAll(frames);
+        }
+        for (List<String> frames : rod.qualityTextures.values()) {
             all.addAll(frames);
         }
         return all;

@@ -98,6 +98,21 @@ public final class RodModelDef {
     }
 
     /**
+     * The line hanging from the tip ({@code linha_pendurada}): a bone that hangs along its -Y and swings with gravity
+     * (a pendulum in world space), and its length in model pixels.
+     */
+    public static final class HangingLine {
+
+        public final String bone;
+        public final float lengthPixels;
+
+        public HangingLine(String bone, float lengthPixels) {
+            this.bone = bone;
+            this.lengthPixels = lengthPixels;
+        }
+    }
+
+    /**
      * A display transform, in the manifest's convention (that of the previews and Blockbench): after the grip is
      * brought to the origin, scale, rotate (degrees, Bedrock signs, Z then Y then X) and translate (1/16 block).
      */
@@ -137,6 +152,80 @@ public final class RodModelDef {
         }
     }
 
+    /**
+     * The model's size read from the item ({@code tamanho}): a number of the item's data (Bukkit's persistent data,
+     * {@code PublicBukkitValues.<chave>}), in {@code unidades_por_bloco} per block. The model, {@code comprimento}
+     * pixels long as modeled, is drawn {@code value / unidades_por_bloco} blocks long, between {@code minimo} and
+     * {@code maximo} blocks; an item without the value uses {@code padrao}.
+     */
+    public static final class Size {
+
+        public final String key;
+        public final double unitsPerBlock;
+        public final float modelLength;
+        public final double minBlocks;
+        public final double maxBlocks;
+        public final double fallback;
+
+        public Size(String key, double unitsPerBlock, float modelLength, double minBlocks, double maxBlocks,
+            double fallback) {
+            this.key = key;
+            this.unitsPerBlock = unitsPerBlock;
+            this.modelLength = modelLength;
+            this.minBlocks = minBlocks;
+            this.maxBlocks = maxBlocks;
+            this.fallback = fallback;
+        }
+
+        /** The value to use for an item: its own when it is a finite number, else {@link #fallback}. */
+        public double valueOr(Double value) {
+            return value != null && !value.isNaN() && !value.isInfinite() ? value : fallback;
+        }
+
+        /** The factor the model is scaled by (about the grip) for a value. */
+        public float scale(double value) {
+            double blocks = Math.max(minBlocks, Math.min(maxBlocks, value / unitsPerBlock));
+            return (float) (blocks * 16 / modelLength);
+        }
+    }
+
+    /**
+     * A size band ({@code faixas}): up to {@code ate} (inclusive; the last band has no limit), the states the client
+     * and the server play are swapped for the band's ({@code estados}: state -> state of {@code estados}), and the
+     * band's {@code display} replaces the model's for its contexts. A big fish is held with both hands, a giant one
+     * above the head.
+     */
+    public static final class Band {
+
+        public final String name;
+        public final double upTo;
+        public final Map<String, String> states;
+        public final Map<String, Display> displays;
+        /** The band's own grip ({@code pega}), or null: the model's. The model is scaled about it. */
+        public final float[] grip;
+
+        public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays) {
+            this(name, upTo, states, displays, null);
+        }
+
+        public Band(String name, double upTo, Map<String, String> states, Map<String, Display> displays, float[] grip) {
+            this.name = name;
+            this.upTo = upTo;
+            this.states = Collections.unmodifiableMap(states);
+            this.displays = Collections.unmodifiableMap(displays);
+            this.grip = grip == null ? null : grip.clone();
+        }
+
+        /** The state of {@code estados} played for {@code state} in this band. */
+        public String state(String state) {
+            String s = state == null ? null : states.get(state);
+            return s != null ? s : state;
+        }
+    }
+
+    /** Items whose renderer draws a model without {@code itens}: the fishing rod. */
+    public static final List<String> DEFAULT_ITEMS = Collections.singletonList("minecraft:fishing_rod");
+
     public final String id;
     public final String geo;
     public final String animations;
@@ -168,13 +257,61 @@ public final class RodModelDef {
     public final Map<String, Integer> transitions;
     /** May be null: no inertia in first person. */
     public final Sway sway;
+    /** May be null: the hanging line follows the rod as modeled. */
+    public final HangingLine hangingLine;
+    /**
+     * Registry names of the items ({@code itens}) whose renderer draws this model; {@link #DEFAULT_ITEMS} by default.
+     */
+    public final List<String> items;
+    /** May be null: the model keeps its modeled size. */
+    public final Size size;
+    /** Size bands, smallest first; empty without {@code faixas}. Need {@link #size}. */
+    public final List<Band> bands;
+    /** Quality to its texture frames ({@code texturas_qualidade}), over the mutation stage's texture. */
+    public final Map<String, List<String>> qualityTextures;
 
     RodModelDef(String id, String geo, String animations, String arm, String texture,
         NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
         Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
         float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
         Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
-        Map<String, Integer> transitions, Sway sway) {
+        Map<String, Integer> transitions, Sway sway, HangingLine hangingLine) {
+        this(
+            id,
+            geo,
+            animations,
+            arm,
+            texture,
+            stageTextures,
+            ticksPerFrame,
+            states,
+            lightBones,
+            translucentBones,
+            boneStages,
+            tipBone,
+            tipRest,
+            hiddenWhileCast,
+            lineColors,
+            grip,
+            displays,
+            contexts,
+            qualityBones,
+            transitions,
+            sway,
+            hangingLine,
+            DEFAULT_ITEMS,
+            null,
+            Collections.<Band>emptyList(),
+            Collections.<String, List<String>>emptyMap());
+    }
+
+    RodModelDef(String id, String geo, String animations, String arm, String texture,
+        NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
+        Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
+        float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
+        Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
+        Map<String, Integer> transitions, Sway sway, HangingLine hangingLine, List<String> items, Size size,
+        List<Band> bands, Map<String, List<String>> qualityTextures) {
         this.id = id;
         this.geo = geo;
         this.animations = animations;
@@ -196,6 +333,11 @@ public final class RodModelDef {
         this.qualityBones = Collections.unmodifiableMap(qualityBones);
         this.transitions = Collections.unmodifiableMap(transitions);
         this.sway = sway;
+        this.hangingLine = hangingLine;
+        this.items = Collections.unmodifiableList(new java.util.ArrayList<>(items));
+        this.size = size;
+        this.bands = Collections.unmodifiableList(new java.util.ArrayList<>(bands));
+        this.qualityTextures = Collections.unmodifiableMap(qualityTextures);
     }
 
     /** The blend of a controller between animations, in ticks (0: none). */
@@ -214,16 +356,63 @@ public final class RodModelDef {
 
     /** The texture of a mutation stage at a client tick (stage 6 cycles through its frames). */
     public String textureFor(int stage, long tick) {
-        Map.Entry<Integer, List<String>> e = stage > 0 ? stageTextures.floorEntry(stage) : null;
-        if (e == null) {
-            return texture;
+        return textureFor(null, stage, tick);
+    }
+
+    /**
+     * The texture of an item of {@code quality} (null: no suffix, {@link #DEFAULT_QUALITY}) at a mutation stage and a
+     * client tick: the quality's own ({@code texturas_qualidade}) when the model has one, else the stage's. Animated
+     * textures cycle through their
+     * frames.
+     */
+    public String textureFor(String quality, int stage, long tick) {
+        List<String> frames = qualityTextures.get(quality == null ? DEFAULT_QUALITY : quality);
+        if (frames == null) {
+            Map.Entry<Integer, List<String>> e = stage > 0 ? stageTextures.floorEntry(stage) : null;
+            if (e == null) {
+                return texture;
+            }
+            frames = e.getValue();
         }
-        List<String> frames = e.getValue();
         if (frames.size() == 1) {
             return frames.get(0);
         }
         int frame = (int) Math.floorMod(tick / ticksPerFrame, (long) frames.size());
         return frames.get(frame);
+    }
+
+    /** The size band of a value ({@link Size#valueOr}), or null when the model has none. */
+    public Band band(double value) {
+        if (bands.isEmpty()) {
+            return null;
+        }
+        for (Band b : bands) {
+            if (value <= b.upTo) {
+                return b;
+            }
+        }
+        return bands.get(bands.size() - 1);
+    }
+
+    /** {@link #clips(String)} of the state a band plays for {@code state} (no band: the state itself). */
+    public Clips clips(String state, Band band) {
+        return clips(band == null ? state : band.state(state));
+    }
+
+    /** The display of a context in a band: the band's own, else the model's (may be null). */
+    public Display display(String context, Band band) {
+        Display d = band == null ? null : band.displays.get(context);
+        return d != null ? d : displays.get(context);
+    }
+
+    /** The grip in a band: the band's own, else the model's. */
+    public float[] grip(Band band) {
+        return band != null && band.grip != null ? band.grip : grip;
+    }
+
+    /** A display scaled by {@code factor} (the model's size). */
+    public static Display scaled(Display d, float factor) {
+        return d == null || factor == 1F ? d : new Display(d.rotation, d.translation, d.scale * factor);
     }
 
     /** The line color for a mutation stage, or -1 to keep vanilla's. */

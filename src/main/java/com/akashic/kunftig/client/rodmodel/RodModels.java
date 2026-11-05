@@ -22,9 +22,11 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.play.client.C17PacketCustomPayload;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderPlayerEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.BufferUtils;
@@ -32,6 +34,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.client.itemmodel.ItemModels;
+import com.akashic.kunftig.itemmodel.ItemModelIndex;
 import com.akashic.kunftig.rodmodel.BedrockAnimations;
 import com.akashic.kunftig.rodmodel.RodMatrix;
 import com.akashic.kunftig.rodmodel.RodModelDef;
@@ -210,6 +213,10 @@ public final class RodModels implements IResourceManagerReloadListener {
         index = read;
         animations = anims;
         forgetAll(); // states and keys refer to the old rods
+        java.util.function.Consumer<java.util.Set<String>> listener = itemsListener;
+        if (listener != null) {
+            listener.accept(items());
+        }
         if (!read.isEmpty()) {
             Kunftig.LOG.info(
                 "Kunftig 3D rods: {} rod(s) read{}",
@@ -217,6 +224,24 @@ public final class RodModels implements IResourceManagerReloadListener {
                     .size(),
                 installed ? "" : " (not drawn: GeckoLib missing or disabled)");
         }
+    }
+
+    /** Called with {@link #items()} now and after every reload (the renderer registers itself on new items). */
+    private java.util.function.Consumer<java.util.Set<String>> itemsListener;
+
+    public void onItems(java.util.function.Consumer<java.util.Set<String>> listener) {
+        itemsListener = listener;
+        listener.accept(items());
+    }
+
+    /** Registry names of every item some 3D model is drawn on ({@code itens}; the fishing rod at least). */
+    public java.util.Set<String> items() {
+        java.util.Set<String> out = new java.util.LinkedHashSet<>(RodModelDef.DEFAULT_ITEMS);
+        for (RodModelDef rod : index.models()
+            .values()) {
+            out.addAll(rod.items);
+        }
+        return out;
     }
 
     @SuppressWarnings("unchecked")
@@ -245,26 +270,57 @@ public final class RodModels implements IResourceManagerReloadListener {
         return index.resolve(ItemModels.modelOf(stack.stackTagCompound));
     }
 
+    /** The value of the model's size ({@code tamanho}) in a stack's data, or null (no size, or none stored). */
+    public static Double sizeOf(ItemStack stack, RodModelDef rod) {
+        if (rod == null || rod.size == null
+            || stack == null
+            || stack.stackTagCompound == null
+            || !stack.stackTagCompound.hasKey(ItemModelIndex.NBT_ROOT, 10)) {
+            return null;
+        }
+        NBTTagCompound values = stack.stackTagCompound.getCompoundTag(ItemModelIndex.NBT_ROOT);
+        return values.hasKey(rod.size.key, 99) ? values.getDouble(rod.size.key) : null;
+    }
+
+    /** The size band of a stack's model (null: the model has no bands). */
+    public static RodModelDef.Band band(ItemStack stack, RodModelDef rod) {
+        return rod == null || rod.bands.isEmpty() ? null : rod.band(rod.size.valueOr(sizeOf(stack, rod)));
+    }
+
+    /** The factor a stack's model is scaled by for its size (1 without {@code tamanho}). */
+    public static float sizeScale(ItemStack stack, RodModelDef rod) {
+        return rod == null || rod.size == null ? 1F : rod.size.scale(rod.size.valueOr(sizeOf(stack, rod)));
+    }
+
     /** The lengths and loops of a rod's states, for its timeline. */
     public RodTimeline.Clips clips(final RodModelDef rod) {
+        return clips(rod, null);
+    }
+
+    /** {@link #clips(RodModelDef)} with the states of a size band. */
+    public RodTimeline.Clips clips(final RodModelDef rod, final RodModelDef.Band band) {
         final BedrockAnimations anims = rod == null ? null : animations.get(rod.animations);
         return new RodTimeline.Clips() {
 
+            private String name(String state) {
+                return band == null ? state : band.state(state);
+            }
+
             @Override
             public boolean has(String state) {
-                return rod != null && rod.states.containsKey(state);
+                return rod != null && rod.states.containsKey(name(state));
             }
 
             @Override
             public boolean loops(String state) {
-                RodModelDef.Clips c = rod == null ? null : rod.states.get(state);
+                RodModelDef.Clips c = rod == null ? null : rod.states.get(name(state));
                 return c != null && c.loop;
             }
 
             /** The clip plus the blend into it: the clip starts once the blend is over. */
             @Override
             public int lengthTicks(String state) {
-                RodModelDef.Clips c = rod == null ? null : rod.states.get(state);
+                RodModelDef.Clips c = rod == null ? null : rod.states.get(name(state));
                 BedrockAnimations.Clip clip = c == null || anims == null ? null : anims.clip(c.rod);
                 return (clip == null ? 20 : clip.lengthTicks()) + rod.transition(RodModelDef.ROD_CONTROLLER);
             }
@@ -320,8 +376,13 @@ public final class RodModels implements IResourceManagerReloadListener {
     }
 
     public RodModelDef.Display display(RodModelDef rod, String context) {
+        return display(rod, context, null);
+    }
+
+    /** The display of a context for a size band (null: the model's), unless one was set in game. */
+    public RodModelDef.Display display(RodModelDef rod, String context, RodModelDef.Band band) {
         RodModelDef.Display d = displayOverrides.get(context);
-        return d != null ? d : rod.displays.get(context);
+        return d != null ? d : rod.display(context, band);
     }
 
     @SubscribeEvent
@@ -359,7 +420,13 @@ public final class RodModels implements IResourceManagerReloadListener {
             if (t == null) {
                 t = timeline(p);
             }
-            t.observe(clock, rod == null ? null : rod.id, p.fishEntity != null, clips(rod));
+            // A size band is another way of holding the model: taking a bigger fish of the same species draws again.
+            RodModelDef.Band band = band(p.getHeldItem(), rod);
+            t.observe(
+                clock,
+                rod == null ? null : band == null ? rod.id : rod.id + "#" + band.name,
+                p.fishEntity != null,
+                clips(rod, band));
         }
         tickSway(mc.thePlayer);
         for (Iterator<Map.Entry<Integer, RodTimeline>> it = timelines.entrySet()
@@ -517,7 +584,8 @@ public final class RodModels implements IResourceManagerReloadListener {
         RodTimeline t = timelines.get(player.getEntityId());
         BedrockAnimations arm = animations.get(r.model.arm);
         boolean line = player.fishEntity != null;
-        float[] deg = armPose(r.model, arm, t, bone, line);
+        RodModelDef.Band band = band(player.getHeldItem(), r.model);
+        float[] deg = armPose(r.model, band, arm, t, bone, line);
         if (deg == null) {
             return null;
         }
@@ -525,7 +593,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         int blend = r.model.transition(RodModelDef.ROD_CONTROLLER);
         double sinceLine = t == null ? blend : clock - t.lineSince() + partialTicks;
         if (t != null && sinceLine < blend) {
-            float[] from = armPose(r.model, arm, t, bone, !line);
+            float[] from = armPose(r.model, band, arm, t, bone, !line);
             if (from != null) {
                 float f = (float) (sinceLine / blend);
                 for (int i = 0; i < 3; i++) {
@@ -538,9 +606,10 @@ public final class RodModels implements IResourceManagerReloadListener {
     }
 
     /** The arm bone's pose (degrees) in the player's state, with the line out or not, blended from the state before. */
-    private float[] armPose(RodModelDef rod, BedrockAnimations arm, RodTimeline t, String bone, boolean line) {
+    private float[] armPose(RodModelDef rod, RodModelDef.Band band, BedrockAnimations arm, RodTimeline t, String bone,
+        boolean line) {
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
-        BedrockAnimations.Clip clip = armClip(rod, arm, state, line);
+        BedrockAnimations.Clip clip = armClip(rod, band, arm, state, line);
         if (clip == null || !clip.animates(bone)) {
             return null;
         }
@@ -548,7 +617,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         int blend = rod.transition(RodModelDef.ROD_CONTROLLER);
         double ticks = t == null ? blend : Math.max(0, clock - t.start() + partialTicks);
         float[] deg = clip.rotation(bone, Math.max(0, ticks - blend) / 20);
-        BedrockAnimations.Clip before = t == null ? null : armClip(rod, arm, t.previous(), line);
+        BedrockAnimations.Clip before = t == null ? null : armClip(rod, band, arm, t.previous(), line);
         if (before != null && ticks < blend && before.animates(bone)) {
             float[] from = before.rotation(bone, Math.max(0, t.start() - t.previousStart() - blend) / 20.0);
             float f = (float) (ticks / blend);
@@ -570,7 +639,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         RodTimeline t = timelines.get(player.getEntityId());
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
-        RodModelDef.Clips c = r.model.clips(state);
+        RodModelDef.Clips c = r.model.clips(state, band(player.getHeldItem(), r.model));
         return c != null && c.twoHands(player.fishEntity != null);
     }
 
@@ -610,8 +679,9 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
     }
 
-    private static BedrockAnimations.Clip armClip(RodModelDef rod, BedrockAnimations arm, String state, boolean line) {
-        RodModelDef.Clips c = state == null ? null : rod.clips(state);
+    private static BedrockAnimations.Clip armClip(RodModelDef rod, RodModelDef.Band band, BedrockAnimations arm,
+        String state, boolean line) {
+        RodModelDef.Clips c = state == null ? null : rod.clips(state, band);
         return c == null || arm == null ? null : arm.clip(c.arm(line));
     }
 
@@ -625,6 +695,25 @@ public final class RodModels implements IResourceManagerReloadListener {
     // Line tip
 
     /** {@code RenderPlayerEvent.Pre}: the view matrix the player (and his rod) is drawn with. */
+    private final float[] viewMatrix = new float[16];
+    private boolean viewKnown;
+
+    /**
+     * The camera's view matrix of the frame (column-major), read when the world is done (before the hand): entities
+     * and the hand drawn in this frame use it (the entities, the one of the frame before). Null before the first frame.
+     */
+    public float[] viewMatrix() {
+        return viewKnown ? viewMatrix : null;
+    }
+
+    @SubscribeEvent
+    public void onRenderWorldLast(RenderWorldLastEvent event) {
+        if (installed) {
+            readMatrix(GL11.GL_MODELVIEW_MATRIX, viewMatrix);
+            viewKnown = true;
+        }
+    }
+
     @SubscribeEvent
     public void onRenderPlayer(RenderPlayerEvent.Pre event) {
         if (resolve(event.entityPlayer.getHeldItem()) == null) {

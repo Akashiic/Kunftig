@@ -36,16 +36,39 @@ public final class GeckoRods {
             (AnimationController.ModelFetcher<RodAnimatable>) object -> object instanceof RodAnimatable
                 ? (IAnimatableModel<RodAnimatable>) ((RodAnimatable) object).model
                 : null);
-        IItemRenderer previous = registered(Items.fishing_rod);
+        install(Items.fishing_rod, "minecraft:fishing_rod");
+        RodModels.INSTANCE.markInstalled();
+        // Other items (itens: fish...) as resource packs declare them, now and after every reload.
+        RodModels.INSTANCE.onItems(names -> {
+            for (String name : names) {
+                Object item = Item.itemRegistry.getObject(name);
+                if (item instanceof Item) {
+                    install((Item) item, name);
+                } else if (UNKNOWN.add(name)) {
+                    Kunftig.LOG.warn("Kunftig 3D rods: item {} (itens) does not exist here", name);
+                }
+            }
+        });
+    }
+
+    private static final java.util.Set<Item> INSTALLED = new java.util.HashSet<>();
+    private static final java.util.Set<String> UNKNOWN = new java.util.HashSet<>();
+
+    /** Puts the 3D renderer on an item once, over whatever renderer it has (which keeps the stacks without a model). */
+    private static void install(Item item, String name) {
+        if (!INSTALLED.add(item)) {
+            return;
+        }
+        IItemRenderer previous = registered(item);
         if (previous != null) {
             Kunftig.LOG.info(
-                "Kunftig 3D rods: fishing rods already have an item renderer ({}); it keeps every rod without a 3D model",
+                "Kunftig 3D rods: {} already has an item renderer ({}); it keeps every stack without a 3D model",
+                name,
                 previous.getClass()
                     .getName());
         }
-        MinecraftForgeClient.registerItemRenderer(Items.fishing_rod, new RodItemRenderer(previous));
-        RodModels.INSTANCE.markInstalled();
-        Kunftig.LOG.info("Kunftig 3D rods: GeckoLib renderer installed on the fishing rod");
+        MinecraftForgeClient.registerItemRenderer(item, new RodItemRenderer(previous));
+        Kunftig.LOG.info("Kunftig 3D rods: GeckoLib renderer installed on {}", name);
     }
 
     /** The renderer Forge has for an item, whatever render type it handles. */

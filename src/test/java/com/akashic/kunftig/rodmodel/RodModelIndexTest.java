@@ -114,6 +114,8 @@ class RodModelIndexTest {
         assertEquals("vara", rod.sway.pivot);
         assertEquals(Arrays.asList("segmento1", "segmento2"), rod.sway.bend);
         assertEquals(0.8F, rod.sway.strength, 1e-6);
+        assertEquals("linha", rod.hangingLine.bone);
+        assertEquals(18F, rod.hangingLine.lengthPixels, 1e-6);
         // What the reader does not know is listed, not an error; nome, controladores and molang are known.
         assertEquals(
             1,
