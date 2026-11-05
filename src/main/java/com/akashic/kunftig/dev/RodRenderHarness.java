@@ -122,6 +122,22 @@ public final class RodRenderHarness {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
             }
+            if (mode.length == 4 && mode[0].equals("server")) {
+                RodServerHarness.install(mode[1], Integer.parseInt(mode[2]), false, Integer.parseInt(mode[3]));
+                return;
+            }
+            if (mode.length == 5 && mode[0].equals("observer")) {
+                RodServerHarness.installObserver(
+                    mode[1],
+                    Integer.parseInt(mode[2]),
+                    Double.parseDouble(mode[3]),
+                    Integer.parseInt(mode[4]));
+                return;
+            }
+            if (mode.length == 3 && mode[0].equals("observer")) {
+                RodServerHarness.install(mode[1], Integer.parseInt(mode[2]), true);
+                return;
+            }
         } catch (IOException | NumberFormatException e) {
             Kunftig.LOG.warn("Kunftig rod harness: unreadable trigger file, running the render harness", e);
         }

@@ -43,11 +43,18 @@ public final class RodServerHarness {
         CAST_ESCAPE,
         WAIT_BITE_ESCAPE,
         ESCAPING,
+        OBSERVE,
         DONE
     }
 
+    /** How long the observer stays beside the angler, logging every title it is shown. */
+    private static final int OBSERVE_TICKS = 20 * 240;
+
     private final String host;
     private final int port;
+    /** The observer: stands beside the angler and logs every title its own screen gets (a title leaking from him). */
+    private final boolean observer;
+    private String lastTitle;
     private Phase phase = Phase.MENU;
     private int ticks;
     private int menuTicks;
@@ -59,16 +66,49 @@ public final class RodServerHarness {
     private String shot;
     private boolean quitting;
 
-    private RodServerHarness(String host, int port) {
+    private final int x;
+    /** Where the observer stands (block x, z of the stone under it; the player at its middle). */
+    private int observerX = 2;
+    private int observerZ = 0;
+    private double observerXOffset = 0.5;
+
+    private RodServerHarness(String host, int port, boolean observer, int x) {
         this.host = host;
         this.port = port;
+        this.observer = observer;
+        this.x = x;
     }
 
     /** Called by {@link RodRenderHarness#install()} when the trigger file asks for the server mode. */
     static void install(String host, int port) {
+        install(host, port, false);
+    }
+
+    /** {@code observer}: the trigger file says {@code observer <host> <port>}. */
+    static void install(String host, int port, boolean observer) {
+        install(host, port, observer, 0);
+    }
+
+    /**
+     * The observer at another spot: {@code observer <host> <port> <x> <z>} (x may have a fraction, the player stands
+     * there; the stone goes under it), facing the angler's water.
+     */
+    static void installObserver(String host, int port, double x, int z) {
+        RodServerHarness h = new RodServerHarness(host, port, true, 0);
+        h.observerX = (int) Math.floor(x);
+        h.observerXOffset = x - Math.floor(x);
+        h.observerZ = z;
         FMLCommonHandler.instance()
             .bus()
-            .register(new RodServerHarness(host, port));
+            .register(h);
+        Kunftig.LOG.warn("Kunftig DEV ROD SERVER HARNESS (observer at {} {}) enabled", x, z);
+    }
+
+    /** {@code x}: the angler stands at that x ({@code server <host> <port> <x>}), for two anglers side by side. */
+    static void install(String host, int port, boolean observer, int x) {
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new RodServerHarness(host, port, observer, x));
         Kunftig.LOG.warn("Kunftig DEV ROD SERVER HARNESS enabled: connecting to {}:{}, then quitting", host, port);
     }
 
@@ -130,6 +170,7 @@ public final class RodServerHarness {
             return;
         }
         watchState(mc);
+        watchTitle();
         phaseTicks++;
         switch (phase) {
             case JOINING:
@@ -139,7 +180,19 @@ public final class RodServerHarness {
                 }
                 break;
             case SETUP:
-                setup(mc);
+                if (observer) {
+                    observerSetup(mc);
+                } else {
+                    setup(mc);
+                }
+                break;
+            case OBSERVE:
+                if (phaseTicks % (20 * 30) == 0) {
+                    report("observing (" + phaseTicks / 20 + " s); players here: " + mc.theWorld.playerEntities.size());
+                }
+                if (phaseTicks >= OBSERVE_TICKS) {
+                    finish(mc);
+                }
                 break;
             case CAST_WIN:
             case CAST_ESCAPE:
@@ -220,8 +273,8 @@ public final class RodServerHarness {
         String me = mc.thePlayer.getCommandSenderName();
         // Water breathing first (the flat world's surface is water), then a stone to stand on once the chunk is loaded.
         String[] commands = { "/time set 6000", "/gamerule doDaylightCycle false", "/effect " + me + " 13 3600 0",
-            "/tp " + me + " 0.5 6 0.5 0 35", "/setblock 0 5 0 stone", "/tp " + me + " 0.5 6 0.5 0 35",
-            "/af vara vara-solar 1 ouro" };
+            "/tp " + me + " " + (x + 0.5) + " 6 0.5 0 35", "/setblock " + x + " 5 0 stone",
+            "/tp " + me + " " + (x + 0.5) + " 6 0.5 0 35", "/af vara vara-solar 1 ouro" };
         if (setupStep < commands.length) {
             report("> " + commands[setupStep]);
             mc.thePlayer.sendChatMessage(commands[setupStep++]);
@@ -240,6 +293,46 @@ public final class RodServerHarness {
         if (phaseTicks > 30 * (commands.length + 6)) {
             report("no 3D rod in the hotbar");
             finish(mc);
+        }
+    }
+
+    /** The observer: water breathing, a stone two blocks east of the angler's, looking at him. */
+    private void observerSetup(Minecraft mc) {
+        if (phaseTicks % 30 != 0) {
+            return;
+        }
+        String me = mc.thePlayer.getCommandSenderName();
+        String at = (observerX + observerXOffset) + " 6 " + (observerZ + 0.5) + (observerZ == 0 ? " 90 20" : " 0 20");
+        String[] commands = { "/effect " + me + " 13 3600 0", "/tp " + me + " " + at,
+            "/setblock " + observerX + " 5 " + observerZ + " stone", "/tp " + me + " " + at };
+        if (setupStep < commands.length) {
+            report("> " + commands[setupStep]);
+            mc.thePlayer.sendChatMessage(commands[setupStep++]);
+            return;
+        }
+        report("observing beside the angler");
+        go(Phase.OBSERVE);
+    }
+
+    /** Every title NecroTempus puts on this screen (read from its client manager), when it changes. */
+    private void watchTitle() {
+        String text;
+        try {
+            Class<?> manager = Class
+                .forName("io.github.cruciblemc.necrotempus.modules.features.title.client.ClientTitleManager");
+            Object title = manager.getMethod("getCurrentTitle")
+                .invoke(null);
+            text = title == null ? null
+                : String.valueOf(
+                    title.getClass()
+                        .getMethod("toNbt")
+                        .invoke(title));
+        } catch (ReflectiveOperationException | LinkageError e) {
+            text = "? " + e;
+        }
+        if (text == null ? lastTitle != null : !text.equals(lastTitle)) {
+            report("title " + (text == null ? "(none)" : text.length() > 300 ? text.substring(0, 300) + "..." : text));
+            lastTitle = text;
         }
     }
 
