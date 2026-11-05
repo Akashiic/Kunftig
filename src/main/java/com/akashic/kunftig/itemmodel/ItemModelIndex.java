@@ -25,7 +25,9 @@ import com.akashic.kunftig.common.text.Json;
  * {@code celula} is drawn in container slots over the whole 18x18 slot cell (the icon's 16x16 face and the 1 pixel
  * around
  * it), so the items of neighboring slots can join into one picture (a button over several slots). Its texture is 32x32
- * with the cell in the top left 18x18 (a power of two: the items atlas keeps its mipmaps). Icon names are those of
+ * with the cell in the top left 18x18 (a power of two: the items atlas keeps its mipmaps). The same can be said with a
+ * sibling entry, {@code "<model>.celula": "<icon>"}, which a Kunftig without slot cells reads as one more model no item
+ * uses (the pack keeps working there). Icon names are those of
  * {@code Item#setTextureName}:
  * {@code akashicfishing:fish/tucunare} is {@code assets/akashicfishing/textures/items/fish/tucunare.png} (animated
  * with a {@code .mcmeta} as usual); without a namespace, the file's own is used. No Minecraft classes here.
@@ -51,9 +53,26 @@ public final class ItemModelIndex {
         return Collections.unmodifiableMap(icons);
     }
 
-    /** Model id to the icon name of its slot cell ({@code celula}), for the models that have one. */
+    /** Suffix of a sibling entry that gives a model's slot cell. */
+    public static final String CELL_SUFFIX = ".celula";
+
+    /**
+     * Model id to the icon name of its slot cell ({@code celula}, or a sibling {@code <model>.celula}), for the models
+     * that have one.
+     */
     public Map<String, String> cells() {
-        return Collections.unmodifiableMap(cells);
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : icons.entrySet()) {
+            String key = e.getKey();
+            if (key.endsWith(CELL_SUFFIX)) {
+                String model = key.substring(0, key.length() - CELL_SUFFIX.length());
+                if (icons.containsKey(model)) {
+                    out.put(model, e.getValue());
+                }
+            }
+        }
+        out.putAll(cells);
+        return Collections.unmodifiableMap(out);
     }
 
     /** Problems found, one line each (the rest of the file still applies). */

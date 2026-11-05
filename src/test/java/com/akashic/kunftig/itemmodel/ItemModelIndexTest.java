@@ -117,6 +117,30 @@ class ItemModelIndexTest {
     }
 
     @Test
+    void aSiblingEntryGivesTheCellToo() {
+        // what an older Kunftig reads as one more model (no item uses it): the pack keeps working there
+        ItemModelIndex index = new ItemModelIndex();
+        index.add(
+            "akashicfishing",
+            "{\"tela/botao-0\": \"gui/botao-0\", \"tela/botao-0.celula\": \"gui/botao-0_celula\","
+                + " \"orfa.celula\": \"gui/x\"}",
+            "test");
+        assertEquals(
+            "akashicfishing:gui/botao-0_celula",
+            index.cells()
+                .get("akashicfishing:tela/botao-0"));
+        assertEquals(
+            1,
+            index.cells()
+                .size(),
+            "a cell without its model is no cell");
+        assertEquals(
+            0,
+            index.errors()
+                .size());
+    }
+
+    @Test
     void iconNames() {
         assertEquals("ns:path/to/icon", ItemModelIndex.iconName("ns", "path/to/icon"));
         assertEquals("other:icon", ItemModelIndex.iconName("ns", "other:icon"));
