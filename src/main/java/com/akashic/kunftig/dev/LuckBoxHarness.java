@@ -109,7 +109,9 @@ public final class LuckBoxHarness {
         } else if (phase == 2 && phaseTicks % 30 == 0) {
             String me = mc.thePlayer.getCommandSenderName();
             String[] commands = { "/time set 6000", "/gamerule doDaylightCycle false", "/effect " + me + " 13 3600 0",
-                "/tp " + me + " 0.5 6 0.5 0 -10", "/setblock 0 5 0 stone", "/tp " + me + " 0.5 6 0.5 0 -10" };
+                "/tp " + me + " 0.5 6 0.5", "/setblock 0 5 0 stone", "/setblock 0 5 -6 stone", "/setblock 0 3 3 water",
+                "/setblock -1 3 3 water", "/setblock 1 3 3 water", "/setblock 0 3 4 water", "/setblock 0 3 2 water",
+                "/tp " + me + " 0.5 6 0.5" };
             if (step < commands.length) {
                 report("> " + commands[step]);
                 mc.thePlayer.sendChatMessage(commands[step++]);
@@ -120,8 +122,14 @@ public final class LuckBoxHarness {
             }
         } else if (phase == 3) {
             mc.thePlayer.rotationYaw = 0;
-            mc.thePlayer.rotationPitch = -10;
+            mc.thePlayer.rotationPitch = boxTicks < 2 ? -10 : -6;
             boxTicks++;
+            // the box comes out of the pond 3 blocks ahead (z 3.5); then step back to see all of it
+            if (boxTicks == 3) {
+                mc.thePlayer.sendChatMessage("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -5.5");
+            } else if (boxTicks == -10) {
+                mc.thePlayer.sendChatMessage("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 0.5");
+            }
             if (boxTicks == 0) {
                 String cmd = "/af caixa " + BOXES[box][0] + " " + BOXES[box][1];
                 report("> " + cmd);

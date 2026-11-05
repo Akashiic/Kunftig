@@ -122,9 +122,15 @@ public final class DisplayClient implements IResourceManagerReloadListener {
 
     // ---- network ------------------------------------------------------------------------------------------------
 
-    /** At the end of {@code handleJoinGame}: a fresh connection knows no display and asks for them. */
+    /**
+     * At the end of {@code handleJoinGame}: a fresh connection knows no display and asks for them. Only a client that
+     * can draw them registers the channel (without GeckoLib the server draws the plugin's fallback instead).
+     */
     public void onJoinGame(NetHandlerPlayClient handler) {
         displays.clear();
+        if (renderer == null) {
+            return;
+        }
         handler.addToSendQueue(
             new C17PacketCustomPayload("REGISTER", DisplayWire.CHANNEL.getBytes(StandardCharsets.UTF_8)));
     }
@@ -245,7 +251,7 @@ public final class DisplayClient implements IResourceManagerReloadListener {
                 "Kunftig displays: {} display(s) read{}",
                 read.models()
                     .size(),
-                r != null ? "" : " (not drawn: GeckoLib missing or disabled)");
+                r != null ? "" : " (no renderer yet: GeckoLib missing, disabled, or not installed so far)");
         }
     }
 
