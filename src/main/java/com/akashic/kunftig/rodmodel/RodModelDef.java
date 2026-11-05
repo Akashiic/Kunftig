@@ -269,6 +269,39 @@ public final class RodModelDef {
     public final List<Band> bands;
     /** Quality to its texture frames ({@code texturas_qualidade}), over the mutation stage's texture. */
     public final Map<String, List<String>> qualityTextures;
+    /**
+     * World contexts ({@code contextos_estados}: {@link #CONTEXTS}) to the states they swap, in the manifest's order
+     * (the
+     * first active one wins); empty without the field. Only for models without size bands.
+     */
+    public final Map<String, Band> contextBands;
+    /** May be null: no bones gated by a value stored in the item ({@code variante}). */
+    public final Variant variant;
+
+    /** The world contexts a model can react to ({@code contextos_estados}), as the client sees them. */
+    public static final List<String> CONTEXTS = java.util.Arrays.asList("trovoada", "chuva", "neve", "noite");
+
+    /**
+     * Bones shown from a level of a number stored in the item ({@code variante}: the rod's affection, for instance),
+     * read like {@code tamanho} from the item's data.
+     */
+    public static final class Variant {
+
+        public final String key;
+        /** Bone to the level from which it shows. */
+        public final Map<String, Integer> boneLevels;
+
+        public Variant(String key, Map<String, Integer> boneLevels) {
+            this.key = key;
+            this.boneLevels = Collections.unmodifiableMap(boneLevels);
+        }
+
+        /** Whether a bone shows at this level (bones absent here always show). */
+        public boolean shows(String bone, int level) {
+            Integer from = boneLevels.get(bone);
+            return from == null || level >= from;
+        }
+    }
 
     RodModelDef(String id, String geo, String animations, String arm, String texture,
         NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
@@ -312,6 +345,44 @@ public final class RodModelDef {
         Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
         Map<String, Integer> transitions, Sway sway, HangingLine hangingLine, List<String> items, Size size,
         List<Band> bands, Map<String, List<String>> qualityTextures) {
+        this(
+            id,
+            geo,
+            animations,
+            arm,
+            texture,
+            stageTextures,
+            ticksPerFrame,
+            states,
+            lightBones,
+            translucentBones,
+            boneStages,
+            tipBone,
+            tipRest,
+            hiddenWhileCast,
+            lineColors,
+            grip,
+            displays,
+            contexts,
+            qualityBones,
+            transitions,
+            sway,
+            hangingLine,
+            items,
+            size,
+            bands,
+            qualityTextures,
+            Collections.<String, Band>emptyMap(),
+            null);
+    }
+
+    RodModelDef(String id, String geo, String animations, String arm, String texture,
+        NavigableMap<Integer, List<String>> stageTextures, int ticksPerFrame, Map<String, Clips> states,
+        Set<String> lightBones, Set<String> translucentBones, Map<String, Integer> boneStages, String tipBone,
+        float[] tipRest, Set<String> hiddenWhileCast, NavigableMap<Integer, Integer> lineColors, float[] grip,
+        Map<String, Display> displays, Set<String> contexts, Map<String, List<String>> qualityBones,
+        Map<String, Integer> transitions, Sway sway, HangingLine hangingLine, List<String> items, Size size,
+        List<Band> bands, Map<String, List<String>> qualityTextures, Map<String, Band> contextBands, Variant variant) {
         this.id = id;
         this.geo = geo;
         this.animations = animations;
@@ -338,6 +409,8 @@ public final class RodModelDef {
         this.size = size;
         this.bands = Collections.unmodifiableList(new java.util.ArrayList<>(bands));
         this.qualityTextures = Collections.unmodifiableMap(qualityTextures);
+        this.contextBands = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(contextBands));
+        this.variant = variant;
     }
 
     /** The blend of a controller between animations, in ticks (0: none). */
@@ -419,6 +492,27 @@ public final class RodModelDef {
     public int lineColor(int stage) {
         Map.Entry<Integer, Integer> e = lineColors.floorEntry(stage);
         return e == null ? -1 : e.getValue();
+    }
+
+    /**
+     * The state swaps of the first world context in {@code active} the model declares, in the manifest's order (null:
+     * none applies).
+     */
+    public Band contextBand(java.util.Collection<String> active) {
+        if (contextBands.isEmpty() || active == null || active.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, Band> e : contextBands.entrySet()) {
+            if (active.contains(e.getKey())) {
+                return e.getValue();
+            }
+        }
+        return null;
+    }
+
+    /** Whether a bone shows at this level of the {@link #variant} (always, without one). */
+    public boolean showsAtVariant(String bone, int level) {
+        return variant == null || variant.shows(bone, level);
     }
 
     /** Whether a bone shows at this mutation stage. */

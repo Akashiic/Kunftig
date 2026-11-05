@@ -92,6 +92,8 @@ public final class RodModelIndex {
                 "tamanho",
                 "faixas",
                 "texturas_qualidade",
+                "contextos_estados",
+                "variante",
                 "nome",
                 "controladores",
                 "molang")));
@@ -492,6 +494,64 @@ public final class RodModelIndex {
             qualityTextures.put(quality, Collections.unmodifiableList(frames));
         }
 
+        // contextos_estados: the world as the client sees it (trovoada, chuva, neve, noite) swaps states, like a band
+        Map<String, RodModelDef.Band> contextBands = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> c : object(o, "contextos_estados").entrySet()) {
+            String context = String.valueOf(c.getKey());
+            String where = "contextos_estados." + context;
+            if (!RodModelDef.CONTEXTS.contains(context)) {
+                throw new Invalid(where + ": unknown context (one of " + RodModelDef.CONTEXTS + ")");
+            }
+            if (!bands.isEmpty()) {
+                throw new Invalid("contextos_estados is for models without faixas");
+            }
+            if (!(c.getValue() instanceof Map)) {
+                throw new Invalid(where + " must be an object of state: state");
+            }
+            Map<String, String> swaps = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) c.getValue()).entrySet()) {
+                String from = String.valueOf(e.getKey());
+                Object to = e.getValue();
+                if (!states.containsKey(from) || !(to instanceof String) || !states.containsKey(to)) {
+                    throw new Invalid(where + "." + from + " must swap a state of estados for another");
+                }
+                swaps.put(from, (String) to);
+            }
+            contextBands.put(
+                context,
+                new RodModelDef.Band(context, 0, swaps, Collections.<String, RodModelDef.Display>emptyMap()));
+        }
+
+        // variante: bones shown from a level of a number in the item's data (the rod's affection)
+        RodModelDef.Variant variant = null;
+        if (o.containsKey("variante")) {
+            Map<?, ?> v = object(o, "variante");
+            Object key = v.get("chave");
+            if (!(key instanceof String) || !DATA_KEY.matcher((String) key)
+                .matches()) {
+                throw new Invalid("variante.chave must be a key of the item's data like \"akashicfishing:vara-afeto\"");
+            }
+            Map<String, Integer> levels = new HashMap<>();
+            for (Map.Entry<?, ?> e : object(v, "ossos").entrySet()) {
+                int level;
+                try {
+                    level = Integer.parseInt(String.valueOf(e.getKey()));
+                } catch (NumberFormatException ex) {
+                    throw new Invalid("variante.ossos." + e.getKey() + ": the level must be a whole number");
+                }
+                if (level < 1) {
+                    throw new Invalid("variante.ossos." + e.getKey() + ": levels start at 1");
+                }
+                for (String bone : bones(e.getValue(), "variante.ossos." + e.getKey())) {
+                    levels.merge(bone, level, Math::min);
+                }
+            }
+            if (levels.isEmpty()) {
+                throw new Invalid("variante needs ossos (level: bones)");
+            }
+            variant = new RodModelDef.Variant((String) key, levels);
+        }
+
         return new RodModelDef(
             id,
             geo,
@@ -518,7 +578,9 @@ public final class RodModelIndex {
             items,
             size,
             bands,
-            qualityTextures);
+            qualityTextures,
+            contextBands,
+            variant);
     }
 
     private static Map<String, RodModelDef.Display> displays(Map<?, ?> o, String field) throws Invalid {

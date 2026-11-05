@@ -287,6 +287,33 @@ public final class RodModels implements IResourceManagerReloadListener {
         return rod == null || rod.bands.isEmpty() ? null : rod.band(rod.size.valueOr(sizeOf(stack, rod)));
     }
 
+    /**
+     * The states a holder's model plays: its size band (a fish) or, for a model without bands, the swaps of the world
+     * around the holder ({@code contextos_estados}: thunder, rain, snow, night); null when neither applies.
+     */
+    public static RodModelDef.Band band(net.minecraft.entity.EntityLivingBase holder, ItemStack stack,
+        RodModelDef rod) {
+        if (rod == null) {
+            return null;
+        }
+        if (!rod.bands.isEmpty()) {
+            return band(stack, rod);
+        }
+        return rod.contextBands.isEmpty() || holder == null ? null : rod.contextBand(RodContext.of(holder));
+    }
+
+    /** The level of the model's {@code variante} stored in a stack (0 without one or without the value). */
+    public static int variantOf(ItemStack stack, RodModelDef rod) {
+        if (rod == null || rod.variant == null
+            || stack == null
+            || stack.stackTagCompound == null
+            || !stack.stackTagCompound.hasKey(ItemModelIndex.NBT_ROOT, 10)) {
+            return 0;
+        }
+        NBTTagCompound values = stack.stackTagCompound.getCompoundTag(ItemModelIndex.NBT_ROOT);
+        return values.hasKey(rod.variant.key, 99) ? Math.max(0, (int) values.getDouble(rod.variant.key)) : 0;
+    }
+
     /** The factor a stack's model is scaled by for its size (1 without {@code tamanho}). */
     public static float sizeScale(ItemStack stack, RodModelDef rod) {
         return rod == null || rod.size == null ? 1F : rod.size.scale(rod.size.valueOr(sizeOf(stack, rod)));
@@ -421,7 +448,7 @@ public final class RodModels implements IResourceManagerReloadListener {
                 t = timeline(p);
             }
             // A size band is another way of holding the model: taking a bigger fish of the same species draws again.
-            RodModelDef.Band band = band(p.getHeldItem(), rod);
+            RodModelDef.Band band = band(p, p.getHeldItem(), rod);
             t.observe(
                 clock,
                 rod == null ? null : band == null ? rod.id : rod.id + "#" + band.name,
@@ -584,7 +611,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         RodTimeline t = timelines.get(player.getEntityId());
         BedrockAnimations arm = animations.get(r.model.arm);
         boolean line = player.fishEntity != null;
-        RodModelDef.Band band = band(player.getHeldItem(), r.model);
+        RodModelDef.Band band = band(player, player.getHeldItem(), r.model);
         float[] deg = armPose(r.model, band, arm, t, bone, line);
         if (deg == null) {
             return null;
@@ -639,7 +666,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         RodTimeline t = timelines.get(player.getEntityId());
         String state = t == null || t.state() == null ? RodModelDef.IDLE : t.state();
-        RodModelDef.Clips c = r.model.clips(state, band(player.getHeldItem(), r.model));
+        RodModelDef.Clips c = r.model.clips(state, band(player, player.getHeldItem(), r.model));
         return c != null && c.twoHands(player.fishEntity != null);
     }
 
