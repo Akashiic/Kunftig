@@ -41,6 +41,16 @@ public final class ClientProxy extends CommonProxy {
         if (!Boolean.getBoolean("kunftig.holograms.disable")) {
             MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.hologram.HologramClient.INSTANCE);
         }
+        if (!com.akashic.kunftig.client.display.DisplayClient.disabled()) {
+            // The displays (API 8): their manifests now and on every reload, their clock and the world draw.
+            ((IReloadableResourceManager) Minecraft.getMinecraft()
+                .getResourceManager())
+                    .registerReloadListener(com.akashic.kunftig.client.display.DisplayClient.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.display.DisplayClient.INSTANCE);
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.display.DisplayClient.INSTANCE);
+        }
         if (!RodModels.disabled()) {
             // Reads the manifests now and on every resource reload (server resource packs included).
             ((IReloadableResourceManager) Minecraft.getMinecraft()
@@ -56,6 +66,7 @@ public final class ClientProxy extends CommonProxy {
     @Override
     public void postInit(FMLPostInitializationEvent event) {
         installRodModels();
+        installDisplays();
         if (new java.io.File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").isFile()) {
             try {
                 // Development only: the class is absent from release jars.
@@ -87,6 +98,25 @@ public final class ClientProxy extends CommonProxy {
                 .invoke(null);
         } catch (ReflectiveOperationException | LinkageError e) {
             Kunftig.LOG.error("Kunftig 3D rods: could not use GeckoLib; rods keep their 2D icons", e);
+        }
+    }
+
+    /** Displays (API 8): GeckoLib's side only when GeckoLib is loaded, reflectively, like the rods. */
+    private static void installDisplays() {
+        if (com.akashic.kunftig.client.display.DisplayClient.disabled()) {
+            Kunftig.LOG.warn("Kunftig displays disabled by -Dkunftig.displays.disable=true");
+            return;
+        }
+        if (!Loader.isModLoaded("geckolib3")) {
+            Kunftig.LOG.info("Kunftig displays: GeckoLib (geckolib3) not installed; displays are not drawn");
+            return;
+        }
+        try {
+            Class.forName("com.akashic.kunftig.client.display.gecko.GeckoDisplays")
+                .getMethod("install")
+                .invoke(null);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            Kunftig.LOG.error("Kunftig displays: could not use GeckoLib; displays are not drawn", e);
         }
     }
 
