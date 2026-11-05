@@ -17,6 +17,7 @@
     "particle.NetHandlerPlayClientParticleMixin",
     "itemmodel.ItemModelMixin",
     "itemmodel.ItemStackModelMixin",
+    "itemmodel.RenderItemSlotCellMixin",
     "itemmodel.EntityPlayerCastIconMixin",
     "fishing.NetHandlerPlayClientFishingMixin",
     "hologram.NetHandlerPlayClientHologramMixin",

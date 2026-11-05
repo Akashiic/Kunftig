@@ -21,7 +21,12 @@ import com.akashic.kunftig.common.text.Json;
  * </pre>
  *
  * In {@code assets/akashicfishing/...} this declares models {@code akashicfishing:tucunare} and
- * {@code akashicfishing:bota_velha}. Icon names are those of {@code Item#setTextureName}:
+ * {@code akashicfishing:bota_velha}. A model can also be an object, {@code {"icone": "...", "celula": "..."}}: the
+ * {@code celula} is drawn in container slots over the whole 18x18 slot cell (the icon's 16x16 face and the 1 pixel
+ * around
+ * it), so the items of neighboring slots can join into one picture (a button over several slots). Its texture is 32x32
+ * with the cell in the top left 18x18 (a power of two: the items atlas keeps its mipmaps). Icon names are those of
+ * {@code Item#setTextureName}:
  * {@code akashicfishing:fish/tucunare} is {@code assets/akashicfishing/textures/items/fish/tucunare.png} (animated
  * with a {@code .mcmeta} as usual); without a namespace, the file's own is used. No Minecraft classes here.
  */
@@ -38,11 +43,17 @@ public final class ItemModelIndex {
     private static final int MAX_DEPTH = 4;
 
     private final Map<String, String> icons = new LinkedHashMap<>();
+    private final Map<String, String> cells = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
 
     /** Model id ({@code namespace:key}) to icon name, in the order declared; later packs override earlier ones. */
     public Map<String, String> icons() {
         return Collections.unmodifiableMap(icons);
+    }
+
+    /** Model id to the icon name of its slot cell ({@code celula}), for the models that have one. */
+    public Map<String, String> cells() {
+        return Collections.unmodifiableMap(cells);
     }
 
     /** Problems found, one line each (the rest of the file still applies). */
@@ -71,12 +82,30 @@ public final class ItemModelIndex {
                 errors.add(source + ": invalid model key '" + key + "' (use a-z 0-9 / . _ -)");
                 continue;
             }
+            String cell = null;
+            if (value instanceof Map) {
+                Map<?, ?> o = (Map<?, ?>) value;
+                Object c = o.get("celula");
+                if (c != null) {
+                    cell = c instanceof String ? iconName(namespace, (String) c) : null;
+                    if (cell == null) {
+                        errors.add(source + ": model '" + key + "': \"celula\" needs an icon name");
+                        continue;
+                    }
+                }
+                value = o.get("icone");
+            }
             String icon = value instanceof String ? iconName(namespace, (String) value) : null;
             if (icon == null) {
                 errors.add(source + ": model '" + key + "' needs an icon name like \"" + namespace + ":path\"");
                 continue;
             }
             icons.put(namespace + ":" + key, icon);
+            if (cell != null) {
+                cells.put(namespace + ":" + key, cell);
+            } else {
+                cells.remove(namespace + ":" + key); // a later pack without a cell for this model
+            }
         }
     }
 

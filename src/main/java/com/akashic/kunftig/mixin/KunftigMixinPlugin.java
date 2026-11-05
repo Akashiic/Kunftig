@@ -66,6 +66,10 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.startsWith(ITEM_MODEL_PACKAGE) && Boolean.getBoolean("kunftig.itemModels.disable")) {
             return false;
         }
+        if (mixinClassName.endsWith("SlotCellMixin") && Boolean.getBoolean("kunftig.slotCells.disable")) {
+            LOG.warn("Item model slot cells disabled by -Dkunftig.slotCells.disable=true");
+            return false;
+        }
         if (mixinClassName.startsWith(ROD_MODEL_PACKAGE) && Boolean.getBoolean("kunftig.rodModels.disable")) {
             return false;
         }

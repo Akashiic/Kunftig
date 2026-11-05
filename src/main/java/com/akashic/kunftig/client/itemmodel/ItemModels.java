@@ -41,6 +41,7 @@ public final class ItemModels {
     private static final int MAX_LOGGED_ERRORS = 20;
 
     private static volatile Map<String, IIcon> icons = Collections.emptyMap();
+    private static volatile Map<String, IIcon> cells = Collections.emptyMap();
 
     private ItemModels() {}
 
@@ -56,6 +57,19 @@ public final class ItemModels {
         }
         Item item = stack.getItem();
         if (item == null || item.getSpriteNumber() != ITEMS_ATLAS || item.requiresMultipleRenderPasses()) {
+            return null;
+        }
+        String model = modelOf(stack.stackTagCompound);
+        return model == null ? null : current.get(model);
+    }
+
+    /**
+     * The slot cell icon of a stack ({@code celula}: 32x32, the cell in its top left 18x18), or null. Container slots
+     * draw it over the whole 18x18 cell instead of the 16x16 icon.
+     */
+    public static IIcon cellFor(ItemStack stack) {
+        Map<String, IIcon> current = cells;
+        if (current.isEmpty() || stack == null || stack.stackTagCompound == null || iconFor(stack) == null) {
             return null;
         }
         String model = modelOf(stack.stackTagCompound);
@@ -110,12 +124,21 @@ public final class ItemModels {
             registered.put(model.getKey(), event.map.registerIcon(model.getValue()));
         }
         icons = registered.isEmpty() ? Collections.<String, IIcon>emptyMap() : registered;
+        Map<String, IIcon> registeredCells = new HashMap<>();
+        for (Map.Entry<String, String> cell : index.cells()
+            .entrySet()) {
+            registeredCells.put(cell.getKey(), event.map.registerIcon(cell.getValue()));
+        }
+        cells = registeredCells.isEmpty() ? Collections.<String, IIcon>emptyMap() : registeredCells;
         List<String> errors = index.errors();
         for (int i = 0; i < errors.size() && i < MAX_LOGGED_ERRORS; i++) {
             Kunftig.LOG.warn("Kunftig item models: {}", errors.get(i));
         }
         if (!registered.isEmpty()) {
-            Kunftig.LOG.info("Kunftig item models: {} model(s) registered", registered.size());
+            Kunftig.LOG.info(
+                "Kunftig item models: {} model(s) registered, {} with a slot cell",
+                registered.size(),
+                registeredCells.size());
         }
     }
 
