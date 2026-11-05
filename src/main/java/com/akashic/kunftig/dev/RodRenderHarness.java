@@ -180,6 +180,7 @@ public final class RodRenderHarness {
      */
     private void planCells() {
         keepChest = true;
+        steps.add(new Step("cells-warmup", SETTLE_TICKS * 2, (mc, p) -> view(mc, 0)));
         String[] states = { "pronto", "bloqueado", "sorteando" };
         for (String state : states) {
             steps.add(new Step("cells-" + state, SETTLE_TICKS, (mc, p) -> {
@@ -194,7 +195,9 @@ public final class RodRenderHarness {
                 int[] levels = { 8, 8, 3, 0 };
                 int[] cols = { 2, 3, 5, 6 };
                 for (int i = 0; i < 4; i++) {
-                    inv.setInventorySlotContents(9 + cols[i], screenItem("tela/tubo-ciano-" + levels[i]));
+                    inv.setInventorySlotContents(
+                        9 + cols[i],
+                        screenItem("tela/tubo-ciano-" + levels[i] + (i % 2 == 1 ? "-fim" : "")));
                 }
                 mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiChest(mc.thePlayer.inventory, inv));
             }));
