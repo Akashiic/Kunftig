@@ -71,6 +71,14 @@ catch) through `KunftigRods` (API 7). Without GeckoLib or the pack, or with `-Dk
 keep their 2D icons. See [docs/rodmodels/README.md](docs/rodmodels/README.md) and [docs/API.md](docs/API.md),
 section 12 (Portuguese).
 
+## Feature 7: animated 3D displays in the world (client + server)
+
+Plugins place a GeckoLib model at a location through `KunftigDisplays` (API 8): a state (animation), a texture
+variant and up to 8 item stacks drawn at bones of the model. The server tracks who is in range (late joiners see the
+animation where it is) and the client draws it with world light, glowing and translucent bones. Models come from
+`assets/<namespace>/kunftig/displays.json`. AkashicFishing's Caixa da Sorte uses it. See [docs/API.md](docs/API.md),
+section 13 (Portuguese).
+
 ## Repository layout
 
 | Path | Contents |

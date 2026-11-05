@@ -78,6 +78,7 @@ public void onEnable() {
 | `...api.bukkit.fishing`, `...api.bukkit.player` | `ModernFishHook#setReelLocked`, `setCatchAimedAtAngler`; `KunftigPlayers.isHotbarSwitch` | — | 5 |
 | `...api.bukkit.hologram` | `KunftigHolograms`, `Hologram` (texto flutuante no mundo) | `TextDisplay` (1.19.4+) | 6 |
 | `...api.bukkit.rod` | `KunftigRods` (estado da vara 3D: mordida, briga com tensão, captura...) | — | 7 |
+| `...api.bukkit.display` | `KunftigDisplays`, `Display` (modelo GeckoLib animado no mundo, com itens nos ossos) | `ItemDisplay`/`BlockDisplay` (1.19.4+) | 8 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -385,3 +386,57 @@ if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
   `-Dkunftig.rodModels.disable=true` no cliente desliga as varas 3D (ícone 2D).
 * Em primeira pessoa, a vara tem inércia (`balanco` no manifesto): fica para trás ao girar a câmera, andar de lado ou
   pular, e volta com um pequeno balanço. `-Dkunftig.rodSway.disable=true` no cliente desliga só isso.
+
+## 13. Exibições: modelos 3D animados no mundo (API 8)
+
+Uma exibição é um modelo Bedrock (GeckoLib) que o plugin põe num ponto do mundo, com uma animação (o estado) e até
+8 itens desenhados nos ossos que o modelo indica (o item gira e se move com o osso). Não é entidade: o servidor
+guarda quem está perto e manda o que mudou; o cliente desenha. O AkashicFishing usa para a Caixa da Sorte.
+
+O resource pack declara os modelos em `assets/<namespace>/kunftig/displays.json`:
+
+```json
+{
+  "_formato": 1,
+  "exibicoes": {
+    "caixa_da_sorte": {
+      "geo": "akashicfishing:geo/caixa/caixa_da_sorte.geo.json",
+      "animacoes": "akashicfishing:animations/caixa/caixa_da_sorte.animation.json",
+      "textura": "akashicfishing:textures/caixa/caixa_da_sorte_comum.png",
+      "variantes": { "epico": "akashicfishing:textures/caixa/caixa_da_sorte_epico.png" },
+      "estados": { "abrir": { "animacao": "animation.caixa_da_sorte.abrir", "laco": false } },
+      "itens": ["item_0", "item_1", "item_2", "item_3"],
+      "escala_item": 1.0,
+      "luz": ["brilho", "feixe"],
+      "translucido": ["brilho", "feixe", "bolha_0"],
+      "distancia": 48
+    }
+  }
+}
+```
+
+* `variantes`: texturas alternativas, escolhidas por nome no `spawn` (sem variante, ou desconhecida: `textura`).
+* `estados`: o nome que o plugin usa e a animação; sem `laco`, a animação para no último quadro.
+* `itens`: os ossos onde os itens vão, na ordem da lista do plugin. `luz`: ossos sem sombra (brilham no escuro).
+  `translucido`: ossos desenhados depois, sem escrever profundidade (água, brilho). `distancia`: além disso (blocos
+  da câmera), o cliente não desenha.
+
+```java
+if (KunftigApi.apiVersion() >= 8 && KunftigApi.isDisplaysAvailable()) {
+    Location at = boia.clone();
+    at.setYaw(yawParaOJogador);                    // a frente (+Z) do modelo olha para lá
+    Display d = KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", "epico", "abrir",
+        Arrays.asList(itemGanho), 48);             // até 8 itens; 48: quem recebe (1 a 128 blocos)
+    // ... d.setState("outro"), d.setItems(...), d.teleport(...)
+    d.remove();                                    // no fim: o plugin remove (a exibição não some sozinha)
+}
+```
+
+* Quem está a até `distancia` blocos (o `spawn`) no mesmo mundo, com Kunftig e GeckoLib, recebe; quem chega depois
+  recebe a animação já andando, no ponto certo. Canal `kunftig:display` (mensagem crua); os itens vão como NBT.
+* `KunftigDisplays.drawsDisplays(player)` diz se o cliente desenha exibições (Kunftig com GeckoLib). Para os outros,
+  o plugin desenha o que quiser no lugar (o AkashicFishing desenha a caixa em partículas).
+* Thread principal. Isole as chamadas numa classe só, chamada depois de conferir `apiVersion() >= 8`: um Kunftig
+  mais antigo não tem essas classes.
+* `-Dkunftig.displays.disable=true` no cliente desliga as exibições (o cliente nem registra o canal).
+
