@@ -36,7 +36,7 @@ class PersistenceApiTest {
 
     @Test
     void withoutTheModEverythingSaysSo() {
-        assertEquals(7, KunftigApi.apiVersion());
+        assertEquals(8, KunftigApi.apiVersion());
         assertFalse(KunftigApi.isItemDataAvailable());
         assertFalse(KunftigApi.isFishingAvailable());
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> KunftigItems.getData(null));

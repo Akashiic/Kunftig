@@ -118,6 +118,10 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (edge) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 3 && mode[0].equals("caixa")) {
+                LuckBoxHarness.install(mode[1], Integer.parseInt(mode[2]));
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("server")) {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;

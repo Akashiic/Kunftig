@@ -77,6 +77,7 @@ public final class Kunftig {
             install("com.akashic.kunftig.bukkit.player.BukkitPlayerBridge");
             install("com.akashic.kunftig.bukkit.hologram.BukkitHologramBridge");
             install("com.akashic.kunftig.bukkit.rod.BukkitRodBridge");
+            install("com.akashic.kunftig.bukkit.display.BukkitDisplayBridge");
         }
     }
 

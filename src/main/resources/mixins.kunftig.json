@@ -21,6 +21,7 @@
     "itemmodel.EntityPlayerCastIconMixin",
     "fishing.NetHandlerPlayClientFishingMixin",
     "hologram.NetHandlerPlayClientHologramMixin",
+    "display.NetHandlerPlayClientDisplayMixin",
     "rodmodel.NetHandlerPlayClientRodMixin",
     "rodmodel.RenderFishLineMixin",
     "rodmodel.ModelBipedRodArmMixin",

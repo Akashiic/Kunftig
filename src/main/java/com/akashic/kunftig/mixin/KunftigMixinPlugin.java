@@ -32,6 +32,7 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
     private static final String PARTICLE_PACKAGE = "com.akashic.kunftig.mixin.mixins.particle.";
     private static final String ITEM_MODEL_PACKAGE = "com.akashic.kunftig.mixin.mixins.itemmodel.";
     private static final String HOLOGRAM_PACKAGE = "com.akashic.kunftig.mixin.mixins.hologram.";
+    private static final String DISPLAY_PACKAGE = "com.akashic.kunftig.mixin.mixins.display.";
     private static final String ROD_MODEL_PACKAGE = "com.akashic.kunftig.mixin.mixins.rodmodel.";
 
     @Override
@@ -61,6 +62,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
             return false;
         }
         if (mixinClassName.startsWith(HOLOGRAM_PACKAGE) && Boolean.getBoolean("kunftig.holograms.disable")) {
+            return false;
+        }
+        if (mixinClassName.startsWith(DISPLAY_PACKAGE) && Boolean.getBoolean("kunftig.displays.disable")) {
             return false;
         }
         if (mixinClassName.startsWith(ITEM_MODEL_PACKAGE) && Boolean.getBoolean("kunftig.itemModels.disable")) {
