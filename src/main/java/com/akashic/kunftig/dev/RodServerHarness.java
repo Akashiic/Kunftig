@@ -67,6 +67,10 @@ public final class RodServerHarness {
     private boolean quitting;
 
     private final int x;
+    /** Where the observer stands (block x, z of the stone under it; the player at its middle). */
+    private int observerX = 2;
+    private int observerZ = 0;
+    private double observerXOffset = 0.5;
 
     private RodServerHarness(String host, int port, boolean observer, int x) {
         this.host = host;
@@ -83,6 +87,21 @@ public final class RodServerHarness {
     /** {@code observer}: the trigger file says {@code observer <host> <port>}. */
     static void install(String host, int port, boolean observer) {
         install(host, port, observer, 0);
+    }
+
+    /**
+     * The observer at another spot: {@code observer <host> <port> <x> <z>} (x may have a fraction, the player stands
+     * there; the stone goes under it), facing the angler's water.
+     */
+    static void installObserver(String host, int port, double x, int z) {
+        RodServerHarness h = new RodServerHarness(host, port, true, 0);
+        h.observerX = (int) Math.floor(x);
+        h.observerXOffset = x - Math.floor(x);
+        h.observerZ = z;
+        FMLCommonHandler.instance()
+            .bus()
+            .register(h);
+        Kunftig.LOG.warn("Kunftig DEV ROD SERVER HARNESS (observer at {} {}) enabled", x, z);
     }
 
     /** {@code x}: the angler stands at that x ({@code server <host> <port> <x>}), for two anglers side by side. */
@@ -283,8 +302,9 @@ public final class RodServerHarness {
             return;
         }
         String me = mc.thePlayer.getCommandSenderName();
-        String[] commands = { "/effect " + me + " 13 3600 0", "/tp " + me + " 2.5 6 0.5 90 20", "/setblock 2 5 0 stone",
-            "/tp " + me + " 2.5 6 0.5 90 20" };
+        String at = (observerX + observerXOffset) + " 6 " + (observerZ + 0.5) + (observerZ == 0 ? " 90 20" : " 0 20");
+        String[] commands = { "/effect " + me + " 13 3600 0", "/tp " + me + " " + at,
+            "/setblock " + observerX + " 5 " + observerZ + " stone", "/tp " + me + " " + at };
         if (setupStep < commands.length) {
             report("> " + commands[setupStep]);
             mc.thePlayer.sendChatMessage(commands[setupStep++]);
