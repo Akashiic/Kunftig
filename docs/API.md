@@ -270,6 +270,26 @@ chão e em moldura. O Kunftig troca o ícone em `ItemStack#getIconIndex` e `Item
 por onde esses caminhos passam no 1.7.10 (conferido no bytecode por testes). O Angelica mexe no brilho, no
 instanciamento e no cache do HUD, mas usa o ícone escolhido por esses métodos.
 
+**Célula do slot** (`celula`): numa GUI de baú, um item pode cobrir o slot inteiro, 18x18, em vez dos 16x16 de
+sempre. Isso cobre também o 1 pixel de borda em volta, e os itens de slots vizinhos se juntam numa figura só, sem as
+linhas entre eles. O botão APRIMORAR do AkashicFishing, sobre cinco slots, usa isso. No pack, uma entrada irmã com o
+sufixo `.celula`:
+
+```json
+{
+  "tela/botao-pronto-0": "akashicfishing:gui/botao-pronto-0",
+  "tela/botao-pronto-0.celula": "akashicfishing:gui/botao-pronto-0_celula"
+}
+```
+
+* A textura da célula é 32x32, com a célula nos 18x18 do canto de cima à esquerda. A potência de dois mantém os
+  mipmaps do atlas de itens.
+* Também vale a forma de objeto, `{"icone": "...", "celula": "..."}`. Prefira a entrada irmã: um Kunftig sem células
+  a lê como mais um modelo, que nenhum item usa, e o pack continua funcionando nele.
+* Só os slots de container usam a célula (o `GuiContainer`, por `RenderItem#renderItemAndEffectIntoGUI`). Barra de
+  itens, mão e chão continuam com o ícone de 16x16.
+* Desligar: `-Dkunftig.slotCells.disable=true`.
+
 **Limites:**
 
 * Só itens com ícone simples. Blocos (`ItemBlock`) usam o atlas de blocos. Itens de várias camadas (poções, armadura de

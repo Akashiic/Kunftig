@@ -56,6 +56,8 @@ public final class RodRenderHarness {
     private int ticks;
     private boolean shotPending;
     private boolean done;
+    /** The cells mode keeps its chest open (every other screen is closed: Xvfb brings the pause menu back). */
+    private boolean keepChest;
     /** Runs on every client tick of the current step (camera turns, walking), or null. */
     private Runnable everyTick;
 
@@ -87,6 +89,15 @@ public final class RodRenderHarness {
                     .split("\\s+");
             if (mode.length == 1 && mode[0].equals("perf")) {
                 RodPerfHarness.install();
+                return;
+            }
+            if (mode.length == 1 && mode[0].equals("cells")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planCells();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (cells) enabled: this client will take screenshots and quit");
                 return;
             }
             if (mode.length == 1 && mode[0].equals("fish")) {
@@ -150,6 +161,44 @@ public final class RodRenderHarness {
     private static void view(Minecraft mc, int mode) {
         mc.gameSettings.thirdPersonView = mode;
         mc.gameSettings.hideGUI = false; // F1 would also hide the hand
+    }
+
+    /** A display item of AkashicFishing's screens: paper with a model. */
+    static ItemStack screenItem(String model) {
+        ItemStack stack = new ItemStack(Items.paper);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", "akashicfishing:" + model);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    /**
+     * Item model slot cells: a chest with the Upgrader's big button (five slots) in each state and its pipe, in the
+     * slots the plugin uses; the button must read as one piece, without the slot borders between its slots.
+     */
+    private void planCells() {
+        keepChest = true;
+        String[] states = { "pronto", "bloqueado", "sorteando" };
+        for (String state : states) {
+            steps.add(new Step("cells-" + state, SETTLE_TICKS, (mc, p) -> {
+                view(mc, 0);
+                net.minecraft.inventory.InventoryBasic inv = new net.minecraft.inventory.InventoryBasic(
+                    "Aprimorador",
+                    false,
+                    27);
+                for (int i = 0; i < 5; i++) {
+                    inv.setInventorySlotContents(18 + 2 + i, screenItem("tela/botao-" + state + "-" + i));
+                }
+                int[] levels = { 8, 8, 3, 0 };
+                int[] cols = { 2, 3, 5, 6 };
+                for (int i = 0; i < 4; i++) {
+                    inv.setInventorySlotContents(9 + cols[i], screenItem("tela/tubo-ciano-" + levels[i]));
+                }
+                mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiChest(mc.thePlayer.inventory, inv));
+            }));
+        }
     }
 
     /** A fish of AkashicFishing as the plugin makes it: the model and the size (cm) in the item's Bukkit data. */
@@ -503,7 +552,8 @@ public final class RodRenderHarness {
     /** Closes whatever screen is open (Xvfb gives the window no focus: the pause menu comes back every frame). */
     private void closeScreens(Minecraft mc) {
         mc.gameSettings.pauseOnLostFocus = false;
-        if (mc.currentScreen != null) {
+        if (mc.currentScreen != null
+            && !(keepChest && mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiChest)) {
             mc.displayGuiScreen(null);
         }
     }
