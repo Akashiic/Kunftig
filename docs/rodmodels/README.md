@@ -145,6 +145,8 @@ O display experimentado sai no chat e no log como JSON, pronto para o `DISPLAY` 
   protocolo, rastreador do servidor, matrizes do `display` (desfazer o vanilla devolve exatamente o `display`).
 * `./gradlew :test -ProdPack=<pasta do pack>`: confere um pack de verdade (todo arquivo, osso e animação citados
   existem). O pack do AkashicFishing (branch `claude/kind-ride-ts9apr`): 8 varas e 34 peixes, nenhum problema.
+  O mesmo comando confere as exibições do pack (`kunftig/displays.json`: arquivos, animações dos estados e ossos de
+  `itens`, `luz` e `translucido`), pelo `DisplayPackCheckTest`.
 * Harness visual (desenvolvimento): com um arquivo `kunftig-rod-harness` em `run/client` e o pack em
   `run/client/resourcepacks`, `./gradlew runClient` abre um mundo plano, segura varas com modelos reais, toca estados,
   lança a linha e salva `screenshots/rods-*.png` de cada contexto (`dev/RodRenderHarness`, fora do jar).
