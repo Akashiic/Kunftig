@@ -2,6 +2,7 @@ package com.akashic.kunftig.api;
 
 import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
 import com.akashic.kunftig.api.bukkit.display.KunftigDisplays;
+import com.akashic.kunftig.api.bukkit.blade.KunftigBlades;
 import com.akashic.kunftig.api.bukkit.camera.KunftigCamera;
 import com.akashic.kunftig.api.bukkit.hologram.KunftigHolograms;
 import com.akashic.kunftig.api.bukkit.hud.KunftigHud;
@@ -30,7 +31,7 @@ public final class KunftigApi {
      * in the world ({@code KunftigDisplays}). 9: keys of the client ({@code KunftigInput}), attack prediction for 3D
      * held models ({@code ao_atacar} in the pack), displays that glide, fly and turn on every axis
      * ({@code Display#moveTo}, {@code setMotion}, {@code setRotation}), the screen HUD ({@code KunftigHud}) and the
-     * camera lock-on ({@code KunftigCamera}).
+     * camera lock-on ({@code KunftigCamera}), SlashBlade-style blades ({@code KunftigBlades}).
      */
     private static final int API_VERSION = 9;
 
@@ -84,6 +85,11 @@ public final class KunftigApi {
     /** Whether {@code KunftigCamera} works (Bukkit hybrid with the mod installed; API 9). */
     public static boolean isCameraAvailable() {
         return KunftigCamera.isAvailable();
+    }
+
+    /** Whether {@code KunftigBlades} works (Bukkit hybrid with the mod installed; API 9). */
+    public static boolean isBladesAvailable() {
+        return KunftigBlades.isAvailable();
     }
 
     /** Whether {@code KunftigPlayers} works (Bukkit hybrid with the mod installed). */

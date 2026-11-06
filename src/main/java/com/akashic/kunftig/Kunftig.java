@@ -80,6 +80,7 @@ public final class Kunftig {
             install("com.akashic.kunftig.bukkit.display.BukkitDisplayBridge");
             install("com.akashic.kunftig.bukkit.input.BukkitInputBridge");
             install("com.akashic.kunftig.bukkit.screen.BukkitScreenBridge");
+            install("com.akashic.kunftig.bukkit.blade.BukkitBladeBridge");
         }
     }
 
