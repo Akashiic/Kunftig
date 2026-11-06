@@ -38,6 +38,7 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
     private static final String ROD_MODEL_PACKAGE = "com.akashic.kunftig.mixin.mixins.rodmodel.";
     private static final String INPUT_PACKAGE = "com.akashic.kunftig.mixin.mixins.input.";
     private static final String SCREEN_PACKAGE = "com.akashic.kunftig.mixin.mixins.screen.";
+    private static final String BLADE_PACKAGE = "com.akashic.kunftig.mixin.mixins.blade.";
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -85,6 +86,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
             return false;
         }
         if (mixinClassName.startsWith(SCREEN_PACKAGE) && Boolean.getBoolean("kunftig.screen.disable")) {
+            return false;
+        }
+        if (mixinClassName.startsWith(BLADE_PACKAGE) && Boolean.getBoolean("kunftig.blades.disable")) {
             return false;
         }
         if (mixinClassName.startsWith(NAMETAG_PACKAGE)) {

@@ -78,6 +78,15 @@ public final class ClientProxy extends CommonProxy {
                 .register(com.akashic.kunftig.client.screen.CameraClient.INSTANCE);
             MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.screen.CameraClient.INSTANCE);
         }
+        if (!com.akashic.kunftig.client.blade.BladeClient.disabled()) {
+            // SlashBlade-style blades: their packs now and on every reload, their clocks, and the third-person draw.
+            ((IReloadableResourceManager) Minecraft.getMinecraft()
+                .getResourceManager()).registerReloadListener(com.akashic.kunftig.client.blade.BladeClient.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.blade.BladeClient.INSTANCE);
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.blade.BladeRenderer.INSTANCE);
+        }
         RgbSupport.refresh();
     }
 
@@ -85,6 +94,9 @@ public final class ClientProxy extends CommonProxy {
     public void postInit(FMLPostInitializationEvent event) {
         installRodModels();
         installDisplays();
+        if (!com.akashic.kunftig.client.blade.BladeClient.disabled()) {
+            com.akashic.kunftig.client.blade.BladeClient.INSTANCE.installRenderers();
+        }
         if (new java.io.File(Minecraft.getMinecraft().mcDataDir, "kunftig-rod-harness").isFile()) {
             try {
                 // Development only: the class is absent from release jars.

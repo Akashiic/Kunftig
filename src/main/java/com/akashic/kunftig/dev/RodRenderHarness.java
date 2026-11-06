@@ -109,6 +109,15 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("sb")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planSlashBlade();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sb) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("blades")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planBlades();
@@ -560,6 +569,88 @@ public final class RodRenderHarness {
                 .onPayload(com.akashic.kunftig.screen.CameraWire.unlock());
             check("unlocked", false, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
         }));
+    }
+
+    /** A SlashBlade combo state chain: (start, end) frame pairs, each lasting its frames at speed 1. */
+    private static java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> chain(int... frames) {
+        java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> out = new ArrayList<>();
+        for (int i = 0; i < frames.length; i += 2) {
+            out.add(
+                new com.akashic.kunftig.blade.BladeTimeline.Segment(
+                    frames[i],
+                    frames[i + 1],
+                    false,
+                    com.akashic.kunftig.blade.BladeTimeline.Segment.duration(frames[i], frames[i + 1], 1, 0)));
+        }
+        return out;
+    }
+
+    /**
+     * SlashBlade-style blades with a pack declaring {@code sbref:yamato} (SlashBlade's own files, local only): the
+     * blade at rest and through combo_a1, combo_a2 and aerial_rave_a1 (blade rig and body motion), from behind, from
+     * the front and in first person, at the ticks the reference captures use.
+     */
+    private void planSlashBlade() {
+        String k = "sbref:yamato";
+        com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
+        steps.add(new Step("sb-tp-back-idle", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 0);
+            view(mc, 1);
+            hold(p, blade(k));
+            report(
+                "sb blades active=" + c.active()
+                    + " blades="
+                    + c.index()
+                        .blades()
+                        .keySet()
+                    + " errors="
+                    + c.index()
+                        .errors());
+        }));
+        Object[][] combos = { { "a1", chain(1, 10, 10, 21, 21, 41), new int[] { 1, 41 }, Boolean.TRUE },
+            { "a2", chain(100, 115, 115, 132, 132, 151), new int[] { 100, 151 }, Boolean.TRUE },
+            { "air1", chain(1100, 1122), new int[] { 1100, 1132 }, Boolean.FALSE } };
+        int[] views = { 1, 2, 0 };
+        String[] viewNames = { "back", "front", "fp" };
+        for (int v = 0; v < views.length; v++) {
+            final int view = views[v];
+            final String vn = viewNames[v];
+            for (Object[] combo : combos) {
+                @SuppressWarnings("unchecked")
+                java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> segs = (java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment>) combo[1];
+                int[] body = (int[]) combo[2];
+                boolean blend = (Boolean) combo[3];
+                String name = (String) combo[0];
+                int previous = 0;
+                for (int tick : new int[] { 2, 4, 6, 8, 12, 18 }) {
+                    final boolean first = previous == 0;
+                    steps.add(
+                        new Step(
+                            "sb-" + vn + "-" + name + "-t" + String.format("%02d", tick),
+                            tick - previous,
+                            (mc, p) -> {
+                                if (first) {
+                                    view(mc, view);
+                                    c.play(
+                                        mc.thePlayer,
+                                        segs,
+                                        new com.akashic.kunftig.blade.BladeWire.Body(body[0], body[1], blend));
+                                }
+                            }));
+                    previous = tick;
+                }
+                steps.add(new Step("sb-" + vn + "-" + name + "-rest", 30, (mc, p) -> {}));
+            }
+        }
+        steps.add(new Step("sb-tp-back-standby-slot0", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 1);
+            p.inventory.setInventorySlotContents(0, blade(k));
+            p.inventory.currentItem = 1;
+            mc.thePlayer.inventory.setInventorySlotContents(0, blade(k));
+            mc.thePlayer.inventory.currentItem = 1;
+            hold(p, null);
+        }));
+        steps.add(new Step("sb-front-standby-slot0", 10, (mc, p) -> view(mc, 2)));
     }
 
     private void plan() {
