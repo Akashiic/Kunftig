@@ -109,6 +109,16 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("blades")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planBlades();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (blades) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("edge")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planEdge();
@@ -323,6 +333,233 @@ public final class RodRenderHarness {
         place(p, yaw, 0);
         mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
         mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0;
+    }
+
+    /** A sword with an item model (the Overkill pack's blades are golden swords by default). */
+    static ItemStack blade(String model) {
+        ItemStack stack = new ItemStack(Items.golden_sword);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", model);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    private static String state(Minecraft mc) {
+        return RodModels.INSTANCE.active() ? String.valueOf(
+            RodModels.INSTANCE.timeline(mc.thePlayer)
+                .state())
+            : "-";
+    }
+
+    private void check(String what, Object expected, Object actual) {
+        report(
+            (java.util.Objects.equals(expected, actual) ? "OK   " : "FAIL ") + what
+                + ": expected "
+                + expected
+                + ", got "
+                + actual);
+    }
+
+    /**
+     * API 9 with the Overkill pack (resource pack "Overkill" selected): the katana in first and third person in its
+     * states, the attack prediction driven by real swings, displays turned and flying, the screen HUD and the lock-on.
+     * Checks go to the report as OK / FAIL lines.
+     */
+    private void planBlades() {
+        String k = "overkill:katana/basica";
+        steps.add(new Step("blade-fp-idle", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 10);
+            view(mc, 0);
+            hold(p, blade(k));
+        }));
+        steps.add(new Step("blade-fp-empty", 5, (mc, p) -> hold(p, null)));
+        steps.add(new Step("blade-fp-sacar", 4, (mc, p) -> hold(p, blade(k))));
+        // the attack prediction: real swings of the local player (EntityClientPlayerMP#swingItem)
+        steps.add(new Step("blade-fp-predict-golpe_1", 5, (mc, p) -> {
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            mc.thePlayer.swingItem();
+            check("swing from idle predicts golpe_1", "golpe_1", state(mc));
+        }));
+        steps.add(new Step("blade-fp-predict-golpe_2", 2, (mc, p) -> {
+            mc.thePlayer.swingItem();
+            check("swing in golpe_1's window predicts golpe_2", "golpe_2", state(mc));
+            long start = RodModels.INSTANCE.timeline(mc.thePlayer)
+                .start();
+            mc.thePlayer.swingItem();
+            check("a swing before golpe_2's window does nothing", "golpe_2", state(mc));
+            RodModels.INSTANCE
+                .onPayload(com.akashic.kunftig.rodmodel.RodWire.state(mc.thePlayer.getEntityId(), "golpe_2", 1, 0));
+            check(
+                "the server confirming golpe_2 does not restart it",
+                start,
+                RodModels.INSTANCE.timeline(mc.thePlayer)
+                    .start());
+            RodModels.INSTANCE
+                .onPayload(com.akashic.kunftig.rodmodel.RodWire.state(mc.thePlayer.getEntityId(), "golpe_1", 0, 0));
+            check("the server correcting to golpe_1 wins", "golpe_1", state(mc));
+        }));
+        String[][] moves = { { "golpe_1", "4" }, { "golpe_2", "4" }, { "golpe_3", "5" }, { "golpe_4", "6" },
+            { "estocada", "6" }, { "lancamento", "5" }, { "aereo_3", "5" }, { "queda", "4" }, { "iaido", "3" },
+            { "corte_dimensional", "9" }, { "onda", "9" }, { "corte_circular", "9" } };
+        for (String[] m : moves) {
+            steps.add(
+                new Step(
+                    "blade-fp-" + m[0],
+                    Integer.parseInt(m[1]),
+                    (mc, p) -> RodModels.INSTANCE.forceLocalState(m[0], 0)));
+        }
+        steps.add(new Step("blade-tp-front-idle", 25, (mc, p) -> {
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            view(mc, 2);
+        }));
+        for (String[] m : new String[][] { { "golpe_1", "4" }, { "golpe_3", "5" }, { "golpe_4", "6" }, { "iaido", "3" },
+            { "estocada", "6" } }) {
+            steps.add(
+                new Step(
+                    "blade-tp-front-" + m[0],
+                    Integer.parseInt(m[1]),
+                    (mc, p) -> RodModels.INSTANCE.forceLocalState(m[0], 0)));
+        }
+        steps.add(new Step("blade-tp-back-golpe_2", 4, (mc, p) -> {
+            view(mc, 1);
+            RodModels.INSTANCE.forceLocalState("golpe_2", 0);
+        }));
+        // displays: a dimension cut, a wave flying with a roll, a summoned sword tipped down
+        steps.add(new Step("blade-displays", 12, (mc, p) -> {
+            view(mc, 0);
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            place(p, 180, 5);
+            com.akashic.kunftig.client.display.DisplayClient d = com.akashic.kunftig.client.display.DisplayClient.INSTANCE;
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire.show(
+                    9001,
+                    -1.5,
+                    5.2,
+                    -4.5,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    "overkill:corte_dimensional",
+                    "",
+                    "cortar",
+                    0,
+                    null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9002, 1.5, 4.8, -2.5, 180, 0, 30, 0, 0, -0.08, "overkill:onda", "", "voar", 0, null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9003, 0.5, 5.6, -3, 180, 25, 0, 0, 0, 0, "overkill:espada_invocada", "", "voar", 0, null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9004, 0.5, 4, -6, 0, 0, 0, 0, 0, 0, "overkill:corte_circular", "", "girar", 0, null));
+        }));
+        steps.add(new Step("blade-displays-later", 6, (mc, p) -> {
+            check("4 displays shown", 4, com.akashic.kunftig.client.display.DisplayClient.INSTANCE.count());
+            com.akashic.kunftig.client.display.DisplayClient.INSTANCE
+                .onPayload(com.akashic.kunftig.display.DisplayWire.move(9003, 2.5, 5, -3, 270, 6, -30, 0));
+        }));
+        // the screen HUD
+        steps.add(new Step("blade-hud", 4, (mc, p) -> {
+            com.akashic.kunftig.client.screen.HudClient h = com.akashic.kunftig.client.screen.HudClient.INSTANCE;
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:rank",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.RIGHT,
+                        -16,
+                        -34,
+                        3,
+                        "\u00a76\u00a7lS",
+                        -1,
+                        0,
+                        0,
+                        0,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:rank_titulo",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.RIGHT,
+                        -16,
+                        0,
+                        1,
+                        "\u00a7e\u00a7lSelvagem\n\u00a7712 golpes",
+                        0.6F,
+                        64,
+                        0xFFFFFF55,
+                        0x80000000,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:carga",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.CENTER,
+                        0,
+                        22,
+                        1,
+                        "\u00a7d\u00a7lCorte Dimensional",
+                        1,
+                        60,
+                        0xFFC77DFF,
+                        0x80000000,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            check("3 HUD elements", 3, h.count());
+        }));
+        // the lock-on: a player off to the right; the camera turns to him and marks him
+        steps.add(new Step("blade-lockon-setup", 10, (mc, p) -> {
+            com.akashic.kunftig.client.display.DisplayClient.INSTANCE.clear();
+            place(p, 180, 0);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Alvo"));
+            side.setPositionAndRotation(5.5, 4 + side.yOffset, -4.5, 90, 0);
+            side.inventory.setInventorySlotContents(0, blade(k));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4243, side);
+        }));
+        steps.add(
+            new Step(
+                "blade-lockon",
+                25,
+                (mc, p) -> com.akashic.kunftig.client.screen.CameraClient.INSTANCE
+                    .onPayload(com.akashic.kunftig.screen.CameraWire.lock(side.getEntityId(), 0.3F, 24, true))));
+        steps.add(new Step("blade-lockon-side-golpe_3", 5, (mc, p) -> {
+            float[] want = com.akashic.kunftig.screen.CameraWire.look(
+                mc.thePlayer.posX,
+                mc.thePlayer.posY,
+                mc.thePlayer.posZ,
+                side.posX,
+                side.posY + side.height * 0.6 - side.yOffset,
+                side.posZ);
+            float off = Math.abs(com.akashic.kunftig.screen.CameraWire.wrap(want[0] - mc.thePlayer.rotationYaw));
+            check("the camera turned to the target (yaw within 3 degrees)", true, off < 3);
+            check("still locked", true, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("golpe_3", RodModels.INSTANCE.clock());
+            }
+        }));
+        steps.add(new Step("blade-unlocked", 3, (mc, p) -> {
+            com.akashic.kunftig.client.screen.CameraClient.INSTANCE
+                .onPayload(com.akashic.kunftig.screen.CameraWire.unlock());
+            check("unlocked", false, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
+        }));
     }
 
     private void plan() {
