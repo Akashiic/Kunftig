@@ -79,6 +79,11 @@ public void onEnable() {
 | `...api.bukkit.hologram` | `KunftigHolograms`, `Hologram` (texto flutuante no mundo) | `TextDisplay` (1.19.4+) | 6 |
 | `...api.bukkit.rod` | `KunftigRods` (estado da vara 3D: mordida, briga com tensão, captura...) | — | 7 |
 | `...api.bukkit.display` | `KunftigDisplays`, `Display` (modelo GeckoLib animado no mundo, com itens nos ossos) | `ItemDisplay`/`BlockDisplay` (1.19.4+) | 8 |
+| `...api.bukkit.input` | `KunftigInput`, `KunftigInputEvent` (teclas próprias do cliente) | — | 9 |
+| `...api.bukkit.display` | `Display#moveTo` (deslizar), `setMotion` (voar sozinho), `setRotation` (pitch e roll) | interpolação dos display entities | 9 |
+| `...api.bukkit.hud` | `KunftigHud`, `HudElement` (texto, barra e imagem na tela) | — | 9 |
+| `...api.bukkit.camera` | `KunftigCamera` (travar a visão num alvo) | — | 9 |
+| resource pack | `ao_atacar` nos estados de `item_models_3d.json` (previsão do golpe no cliente) | — | 9 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -440,3 +445,118 @@ if (KunftigApi.apiVersion() >= 8 && KunftigApi.isDisplaysAvailable()) {
   mais antigo não tem essas classes.
 * `-Dkunftig.displays.disable=true` no cliente desliga as exibições (o cliente nem registra o canal).
 
+
+### Movimento das exibições (API 9)
+
+Para projéteis e efeitos que andam (uma onda de corte, espadas invocadas):
+
+```java
+Display drive = KunftigDisplays.spawn(origem, "overkill:drive", "", "voar", Collections.emptyList(), 64);
+drive.setRotation(yaw, 0, 45);                         // yaw, pitch (frente para baixo), roll (em volta da frente)
+drive.setMotion(direcao.multiply(1.2));                 // blocos por tick: voa sozinha, no servidor e nos clientes
+// a cada tick o plugin confere a colisão em drive.getLocation() e chama drive.remove() quando acerta
+
+Display espada = ...;
+espada.moveTo(perto_do_alvo, 4);                        // desliza até lá em 4 ticks (para seguir um alvo)
+```
+
+* `setMotion`: uma mensagem para o voo inteiro; o servidor anda junto (`getLocation()` acompanha), então quem chega
+  depois vê a exibição onde ela está, voando. `teleport`/`moveTo` param o voo; `setMotion(null)` também.
+* `moveTo(local, ticks)`: em linha reta, girando junto (até 255 ticks; 0 é pulo). Outro mundo é sempre pulo.
+* `setRotation`: o yaw gira em volta do eixo vertical, o pitch inclina a frente (+Z) para baixo, o roll gira em volta
+  da frente. `teleport` mantém pitch e roll.
+* Compatível: um cliente com Kunftig 8 lê o que conhece e ignora o resto (vê pulos, o modelo em pé e nada voando).
+
+## 14. Teclas do cliente (API 9)
+
+O 1.7.10 só conta ao servidor os cliques. O Kunftig põe no cliente teclas próprias (Controles, categoria Kunftig):
+**Especial** (R), **Habilidade** (F), **Esquiva** (Alt esquerdo) e **Travar alvo** (Z), e manda ao servidor as que um
+plugin ligou para aquele jogador, apertadas e soltas, com as teclas de movimento seguradas e o tick do cliente.
+
+```java
+@Override
+public void onEnable() {
+    if (KunftigApi.apiVersion() >= 9 && KunftigApi.isInputAvailable()) {
+        KunftigInput.register(this);     // o Bukkit só entrega mensagens a um plugin: este se empresta
+    }
+}
+
+// quando a lâmina vai para a mão; KunftigInput.bind(player) (nenhuma) quando sai
+KunftigInput.bind(player, KunftigInput.SPECIAL, KunftigInput.DODGE, KunftigInput.LOCK_ON);
+
+@EventHandler
+public void onInput(KunftigInputEvent e) {
+    if (e.getAction().equals(KunftigInput.SPECIAL) && e.isPressed()) {
+        boolean paraTras = e.isBack();          // "trás + especial" é outro golpe
+        int tick = e.getClientTick();           // distância entre dois eventos em ticks do cliente
+    }
+}
+```
+
+* O cliente nunca é confiável: só passa a ação ligada para aquele jogador, com sequência mais nova que a última e
+  dentro do limite (20 de uma vez, 20 por segundo em média). O resto é descartado em silêncio.
+* `KunftigInput.isHeld(player, ação)` diz se a tecla está segurada (carregar um golpe). Ao desligar uma ação
+  segurada, o cliente manda a soltura antes.
+* Nada é enviado com uma tela aberta (o vanilla solta todas as teclas nesse momento, e o Kunftig também).
+* `KunftigInput.sendsInput(player)` diz se o cliente tem o Kunftig 9; para os outros, ofereça outro caminho.
+* Canal `kunftig:input`, nos dois sentidos (o servidor manda `BIND`, o cliente manda `ACTION`). Thread principal.
+  `-Dkunftig.input.disable=true` no cliente desliga as teclas e o canal.
+
+## 15. HUD na tela (API 9)
+
+Elementos na tela de um jogador, desenhados depois do HUD do vanilla: texto (com `§` e quebras de linha), uma barra e
+uma imagem PNG do resource pack, a partir de uma âncora da tela.
+
+```java
+KunftigHud.show(player, HudElement.builder("overkill:rank")
+    .anchor(HudElement.Anchor.RIGHT).offset(-12, -30).scale(2)
+    .texture("overkill:textures/hud/rank_s.png", 32, 32)
+    .text("§6§lSTYLISH")
+    .bar(0.65f, 64, 0xFFFFAA00, 0x80000000)
+    .duration(100, 20)          // 5 s na tela, o último segundo sumindo
+    .build());
+KunftigHud.remove(player, "overkill:rank");
+```
+
+* De cima para baixo a partir da âncora: imagem, linhas de texto, barra. Posições em pixels da GUI (resolução
+  escalada, como o HUD do vanilla), vezes a escala.
+* Mostrar de novo com o mesmo id substitui. Um elemento sem duração e igual ao que está na tela não é reenviado: pode
+  chamar a cada tick. Não sobrevive a uma reconexão. Até 32 por jogador.
+* Esconde com F1 junto com o resto do HUD. `KunftigHud.drawsHud(player)` diz se o cliente desenha.
+* Canal `kunftig:hud`. Thread principal. `-Dkunftig.screen.disable=true` no cliente desliga HUD e trava de câmera.
+
+## 16. Trava de câmera (API 9)
+
+```java
+KunftigCamera.lockOn(player, alvo, 0.35f, 24, true);   // força por tick, distância máxima, marcador
+KunftigCamera.release(player);
+```
+
+* A cada quadro o cliente gira a visão parte do caminho até o alvo (a mesma velocidade em qualquer FPS); o jogador
+  ainda mexe o mouse contra. A visão que o servidor recebe acompanha, então mirar pelo olhar do jogador acerta o alvo.
+* O marcador é um losango girando sobre a cabeça do alvo, visível através das paredes.
+* O cliente solta sozinho quando o alvo some, morre ou passa da distância. O plugin não é avisado: confira o mesmo no
+  servidor e chame `release` ou escolha outro alvo.
+* Canal `kunftig:camera`. Thread principal.
+
+## 17. Previsão do golpe nos modelos na mão (API 9)
+
+No `item_models_3d.json`, um estado pode dizer qual estado um ataque (clique esquerdo) começa durante ele:
+
+```json
+"estados": {
+  "parada":  { "modelo": "animation.katana.parada", "laco": true, "ao_atacar": "golpe_1" },
+  "sacar":   { "modelo": "animation.katana.sacar", "ao_atacar": "iaido" },
+  "golpe_1": { "modelo": "animation.katana.golpe_1", "ao_atacar": { "estado": "golpe_2", "de": 4, "ate": 14 } },
+  "golpe_2": { "modelo": "animation.katana.golpe_2", "ao_atacar": { "estado": "golpe_3", "de": 4 } },
+  "golpe_3": { "modelo": "animation.katana.golpe_3" }
+}
+```
+
+* O balanço do braço do jogador local (o mesmo que manda ao servidor o `PlayerAnimationEvent`) começa o estado na
+  hora, se o ataque cai na janela (`de` a `ate` ticks depois do início do estado atual, inclusive; sem `ate`, até o
+  fim).
+* Quando o servidor manda o mesmo estado (`KunftigRods.setState`) em até 20 ticks, é o mesmo golpe confirmado: a
+  animação continua, não recomeça. Qualquer outro estado do servidor vale, então ele corrige o que não aceitou.
+* O plugin deve usar as **mesmas janelas** no servidor, contadas a partir do tick em que mandou o estado. Uma
+  diferença só aparece como uma correção visual.
