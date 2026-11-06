@@ -121,9 +121,9 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         a.model.setLivingAnimations(a, Math.floorMod(e.id, KEYS), null);
         Minecraft mc = Minecraft.getMinecraft();
         int light = mc.theWorld.getLightBrightnessForSkyBlocks(
-            MathHelper.floor_double(e.x),
-            MathHelper.floor_double(e.y + 1.5),
-            MathHelper.floor_double(e.z),
+            MathHelper.floor_double(e.motion.x(partialTicks)),
+            MathHelper.floor_double(e.motion.y(partialTicks) + 1.5),
+            MathHelper.floor_double(e.motion.z(partialTicks)),
             0);
         float lx = light % 65536;
         float ly = light / 65536f;
@@ -143,7 +143,10 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(dx, dy, dz);
-            GL11.glRotatef(-e.yaw, 0, 1, 0);
+            GL11.glRotatef(-e.motion.yaw(partialTicks), 0, 1, 0);
+            // API 9: pitch tips the front (+Z) down, then roll turns about the front
+            GL11.glRotatef(e.motion.pitch(partialTicks), 1, 0, 0);
+            GL11.glRotatef(e.motion.roll(partialTicks), 0, 0, 1);
             RenderHelper.enableStandardItemLighting();
             GL11.glColor4f(1, 1, 1, 1);
             mc.renderEngine.bindTexture(a.model.texture);

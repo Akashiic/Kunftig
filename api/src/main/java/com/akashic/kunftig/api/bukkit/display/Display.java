@@ -44,8 +44,44 @@ public interface Display {
     /** Replaces the stacks (null or air entries draw nothing in their bone). */
     void setItems(List<ItemStack> items);
 
-    /** Moves it (same world or another), with the new yaw. */
+    /**
+     * Moves it (same world or another), with the new yaw; the pitch and roll stay. Stops a flight
+     * ({@link #setMotion}).
+     */
     void teleport(Location location);
+
+    /**
+     * API 9: moves it like {@link #teleport}, but viewers in the same world see it glide there over
+     * {@code glideTicks} ticks (0: a jump, up to 255), in a straight line, turning along. For something that follows
+     * a target (a homing sword): call it every few ticks with a glide of as many ticks. Viewers with an older Kunftig
+     * see it jump. Stops a flight.
+     */
+    void moveTo(Location location, int glideTicks);
+
+    /**
+     * API 9: the full rotation in degrees: yaw turns about the vertical axis (as {@link #teleport}), then pitch tips
+     * the model's front (+Z) down for positive values (as an entity's pitch), then roll turns it about its front. A
+     * blade flying edge first, a slash arc tilted 45 degrees. Viewers see it turn over one tick. An older Kunftig
+     * draws yaw only.
+     */
+    void setRotation(float yaw, float pitch, float roll);
+
+    /** API 9: degrees, see {@link #setRotation}. */
+    float getPitch();
+
+    /** API 9: degrees, see {@link #setRotation}. */
+    float getRoll();
+
+    /**
+     * API 9: from now on it flies on its own, {@code perTick} blocks every tick (each axis within 10), on the server
+     * ({@link #getLocation} follows) and on every client, with no message while it flies: a projectile. Null or zero
+     * stops it where it is. Collisions are the plugin's: check the path each tick and {@link #remove} it when it
+     * hits. Viewers with an older Kunftig see it stand where the flight started.
+     */
+    void setMotion(org.bukkit.util.Vector perTick);
+
+    /** API 9: blocks per tick (zero when it does not fly). */
+    org.bukkit.util.Vector getMotion();
 
     /** Blocks around the model within which players see it. */
     double getViewRange();

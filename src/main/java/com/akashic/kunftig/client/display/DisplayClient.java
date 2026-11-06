@@ -29,6 +29,7 @@ import org.apache.commons.io.IOUtils;
 
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.display.DisplayModelIndex;
+import com.akashic.kunftig.display.DisplayMotion;
 import com.akashic.kunftig.display.DisplayWire;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -55,10 +56,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public final int id;
         public final String model;
         public final String variant;
-        public volatile double x;
-        public volatile double y;
-        public volatile double z;
-        public volatile float yaw;
+        /** Where it is, tick by tick, and how it moves (API 9: glides and flights). */
+        public final DisplayMotion motion = new DisplayMotion();
         public volatile String state;
         /** The client tick the state started at (the server's elapsed time already counted). */
         public volatile long start;
@@ -149,10 +148,10 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         switch (m.op) {
             case DisplayWire.SHOW: {
                 Entry e = new Entry(m.id, m.model, m.variant);
-                e.x = m.x;
-                e.y = m.y;
-                e.z = m.z;
-                e.yaw = m.yaw;
+                e.motion.jump(m.x, m.y, m.z, m.yaw, m.pitch, m.roll);
+                if (m.vx != 0 || m.vy != 0 || m.vz != 0) {
+                    e.motion.fly(m.x, m.y, m.z, m.vx, m.vy, m.vz);
+                }
                 e.state = m.state;
                 e.start = clock - m.elapsed;
                 e.items = decode(m.items);
@@ -177,10 +176,14 @@ public final class DisplayClient implements IResourceManagerReloadListener {
             case DisplayWire.MOVE: {
                 Entry e = displays.get(m.id);
                 if (e != null) {
-                    e.x = m.x;
-                    e.y = m.y;
-                    e.z = m.z;
-                    e.yaw = m.yaw;
+                    e.motion.glide(m.x, m.y, m.z, m.yaw, m.pitch, m.roll, m.glideTicks);
+                }
+                break;
+            }
+            case DisplayWire.MOTION: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.motion.fly(m.x, m.y, m.z, m.vx, m.vy, m.vz);
                 }
                 break;
             }
@@ -262,6 +265,9 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         if (event.phase == TickEvent.Phase.END && !Minecraft.getMinecraft()
             .isGamePaused()) {
             clock++;
+            for (Entry e : displays.values()) {
+                e.motion.tick();
+            }
         }
     }
 
@@ -291,9 +297,9 @@ public final class DisplayClient implements IResourceManagerReloadListener {
             if (model == null) {
                 continue; // the pack does not declare it
             }
-            double dx = e.x - cx;
-            double dy = e.y - cy;
-            double dz = e.z - cz;
+            double dx = e.motion.x(t) - cx;
+            double dy = e.motion.y(t) - cy;
+            double dz = e.motion.z(t) - cz;
             if (dx * dx + dy * dy + dz * dz > model.maxDistance * model.maxDistance) {
                 continue;
             }
