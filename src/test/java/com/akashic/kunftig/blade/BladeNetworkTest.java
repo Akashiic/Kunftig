@@ -112,4 +112,27 @@ class BladeNetworkTest {
             bad.errors()
                 .size());
     }
+
+    @Test
+    void slashesRoundTripAndRankCodesAreSlashBlades() {
+        EffectWire.Slash s = EffectWire.readSlash(
+            EffectWire.slash(new EffectWire.Slash("overkill", 1, 64, -2, 90, 0, -10, 0, 0xFF3333FF, 5.3F, 1, 10)));
+        assertEquals("overkill", s.namespace);
+        assertEquals(-10, s.roll, 0);
+        assertEquals(0x3333FF, s.color, "RGB only");
+        assertEquals(5.3F, s.rank, 0);
+        assertNull(EffectWire.readSlash(new byte[] { 3 }));
+        int[] expected = { 0, 0, 1, 2, 3, 4, 5, 5, 6, 7, 7 };
+        float[] levels = { 0, 0.99F, 1, 2.5F, 3, 4.9F, 5, 5.2F, 5.25F, 5.5F, 6 };
+        for (int i = 0; i < levels.length; i++) {
+            assertEquals(expected[i], EffectWire.rankCode(levels[i]), "level " + levels[i]);
+        }
+        BladeIndex i = new BladeIndex();
+        i.add(
+            "overkill",
+            "{\"_formato\":1,\"movimento_lamina\":\"m.vmd\",\"efeitos\":{\"corte\":{\"obj\":\"util/slash.obj\",\"textura\":\"util/slash.png\"}},\"laminas\":{}}",
+            "t");
+        assertEquals("overkill:util/slash.obj", i.effect("overkill", BladeIndex.SLASH).obj);
+        assertNull(i.effect("outro", BladeIndex.SLASH));
+    }
 }

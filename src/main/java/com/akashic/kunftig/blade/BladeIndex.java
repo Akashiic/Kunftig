@@ -73,7 +73,23 @@ public final class BladeIndex {
         }
     }
 
+    /** An effect's model and texture ({@code efeitos} of a namespace). */
+    public static final class Effect {
+
+        public final String obj;
+        public final String texture;
+
+        Effect(String obj, String texture) {
+            this.obj = obj;
+            this.texture = texture;
+        }
+    }
+
+    /** Effect names a pack can declare (SlashBlade's effect models). */
+    public static final String SLASH = "corte";
+
     private final Map<String, Blade> blades = new LinkedHashMap<>();
+    private final Map<String, Map<String, Effect>> effects = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
 
     public Map<String, Blade> blades() {
@@ -91,6 +107,12 @@ public final class BladeIndex {
     /** The blade of an item model id ({@code namespace:path}), or null. */
     public Blade get(String modelId) {
         return modelId == null ? null : blades.get(modelId);
+    }
+
+    /** An effect of a namespace ({@link #SLASH} ...), or null. */
+    public Effect effect(String namespace, String name) {
+        Map<String, Effect> m = effects.get(namespace);
+        return m == null ? null : m.get(name);
     }
 
     /** Every item some blade is drawn on. */
@@ -123,6 +145,25 @@ public final class BladeIndex {
         }
         String bladeMotion = resource(root, "movimento_lamina", namespace, source, true);
         String playerMotion = resource(root, "movimento_jogador", namespace, source, false);
+        Object fx = root.get("efeitos");
+        if (fx instanceof Map) {
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) fx).entrySet()) {
+                String name = String.valueOf(e.getKey());
+                if (!(e.getValue() instanceof Map)) {
+                    errors.add(source + ": efeitos." + name + " must be an object");
+                    continue;
+                }
+                Map<?, ?> f = (Map<?, ?>) e.getValue();
+                String obj = resource(f, "obj", namespace, source + ": efeitos." + name, true);
+                String tex = resource(f, "textura", namespace, source + ": efeitos." + name, true);
+                if (obj != null && tex != null) {
+                    effects.computeIfAbsent(namespace, k -> new LinkedHashMap<>())
+                        .put(name, new Effect(obj, tex));
+                }
+            }
+        } else if (fx != null) {
+            errors.add(source + ": efeitos must be an object");
+        }
         Object list = root.get("laminas");
         if (!(list instanceof Map)) {
             errors.add(source + ": \"laminas\" must be an object of model -> blade");

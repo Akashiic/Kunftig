@@ -17,9 +17,11 @@ import org.bukkit.entity.Player;
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.api.bukkit.blade.BladeMotion;
 import com.akashic.kunftig.api.bukkit.blade.KunftigBlades;
+import com.akashic.kunftig.api.bukkit.blade.KunftigEffects;
 import com.akashic.kunftig.blade.BladeStateTracker;
 import com.akashic.kunftig.blade.BladeTimeline;
 import com.akashic.kunftig.blade.BladeWire;
+import com.akashic.kunftig.blade.EffectWire;
 import com.akashic.kunftig.bukkit.fishing.CraftBridge;
 
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -31,7 +33,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * server tick, sends each viewer what changed as raw plugin messages on {@link BladeWire#CHANNEL}. Loaded
  * reflectively, only where Bukkit exists.
  */
-public final class BukkitBladeBridge implements KunftigBlades.Provider {
+public final class BukkitBladeBridge implements KunftigBlades.Provider, KunftigEffects.Provider {
+
+    /** Blocks within which players get an effect (SlashBlade's effect entities track at 4 chunks). */
+    private static final double EFFECT_RANGE = 64;
 
     private final BladeStateTracker<UUID, EntityPlayerMP> tracker = new BladeStateTracker<>();
     private long tick;
@@ -45,6 +50,7 @@ public final class BukkitBladeBridge implements KunftigBlades.Provider {
             .bus()
             .register(bridge);
         KunftigBlades.install(bridge);
+        KunftigEffects.install(bridge);
         Kunftig.LOG.info("Kunftig blades: Bukkit API enabled (KunftigBlades)");
     }
 
@@ -81,6 +87,40 @@ public final class BukkitBladeBridge implements KunftigBlades.Provider {
     public boolean drawsBlades(Player player) {
         return player.getListeningPluginChannels()
             .contains(BladeWire.CHANNEL);
+    }
+
+    @Override
+    public void slash(String namespace, Location at, float yaw, float pitch, float roll, float rotationOffset,
+        int color, float rank, float baseSize, int lifetime) {
+        mainThread();
+        byte[] data = EffectWire.slash(
+            new EffectWire.Slash(
+                namespace,
+                at.getX(),
+                at.getY(),
+                at.getZ(),
+                yaw,
+                pitch,
+                roll,
+                rotationOffset,
+                color,
+                rank,
+                baseSize,
+                lifetime));
+        for (Player p : at.getWorld()
+            .getPlayers()) {
+            if (p.getLocation()
+                .distanceSquared(at) > EFFECT_RANGE * EFFECT_RANGE
+                || !p.getListeningPluginChannels()
+                    .contains(EffectWire.CHANNEL)) {
+                continue;
+            }
+            net.minecraft.entity.Entity handle = CraftBridge.handle(p);
+            if (handle instanceof EntityPlayerMP && ((EntityPlayerMP) handle).playerNetServerHandler != null) {
+                ((EntityPlayerMP) handle).playerNetServerHandler
+                    .sendPacket(new S3FPacketCustomPayload(EffectWire.CHANNEL, data));
+            }
+        }
     }
 
     @SubscribeEvent

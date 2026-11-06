@@ -642,6 +642,44 @@ public final class RodRenderHarness {
                 steps.add(new Step("sb-" + vn + "-" + name + "-rest", 30, (mc, p) -> {}));
             }
         }
+        // slash arcs (SlashBlade's doSlash at the click) at three ranks: none (grey), B (white outside), SSS (all)
+        float[][] ranks = { { 0 }, { 3 }, { 5.5F } };
+        for (float[] rank : ranks) {
+            int previous = 0;
+            for (int tick : new int[] { 1, 3, 5, 7 }) {
+                final boolean first = previous == 0;
+                steps.add(new Step(String.format("sb-slash-r%.1f-t%02d", rank[0], tick), tick - previous, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        place(p, 180, 0);
+                        c.play(
+                            mc.thePlayer,
+                            chain(1, 10, 10, 21, 21, 41),
+                            new com.akashic.kunftig.blade.BladeWire.Body(1, 41, true));
+                        slash(p, -10, rank[0]);
+                    }
+                }));
+                previous = tick;
+            }
+            steps.add(new Step(String.format("sb-slash-r%.1f-rest", rank[0]), 25, (mc, p) -> {}));
+        }
+        steps.add(new Step("sb-slash-a2-sss-t03", 3, (mc, p) -> {
+            c.play(
+                mc.thePlayer,
+                chain(100, 115, 115, 132, 132, 151),
+                new com.akashic.kunftig.blade.BladeWire.Body(100, 151, true));
+            slash(p, 170, 5.5F);
+        }));
+        steps.add(new Step("sb-slash-a2-sss-t06", 3, (mc, p) -> {}));
+        steps.add(new Step("sb-slash-front-sss-t03", 25, (mc, p) -> {}));
+        steps.add(new Step("sb-slash-front-sss-t03b", 3, (mc, p) -> {
+            view(mc, 2);
+            c.play(
+                mc.thePlayer,
+                chain(1, 10, 10, 21, 21, 41),
+                new com.akashic.kunftig.blade.BladeWire.Body(1, 41, true));
+            slash(p, -10, 5.5F);
+        }));
         steps.add(new Step("sb-tp-back-standby-slot0", SETTLE_TICKS, (mc, p) -> {
             view(mc, 1);
             p.inventory.setInventorySlotContents(0, blade(k));
@@ -651,6 +689,29 @@ public final class RodRenderHarness {
             hold(p, null);
         }));
         steps.add(new Step("sb-front-standby-slot0", 10, (mc, p) -> view(mc, 2)));
+    }
+
+    /** SlashBlade's doSlash for the harness: at the feet + eyes*0.75 + look*0.3, the player's yaw, pitch 0, blue. */
+    private static void slash(EntityPlayerMP p, float roll, float rank) {
+        double yaw = Math.toRadians(p.rotationYaw);
+        double pitch = Math.toRadians(p.rotationPitch);
+        double lx = -Math.sin(yaw) * Math.cos(pitch);
+        double ly = -Math.sin(pitch);
+        double lz = Math.cos(yaw) * Math.cos(pitch);
+        com.akashic.kunftig.client.blade.BladeEffects.INSTANCE.add(
+            new com.akashic.kunftig.blade.EffectWire.Slash(
+                "sbref",
+                p.posX + lx * 0.3,
+                p.posY + 1.62 * 0.75 + ly * 0.3,
+                p.posZ + lz * 0.3,
+                p.rotationYaw,
+                0,
+                roll,
+                0,
+                0x3333FF,
+                rank,
+                1,
+                10));
     }
 
     private void plan() {

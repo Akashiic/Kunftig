@@ -86,6 +86,10 @@ public final class ClientProxy extends CommonProxy {
                 .bus()
                 .register(com.akashic.kunftig.client.blade.BladeClient.INSTANCE);
             MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.blade.BladeRenderer.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.blade.BladeEffects.INSTANCE);
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.blade.BladeEffects.INSTANCE);
         }
         RgbSupport.refresh();
     }
