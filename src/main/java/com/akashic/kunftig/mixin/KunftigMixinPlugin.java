@@ -19,7 +19,8 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  * so servers send it vanilla particles), {@code -Dkunftig.itemModels.disable=true} the item model icons,
  * {@code -Dkunftig.holograms.disable=true} the
  * holograms (client mixin and server bridge), {@code -Dkunftig.rodModels.disable=true} the 3D fishing rods (client
- * mixins; the server side of {@code KunftigRods} still runs). Nametag and
+ * mixins; the server side of {@code KunftigRods} still runs), {@code -Dkunftig.input.disable=true} the input keys
+ * (client: no keys, the channel is never registered). Nametag and
  * particle mixins are listed as {@code client} in
  * {@code mixins.kunftig.json}, so a dedicated server never applies them. No mixin targets a Bukkit class: coremods may
  * load those before Mixin can transform them.
@@ -34,6 +35,7 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
     private static final String HOLOGRAM_PACKAGE = "com.akashic.kunftig.mixin.mixins.hologram.";
     private static final String DISPLAY_PACKAGE = "com.akashic.kunftig.mixin.mixins.display.";
     private static final String ROD_MODEL_PACKAGE = "com.akashic.kunftig.mixin.mixins.rodmodel.";
+    private static final String INPUT_PACKAGE = "com.akashic.kunftig.mixin.mixins.input.";
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -75,6 +77,9 @@ public final class KunftigMixinPlugin implements IMixinConfigPlugin {
             return false;
         }
         if (mixinClassName.startsWith(ROD_MODEL_PACKAGE) && Boolean.getBoolean("kunftig.rodModels.disable")) {
+            return false;
+        }
+        if (mixinClassName.startsWith(INPUT_PACKAGE) && Boolean.getBoolean("kunftig.input.disable")) {
             return false;
         }
         if (mixinClassName.startsWith(NAMETAG_PACKAGE)) {

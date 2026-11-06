@@ -3,6 +3,7 @@ package com.akashic.kunftig.api;
 import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
 import com.akashic.kunftig.api.bukkit.display.KunftigDisplays;
 import com.akashic.kunftig.api.bukkit.hologram.KunftigHolograms;
+import com.akashic.kunftig.api.bukkit.input.KunftigInput;
 import com.akashic.kunftig.api.bukkit.particle.KunftigParticles;
 import com.akashic.kunftig.api.bukkit.player.KunftigPlayers;
 import com.akashic.kunftig.api.bukkit.rod.KunftigRods;
@@ -24,9 +25,12 @@ public final class KunftigApi {
      * fishing ({@code ModernFishHook#setLavaFishing}). 4: item models ({@code KunftigItems#setModel}). 5:
      * {@code ModernFishHook#setReelLocked}, {@code setCatchAimedAtAngler} and {@code KunftigPlayers#isHotbarSwitch}.
      * 6: holograms ({@code KunftigHolograms}). 7: the state of 3D fishing rods ({@code KunftigRods}). 8: 3D models
-     * in the world ({@code KunftigDisplays}).
+     * in the world ({@code KunftigDisplays}). 9: keys of the client ({@code KunftigInput}), attack prediction for 3D
+     * held models ({@code ao_atacar} in the pack), displays that glide, fly and turn on every axis
+     * ({@code Display#moveTo}, {@code setMotion}, {@code setRotation}), the screen HUD ({@code KunftigHud}) and the
+     * camera lock-on ({@code KunftigCamera}).
      */
-    private static final int API_VERSION = 8;
+    private static final int API_VERSION = 9;
 
     private KunftigApi() {}
 
@@ -63,6 +67,11 @@ public final class KunftigApi {
     /** Whether {@code KunftigDisplays} works (Bukkit hybrid with the mod installed; API 8). */
     public static boolean isDisplaysAvailable() {
         return KunftigDisplays.isAvailable();
+    }
+
+    /** Whether {@code KunftigInput} works (Bukkit hybrid with the mod installed; API 9). */
+    public static boolean isInputAvailable() {
+        return KunftigInput.isAvailable();
     }
 
     /** Whether {@code KunftigPlayers} works (Bukkit hybrid with the mod installed). */

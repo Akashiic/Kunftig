@@ -60,6 +60,13 @@ public final class ClientProxy extends CommonProxy {
                 .register(RodModels.INSTANCE);
             MinecraftForge.EVENT_BUS.register(RodModels.INSTANCE);
         }
+        if (!com.akashic.kunftig.client.input.InputClient.disabled()) {
+            // The input keys (API 9): in Controls, category Kunftig; reported only when a server binds them.
+            com.akashic.kunftig.client.input.InputClient.INSTANCE.registerKeys();
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.input.InputClient.INSTANCE);
+        }
         RgbSupport.refresh();
     }
 

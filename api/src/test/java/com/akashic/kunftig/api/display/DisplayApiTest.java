@@ -56,7 +56,7 @@ class DisplayApiTest {
         });
         try {
             assertTrue(KunftigApi.isDisplaysAvailable());
-            assertEquals(8, KunftigApi.apiVersion());
+            assertEquals(9, KunftigApi.apiVersion());
             assertSame(made, KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", "epico", "abrir", null));
             assertSame(made, KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", null, "abrir", null, 32));
             assertEquals(
