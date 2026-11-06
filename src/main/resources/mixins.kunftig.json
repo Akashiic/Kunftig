@@ -27,6 +27,7 @@
     "rodmodel.ModelBipedRodArmMixin",
     "rodmodel.RenderPlayerCastRodMixin",
     "rodmodel.ItemFishingRodCastMixin",
+    "rodmodel.EntityClientPlayerMPSwingMixin",
     "input.NetHandlerPlayClientInputMixin"
   ],
   "server": []
