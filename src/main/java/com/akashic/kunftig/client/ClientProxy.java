@@ -67,6 +67,17 @@ public final class ClientProxy extends CommonProxy {
                 .bus()
                 .register(com.akashic.kunftig.client.input.InputClient.INSTANCE);
         }
+        if (!Boolean.getBoolean("kunftig.screen.disable")) {
+            // The screen HUD and the lock-on (API 9).
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.screen.HudClient.INSTANCE);
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.screen.HudClient.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.screen.CameraClient.INSTANCE);
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.screen.CameraClient.INSTANCE);
+        }
         RgbSupport.refresh();
     }
 

@@ -2,7 +2,9 @@ package com.akashic.kunftig.api;
 
 import com.akashic.kunftig.api.bukkit.fishing.KunftigFishingBukkit;
 import com.akashic.kunftig.api.bukkit.display.KunftigDisplays;
+import com.akashic.kunftig.api.bukkit.camera.KunftigCamera;
 import com.akashic.kunftig.api.bukkit.hologram.KunftigHolograms;
+import com.akashic.kunftig.api.bukkit.hud.KunftigHud;
 import com.akashic.kunftig.api.bukkit.input.KunftigInput;
 import com.akashic.kunftig.api.bukkit.particle.KunftigParticles;
 import com.akashic.kunftig.api.bukkit.player.KunftigPlayers;
@@ -72,6 +74,16 @@ public final class KunftigApi {
     /** Whether {@code KunftigInput} works (Bukkit hybrid with the mod installed; API 9). */
     public static boolean isInputAvailable() {
         return KunftigInput.isAvailable();
+    }
+
+    /** Whether {@code KunftigHud} works (Bukkit hybrid with the mod installed; API 9). */
+    public static boolean isHudAvailable() {
+        return KunftigHud.isAvailable();
+    }
+
+    /** Whether {@code KunftigCamera} works (Bukkit hybrid with the mod installed; API 9). */
+    public static boolean isCameraAvailable() {
+        return KunftigCamera.isAvailable();
     }
 
     /** Whether {@code KunftigPlayers} works (Bukkit hybrid with the mod installed). */
