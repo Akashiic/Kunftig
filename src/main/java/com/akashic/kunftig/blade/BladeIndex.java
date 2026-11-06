@@ -73,7 +73,7 @@ public final class BladeIndex {
         }
     }
 
-    /** An effect's model and texture ({@code efeitos} of a namespace). */
+    /** An effect's model (null for {@link #RANK}) and texture ({@code efeitos} of a namespace). */
     public static final class Effect {
 
         public final String obj;
@@ -85,8 +85,18 @@ public final class BladeIndex {
         }
     }
 
-    /** Effect names a pack can declare (SlashBlade's effect models). */
+    /** Effect names a pack can declare (SlashBlade's effect models): the slash arc ({@code slash.obj}, group base). */
     public static final String SLASH = "corte";
+    /** The Judgement Cut sphere and winds ({@code slashdim.obj}, groups base and wind). */
+    public static final String JUDGEMENT_CUT = "julgamento";
+    /** The drive's crescent ({@code drive.obj}, group base). */
+    public static final String DRIVE = "onda";
+    /** The summoned sword ({@code ss.obj}, group ss). */
+    public static final String SWORD = "espada";
+    /** The lock-on reticle ({@code lockon.obj}, groups lockonBase, lockonHealthMask, lockonHealth). */
+    public static final String LOCKON = "mira";
+    /** The rank HUD: a texture only, laid out as SlashBlade's {@code textures/gui/rank.png} (256x256). */
+    public static final String RANK = "rank";
 
     private final Map<String, Blade> blades = new LinkedHashMap<>();
     private final Map<String, Map<String, Effect>> effects = new LinkedHashMap<>();
@@ -154,9 +164,10 @@ public final class BladeIndex {
                     continue;
                 }
                 Map<?, ?> f = (Map<?, ?>) e.getValue();
-                String obj = resource(f, "obj", namespace, source + ": efeitos." + name, true);
+                boolean textureOnly = RANK.equals(name);
+                String obj = textureOnly ? null : resource(f, "obj", namespace, source + ": efeitos." + name, true);
                 String tex = resource(f, "textura", namespace, source + ": efeitos." + name, true);
-                if (obj != null && tex != null) {
+                if ((textureOnly || obj != null) && tex != null) {
                     effects.computeIfAbsent(namespace, k -> new LinkedHashMap<>())
                         .put(name, new Effect(obj, tex));
                 }

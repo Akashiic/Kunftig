@@ -14,6 +14,7 @@ import com.akashic.kunftig.blade.BladeWire;
 import com.akashic.kunftig.blade.EffectWire;
 import com.akashic.kunftig.client.blade.BladeClient;
 import com.akashic.kunftig.client.blade.BladeEffects;
+import com.akashic.kunftig.client.blade.BladeHud;
 
 /** Blades: register the channel on join, forget states on respawn, take the blade messages. */
 @Mixin(NetHandlerPlayClient.class)
@@ -29,6 +30,7 @@ public abstract class NetHandlerPlayClientBladeMixin {
     private void kunftig$bladeRespawn(S07PacketRespawn packet, CallbackInfo ci) {
         BladeClient.INSTANCE.onRespawn();
         BladeEffects.INSTANCE.clear();
+        BladeHud.INSTANCE.unlock();
     }
 
     @Inject(method = "handleCustomPayload", at = @At("HEAD"), cancellable = true)

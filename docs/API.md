@@ -84,6 +84,7 @@ public void onEnable() {
 | `...api.bukkit.hud` | `KunftigHud`, `HudElement` (texto, barra e imagem na tela) | — | 9 |
 | `...api.bukkit.camera` | `KunftigCamera` (travar a visão num alvo) | — | 9 |
 | resource pack | `ao_atacar` nos estados de `item_models_3d.json` (previsão do golpe no cliente) | — | 9 |
+| `...api.bukkit.blade` | `KunftigBlades`, `BladeMotion` (lâminas no estilo SlashBlade: OBJ + VMD), `KunftigEffects` (corte, Judgement Cut, drive, espadas invocadas, lock-on, rank) | — | 9 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -560,3 +561,77 @@ No `item_models_3d.json`, um estado pode dizer qual estado um ataque (clique esq
   animação continua, não recomeça. Qualquer outro estado do servidor vale, então ele corrige o que não aceitou.
 * O plugin deve usar as **mesmas janelas** no servidor, contadas a partir do tick em que mandou o estado. Uma
   diferença só aparece como uma correção visual.
+
+## 18. Lâminas e efeitos no estilo SlashBlade (API 9)
+
+O cliente com Kunftig desenha lâminas como o SlashBlade: o modelo OBJ da lâmina preso à armação invisível
+(`bladeholder`) movida pelo VMD dos estados de combo, o corpo do jogador movido pelo VMD do jogador, e os efeitos do
+SlashBlade portados do código (MIT) do SlashBlade: Resharped, passada por passada. O resource pack declara tudo em
+`assets/<namespace>/kunftig/blades.json`:
+
+```json
+{
+  "_formato": 1,
+  "movimento_lamina": "combostate/motion.vmd",
+  "movimento_jogador": "model/pa/player_motion.vmd",
+  "laminas": {
+    "katana": { "obj": "model/katana.obj", "textura": "model/katana.png", "porte": "DEFAULT",
+                "itens": ["minecraft:golden_sword"] }
+  },
+  "efeitos": {
+    "corte":      { "obj": "model/util/slash.obj",    "textura": "model/util/slash.png" },
+    "julgamento": { "obj": "model/util/slashdim.obj", "textura": "model/util/slashdim.png" },
+    "onda":       { "obj": "model/util/drive.obj",    "textura": "model/util/ss.png" },
+    "espada":     { "obj": "model/util/ss.obj",       "textura": "model/util/ss.png" },
+    "mira":       { "obj": "model/util/lockon.obj",   "textura": "model/util/lockon.png" },
+    "rank":       { "textura": "textures/gui/rank.png" }
+  }
+}
+```
+
+Os grupos que cada modelo precisa são os do SlashBlade: `base` (corte, onda), `base` e `wind` (julgamento), `ss`
+(espada), `lockonBase`, `lockonHealthMask` e `lockonHealth` (mira); o `rank` é a textura 256x256 no layout do
+`rank.png` do SlashBlade. **A arte do SlashBlade é "todos os direitos reservados": um pack distribuído usa modelos e
+texturas próprios** com os mesmos grupos.
+
+```java
+// a lâmina: a cadeia de estados de combo (quadros do VMD da lâmina) e o trecho do corpo
+KunftigBlades.play(jogador, BladeMotion.builder()
+    .state(1, 10, false, BladeMotion.duration(1, 10, 1, 0))
+    .state(10, 21, false, BladeMotion.duration(10, 21, 1, 0))
+    .body(1, 41, true)
+    .build());
+
+// efeitos de uma vez (a até 64 blocos)
+KunftigEffects.slash("overkill", local, yaw, -10f, 0x3333FF, nivelDoRank, 1f);
+KunftigEffects.judgementCut("overkill", olhosDoAlvo, 0x3333FF);
+
+// projéteis: voam sozinhos no cliente (posição += velocidade, velocidade *= 0,99, sem gravidade)
+KunftigEffects.Projectile espada = KunftigEffects.summonedSword("overkill", local, direcao.multiply(3), rollAleatorio, cor);
+espada.stick(alvo, offsetYaw);      // cravada: segue o meio do alvo e gira com ele
+espada.remove(true);                // estilhaça (crits); o som é do plugin
+KunftigEffects.drive("overkill", local, olhar.multiply(2), 0f, cor, 10);
+
+// só para o dono
+KunftigEffects.lockOn(jogador, "overkill", alvo, cor);   // null: solta
+KunftigEffects.rank(jogador, "overkill", pontos);        // a cada mudança (0..1799)
+```
+
+* **Corte**: o arco gira 135 graus e some em 10 ticks; as passadas dependem do nível do rank (0 nenhum, 1 D ... 5 S,
+  5,25 SS, 5,5 SSS): cinza abaixo de C, a passada branca de fora a partir de B, a escura de dentro a partir de S, crits
+  em SS e SSS.
+* **Judgement Cut**: a bolha que escurece o que está atrás (cor complementar), três cascas pulsando e cinco ventos na
+  cor girando, 10 ticks, crits no fim. O crítico do SlashBlade são três cortes extras (`baseSize` 0,5, roll 30, yaws a
+  120 graus um do outro) que o plugin manda com `slash`.
+* **Projéteis**: o cliente anda com eles tick a tick como o SlashBlade (o drive termina no primeiro bloco, a espada
+  crava 0,05 antes dele); o plugin que anda com a sua cópia igual só manda o que muda (`move`, `stick`, `remove`). Para
+  espadas paradas ou girando (órbitas), `move(local, velocidadeZero, yaw, pitch)` a cada tick, com o yaw na convenção
+  do SlashBlade (`atan2(x, z)` da direção da ponta, não o yaw do Bukkit). Os jogadores que estavam perto quando o
+  projétil nasceu recebem as mensagens seguintes.
+* **Lock-on**: o cliente só mostra enquanto o jogador segura uma lâmina e o Sneak: a mira entre o alvo e a câmera, com
+  o anel de vida, e a visão puxada para os pés do alvo mais metade da altura dos olhos (`0,125 * partialTicks` do
+  caminho por quadro, como o SlashBlade). O alvo é escolhido pelo plugin ao apertar o Sneak.
+* **Rank**: o cliente deixa os pontos caírem 1 por tick até o piso do nível (S, SS e SSS voltam a S) e mostra o HUD por
+  6 segundos depois de cada mudança, com o texto do rank por 1 segundo depois de subir.
+* Canais `kunftig:blade` e `kunftig:effect`. Thread principal. `KunftigApi.isBladesAvailable()` diz se o servidor tem.
+

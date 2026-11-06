@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.akashic.kunftig.api.KunftigApi;
 import com.akashic.kunftig.api.bukkit.blade.BladeMotion;
 import com.akashic.kunftig.api.bukkit.blade.KunftigBlades;
+import com.akashic.kunftig.api.bukkit.blade.KunftigEffects;
 
 class BladeApiTest {
 
@@ -52,5 +53,17 @@ class BladeApiTest {
                 BladeMotion.builder()
                     .build()));
         assertThrows(IllegalArgumentException.class, () -> KunftigBlades.play(null, null));
+    }
+
+    @Test
+    void effectsUseSlashBladesProjectileRotationAndCheckTheirArguments() {
+        float[] east = KunftigEffects.rotation(new org.bukkit.util.Vector(1, 0, 0));
+        assertEquals(90, east[0], 1e-4, "yaw atan2(x, z): +X is 90, not Bukkit's -90");
+        float[] down = KunftigEffects.rotation(new org.bukkit.util.Vector(0, -4, 0));
+        assertEquals(-90, down[1], 1e-4);
+        assertFalse(KunftigEffects.isAvailable());
+        assertThrows(IllegalArgumentException.class, () -> KunftigEffects.judgementCut("Bad Name", null, 0));
+        assertThrows(IllegalArgumentException.class, () -> KunftigEffects.judgementCut("ok", null, 0));
+        assertThrows(IllegalArgumentException.class, () -> KunftigEffects.rank(null, "ok", 0));
     }
 }

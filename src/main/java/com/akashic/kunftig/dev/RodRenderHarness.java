@@ -118,6 +118,15 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sb) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("sbfx")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planSlashBladeEffects();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sbfx) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("blades")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planBlades();
@@ -689,6 +698,291 @@ public final class RodRenderHarness {
             hold(p, null);
         }));
         steps.add(new Step("sb-front-standby-slot0", 10, (mc, p) -> view(mc, 2)));
+    }
+
+    private net.minecraft.entity.monster.EntityZombie target;
+
+    /** The Judgement Cut, drives, summoned swords, the lock-on and the rank HUD, with SlashBlade's own models. */
+    private void planSlashBladeEffects() {
+        String k = "sbref:yamato";
+        com.akashic.kunftig.client.blade.BladeEffects fx = com.akashic.kunftig.client.blade.BladeEffects.INSTANCE;
+        com.akashic.kunftig.client.blade.BladeHud hud = com.akashic.kunftig.client.blade.BladeHud.INSTANCE;
+        int color = 0x3333FF;
+        steps.add(new Step("sbfx-setup", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 0);
+            view(mc, 0);
+            hold(p, blade(k));
+            target = new net.minecraft.entity.monster.EntityZombie(p.worldObj);
+            target.setLocationAndAngles(0.5, 4, -5.5, 0, 0);
+            target.addPotionEffect(
+                new net.minecraft.potion.PotionEffect(net.minecraft.potion.Potion.moveSlowdown.id, 100000, 20));
+            target.setHealth(10);
+            target.setCurrentItemOrArmor(4, new ItemStack(Items.leather_helmet)); // no burning in the sun
+            p.worldObj.spawnEntityInWorld(target);
+            report("sbfx effects=" + fx.count());
+        }));
+        // Judgement Cut on the zombie's eyes, critical: three sub-slashes 120 degrees apart (ticks 1, 2, 3)
+        int[] jcTicks = { 1, 2, 3, 5, 7, 9 };
+        int previous = 0;
+        for (int tick : jcTicks) {
+            final boolean first = previous == 0;
+            steps.add(new Step(String.format("sbfx-jc-t%02d", tick), tick - previous, (mc, p) -> {
+                if (first) {
+                    view(mc, 0);
+                    double ey = target.posY + target.getEyeHeight();
+                    fx.add(
+                        new com.akashic.kunftig.blade.EffectWire.JudgementCut(
+                            "sbref",
+                            target.posX,
+                            ey,
+                            target.posZ,
+                            0,
+                            0,
+                            color,
+                            10));
+                    int[] n = { 0 };
+                    int seed = 37;
+                    everyTick = () -> {
+                        if (++n[0] <= 3) {
+                            fx.add(
+                                new com.akashic.kunftig.blade.EffectWire.Slash(
+                                    "sbref",
+                                    target.posX,
+                                    ey,
+                                    target.posZ,
+                                    120F * n[0] + seed,
+                                    0,
+                                    30,
+                                    0,
+                                    color,
+                                    5.5F,
+                                    0.5F,
+                                    10));
+                        }
+                    };
+                }
+            }));
+            previous = tick;
+        }
+        steps.add(new Step("sbfx-jc-red-t04", 20, (mc, p) -> everyTick = null));
+        steps.add(new Step("sbfx-jc-red-t04b", 4, (mc, p) -> {
+            fx.add(
+                new com.akashic.kunftig.blade.EffectWire.JudgementCut(
+                    "sbref",
+                    target.posX,
+                    target.posY + target.getEyeHeight(),
+                    target.posZ,
+                    0,
+                    0,
+                    0xFF3333,
+                    10));
+        }));
+        // drives: horizontal (speed 0.5 to see it), vertical, and wave edge (5 vertical, 0.2..1.0)
+        steps.add(new Step("sbfx-drive-h-t03", 20, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("sbfx-drive-h-t03b", 3, (mc, p) -> drive(fx, p, 1, 0, 0.5, color, 10)));
+        steps.add(new Step("sbfx-drive-v-t03", 3, (mc, p) -> drive(fx, p, 2, -90, 0.5, color, 10)));
+        steps.add(new Step("sbfx-wave-t04", 15, (mc, p) -> {
+            for (int i = 0; i < 5; i++) {
+                drive(fx, p, 10 + i, 90, 0.2 + i * 0.2, color, 20);
+            }
+        }));
+        steps.add(new Step("sbfx-wave-t10", 6, (mc, p) -> {}));
+        // summoned swords: one basic sword flying into the zombie and sticking, then a spiral ring and heavy rain
+        steps.add(new Step("sbfx-sword-t01", 25, (mc, p) -> {
+            view(mc, 0);
+            double sx = p.posX - 1;
+            double sy = p.posY + 1.62;
+            double sz = p.posZ;
+            double dx = target.posX - sx;
+            double dy = target.posY + target.getEyeHeight() * 0.5 - sy;
+            double dz = target.posZ - sz;
+            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double vx = dx / len * 3;
+            double vy = dy / len * 3;
+            double vz = dz / len * 3;
+            fx.add(
+                new com.akashic.kunftig.blade.EffectWire.Projectile(
+                    "sbref",
+                    "espada",
+                    20,
+                    com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                    sx,
+                    sy,
+                    sz,
+                    vx,
+                    vy,
+                    vz,
+                    (float) Math.toDegrees(Math.atan2(vx, vz)),
+                    (float) Math.toDegrees(Math.atan2(vy, Math.sqrt(vx * vx + vz * vz))),
+                    75,
+                    color,
+                    0));
+            int[] n = { 0 };
+            everyTick = () -> {
+                if (++n[0] == 2) {
+                    com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(20);
+                    if (sw != null) {
+                        sw.stick(new com.akashic.kunftig.blade.EffectWire.Stick(20, target.getEntityId(), 40));
+                    }
+                }
+            };
+        }));
+        steps.add(new Step("sbfx-sword-stuck", 10, (mc, p) -> {}));
+        steps.add(new Step("sbfx-sword-stuck-back", 10, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("sbfx-spiral", 12, (mc, p) -> {
+            view(mc, 1);
+            fx.remove(20, true);
+            for (int i = 0; i < 8; i++) {
+                fx.add(
+                    new com.akashic.kunftig.blade.EffectWire.Projectile(
+                        "sbref",
+                        "espada",
+                        30 + i,
+                        com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                        p.posX,
+                        p.posY + 0.81,
+                        p.posZ,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        color,
+                        0));
+            }
+            everyTick = () -> {
+                long time = mc.theWorld.getTotalWorldTime();
+                for (int i = 0; i < 8; i++) {
+                    float deg = ((time % 30) * 12 + 360F / 8 * i) % 360;
+                    double r = Math.toRadians(deg);
+                    com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(30 + i);
+                    if (sw != null) {
+                        sw.move(
+                            new com.akashic.kunftig.blade.EffectWire.Move(
+                                30 + i,
+                                mc.thePlayer.posX - Math.sin(r) * 2,
+                                mc.thePlayer.boundingBox.minY + 0.81,
+                                mc.thePlayer.posZ + Math.cos(r) * 2,
+                                0,
+                                0,
+                                0,
+                                -deg,
+                                0));
+                    }
+                }
+            };
+        }));
+        steps.add(new Step("sbfx-heavy-rain", 6, (mc, p) -> {
+            everyTick = null;
+            view(mc, 0);
+            place(p, 180, -35);
+            for (int i = 0; i < 8; i++) {
+                fx.remove(30 + i, false);
+            }
+            java.util.Random rnd = new java.util.Random(5);
+            for (int i = 0; i < 19; i++) {
+                double ox = i == 0 ? 0 : rnd.nextDouble() * 5 - 2.5;
+                double oz = i == 0 ? 0 : rnd.nextDouble() * 5 - 2.5;
+                fx.add(
+                    new com.akashic.kunftig.blade.EffectWire.Projectile(
+                        "sbref",
+                        "espada",
+                        40 + i,
+                        com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                        target.posX + ox,
+                        target.posY + 7,
+                        target.posZ + oz,
+                        0,
+                        0,
+                        0,
+                        0,
+                        -90,
+                        0,
+                        color,
+                        0));
+            }
+        }));
+        steps.add(new Step("sbfx-heavy-rain-fall", 3, (mc, p) -> {
+            for (int i = 0; i < 19; i++) {
+                com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(40 + i);
+                if (sw != null) {
+                    sw.move(
+                        new com.akashic.kunftig.blade.EffectWire.Move(
+                            40 + i,
+                            sw.pos[0],
+                            sw.pos[1],
+                            sw.pos[2],
+                            0,
+                            -4,
+                            0,
+                            0,
+                            -90));
+                }
+            }
+        }));
+        // lock-on: Sneak held with a target; the view turns toward it from 50 degrees away
+        steps.add(new Step("sbfx-lock-t01", 30, (mc, p) -> {
+            for (int i = 0; i < 19; i++) {
+                fx.remove(40 + i, false);
+            }
+            place(p, 180 + 50, 0);
+            view(mc, 0);
+            mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = 230;
+            hud.lock(new com.akashic.kunftig.blade.EffectWire.Lock("sbref", target.getEntityId(), color));
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), true);
+        }));
+        steps.add(new Step("sbfx-lock-t10", 9, (mc, p) -> report("lock yaw=" + mc.thePlayer.rotationYaw)));
+        steps.add(new Step("sbfx-lock-t40", 30, (mc, p) -> report("lock yaw=" + mc.thePlayer.rotationYaw)));
+        steps.add(new Step("sbfx-lock-back", 5, (mc, p) -> {
+            report("lock yaw=" + mc.thePlayer.rotationYaw);
+            view(mc, 1);
+        }));
+        steps.add(new Step("sbfx-lock-hurt", 5, (mc, p) -> {
+            target.setHealth(3);
+            view(mc, 0);
+        }));
+        // the rank HUD: a rise to D (text variant), then SSS, then SSS after the text second
+        steps.add(new Step("sbfx-rank-d-rise", 3, (mc, p) -> {
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), false);
+            hud.unlock();
+            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank("sbref", 450));
+        }));
+        steps.add(new Step("sbfx-rank-d", 25, (mc, p) -> {}));
+        steps.add(
+            new Step(
+                "sbfx-rank-sss-rise",
+                3,
+                (mc, p) -> hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank("sbref", 1700))));
+        steps.add(new Step("sbfx-rank-sss", 25, (mc, p) -> {}));
+        steps.add(new Step("sbfx-rank-gone", 100, (mc, p) -> {}));
+    }
+
+    /** SlashBlade's Drive.doSlash for the harness: at the feet + eyes*0.75 + look*0.3, along the look. */
+    private static void drive(com.akashic.kunftig.client.blade.BladeEffects fx, EntityPlayerMP p, int id, float roll,
+        double speed, int color, float lifetime) {
+        double yaw = Math.toRadians(p.rotationYaw);
+        double lx = -Math.sin(yaw);
+        double lz = Math.cos(yaw);
+        double vx = lx * speed;
+        double vz = lz * speed;
+        fx.add(
+            new com.akashic.kunftig.blade.EffectWire.Projectile(
+                "sbref",
+                "onda",
+                id,
+                com.akashic.kunftig.blade.EffectWire.KIND_DRIVE,
+                p.posX + lx * 0.3,
+                p.posY + 1.62 * 0.75,
+                p.posZ + lz * 0.3,
+                vx,
+                0,
+                vz,
+                (float) Math.toDegrees(Math.atan2(vx, vz)),
+                0,
+                roll,
+                color,
+                lifetime));
     }
 
     /** SlashBlade's doSlash for the harness: at the feet + eyes*0.75 + look*0.3, the player's yaw, pitch 0, blue. */
