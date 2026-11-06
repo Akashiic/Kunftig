@@ -6,9 +6,13 @@ plugins {
 // The resource pack for RodPackCheckTest (3D rods, issue #13): ./gradlew :test -ProdPack=<folder with assets/>
 val rodPack: String? = providers.gradleProperty("rodPack").orNull?.let { rootProject.file(it).absolutePath }
 
+// SlashBlade's own files for SlashBladeAssetsTest (not in this repository): ./gradlew :test -PsbAssets=<assets/slashblade>
+val sbAssets: String? = providers.gradleProperty("sbAssets").orNull?.let { rootProject.file(it).absolutePath }
+
 tasks.test {
     useJUnitPlatform()
     rodPack?.let { systemProperty("kunftig.rodPack", it) }
+    sbAssets?.let { systemProperty("kunftig.sbAssets", it) }
 }
 
 /*
