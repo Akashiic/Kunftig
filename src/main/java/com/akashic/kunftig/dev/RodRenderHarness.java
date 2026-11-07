@@ -152,6 +152,10 @@ public final class RodRenderHarness {
                 LuckBoxHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
             }
+            if (mode.length == 3 && mode[0].equals("overkill")) {
+                OverkillServerHarness.install(mode[1], Integer.parseInt(mode[2]));
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("server")) {
                 RodServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
