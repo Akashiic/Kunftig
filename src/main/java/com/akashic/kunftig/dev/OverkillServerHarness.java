@@ -92,8 +92,10 @@ public final class OverkillServerHarness {
             case 5:
                 return cmd(mc, "/xp 200L " + me);
             case 6:
-                return cmd(mc, "/tp " + me + " " + (x + 0.5) + " 5 " + (z + 0.5) + " 0 10");
+                return cmd(mc, "/tp " + me + " " + (x + 0.5) + " 4 " + (z + 0.5));
             case 7:
+                mc.thePlayer.rotationYaw = 0;
+                mc.thePlayer.rotationPitch = 10;
                 return cmd(mc, "/clear " + me);
             case 8:
                 return cmd(mc, "/overkill dar katana/kusanagi " + me);
@@ -112,7 +114,7 @@ public final class OverkillServerHarness {
                 shoot("01-empunhada");
                 return 20;
             case 14:
-                return cmd(mc, zombie(x + 0.5, z + 3.5));
+                return cmd(mc, zombie(0, 3));
             case 15:
                 look(mc);
                 return 20;
@@ -163,7 +165,7 @@ public final class OverkillServerHarness {
             case 33:
             case 34:
                 // three more zombies, killed with combos
-                return cmd(mc, zombie(x + 0.5 + (s - 33), z + 3.0));
+                return cmd(mc, zombie(s - 33, 3));
             case 35:
                 look(mc);
                 mc.gameSettings.thirdPersonView = 1;
@@ -267,10 +269,9 @@ public final class OverkillServerHarness {
         }
     }
 
-    private String zombie(double x, double z) {
-        // a helmet so the sun does not burn it, slow so it stays in front
-        return "/summon Zombie " + x + " 4 " + z + " {Equipment:[{},{},{},{},{id:310,Count:1}],"
-            + "ActiveEffects:[{Id:2,Amplifier:4,Duration:6000}]}";
+    /** A zombie relative to the player (the chat takes 100 characters), with a helmet against the sun. */
+    private String zombie(int dx, int dz) {
+        return "/summon Zombie ~" + dx + " ~ ~" + dz + " {Equipment:[{},{},{},{},{id:310}]}";
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
