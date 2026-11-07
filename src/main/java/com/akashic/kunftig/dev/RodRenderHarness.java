@@ -109,9 +109,9 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
                 return;
             }
-            if (mode.length == 1 && mode[0].equals("sb")) {
+            if (mode.length <= 2 && mode[0].equals("sb")) {
                 RodRenderHarness h = new RodRenderHarness();
-                h.planSlashBlade();
+                h.planSlashBlade(mode.length == 2 ? mode[1] : "sbref:yamato");
                 FMLCommonHandler.instance()
                     .bus()
                     .register(h);
@@ -599,8 +599,7 @@ public final class RodRenderHarness {
      * blade at rest and through combo_a1, combo_a2 and aerial_rave_a1 (blade rig and body motion), from behind, from
      * the front and in first person, at the ticks the reference captures use.
      */
-    private void planSlashBlade() {
-        String k = "sbref:yamato";
+    private void planSlashBlade(String k) {
         com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
         steps.add(new Step("sb-tp-back-idle", SETTLE_TICKS, (mc, p) -> {
             place(p, 180, 0);
@@ -618,7 +617,9 @@ public final class RodRenderHarness {
         }));
         Object[][] combos = { { "a1", chain(1, 10, 10, 21, 21, 41), new int[] { 1, 41 }, Boolean.TRUE },
             { "a2", chain(100, 115, 115, 132, 132, 151), new int[] { 100, 151 }, Boolean.TRUE },
-            { "air1", chain(1100, 1122), new int[] { 1100, 1132 }, Boolean.FALSE } };
+            { "air1", chain(1100, 1122), new int[] { 1100, 1132 }, Boolean.FALSE },
+            // frames 204+: the sheath bone leaves the blade bone (A1 and A2 are sheathed strikes)
+            { "b1", chain(200, 242), new int[] { 200, 242 }, Boolean.TRUE } };
         int[] views = { 1, 2, 0 };
         String[] viewNames = { "back", "front", "fp" };
         for (int v = 0; v < views.length; v++) {
