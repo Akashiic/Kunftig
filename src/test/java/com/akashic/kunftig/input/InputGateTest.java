@@ -82,4 +82,23 @@ class InputGateTest {
             gate.players()
                 .isEmpty());
     }
+
+    @Test
+    void keysGetThroughOnlyWhileBoundAndRememberWhenEachWentDown() {
+        InputGate<String> g = new InputGate<>();
+        g.bind("p", java.util.Arrays.asList(InputWire.SPECIAL));
+        assertEquals(-1, g.acceptKeys("p", new InputWire.Keys(1, 0, InputWire.KEY_FORWARD), 10), "keys not bound");
+        g.bind("p", java.util.Arrays.asList(InputWire.SPECIAL, InputWire.KEYS_ACTION));
+        assertEquals(0, g.acceptKeys("p", new InputWire.Keys(2, 0, InputWire.KEY_FORWARD | InputWire.KEY_SNEAK), 11));
+        assertEquals(InputWire.KEY_FORWARD | InputWire.KEY_SNEAK, g.keys("p"));
+        assertEquals(11, g.lastPress("p", InputWire.KEY_SNEAK));
+        assertEquals(-1, g.acceptKeys("p", new InputWire.Keys(2, 0, 0), 12), "old sequence");
+        assertEquals(
+            InputWire.KEY_FORWARD | InputWire.KEY_SNEAK,
+            g.acceptKeys("p", new InputWire.Keys(3, 0, InputWire.KEY_SNEAK), 13));
+        assertEquals(11, g.lastPress("p", InputWire.KEY_SNEAK), "still held: the press tick stays");
+        assertEquals(-1, g.lastPress("p", InputWire.KEY_USE));
+        g.bind("p", java.util.Arrays.asList(InputWire.SPECIAL));
+        assertEquals(0, g.keys("p"), "unbinding clears the keys");
+    }
 }

@@ -21,6 +21,8 @@ import java.util.Set;
  *   BIND   (0): ubyte count, count x UTF action      the actions this client should report (0: none)
  * client -> server
  *   ACTION (1): UTF action, boolean pressed, int sequence, int clientTick, ubyte movement, float yaw, float pitch
+ *   KEYS   (2): int sequence, int clientTick, int keys      every held key ({@link #KEY_FORWARD} ...), when they
+ *                                                          change, while {@link #KEYS_ACTION} is bound
  * </pre>
  *
  * {@code sequence} grows by one per ACTION message of a connection (the server drops repeats and old ones);
@@ -35,6 +37,7 @@ public final class InputWire {
 
     public static final byte BIND = 0;
     public static final byte ACTION = 1;
+    public static final byte KEYS = 2;
 
     /** The actions a Kunftig client has keys for (Controls, category Kunftig), in the order of the menu. */
     public static final String SPECIAL = "especial";
@@ -43,6 +46,32 @@ public final class InputWire {
     public static final String LOCK_ON = "travar";
     public static final List<String> ACTIONS = Collections
         .unmodifiableList(Arrays.asList(SPECIAL, SKILL, DODGE, LOCK_ON));
+    /**
+     * Not a key: bound, it makes the client report every held key ({@link #KEYS}) whenever they change, as SlashBlade's
+     * {@code MoveCommandMessage} does.
+     */
+    public static final String KEYS_ACTION = "teclas";
+
+    /** Held keys of a KEYS message. */
+    public static final int KEY_FORWARD = 1;
+    public static final int KEY_BACK = 1 << 1;
+    public static final int KEY_LEFT = 1 << 2;
+    public static final int KEY_RIGHT = 1 << 3;
+    public static final int KEY_JUMP = 1 << 4;
+    public static final int KEY_SNEAK = 1 << 5;
+    public static final int KEY_SPRINT = 1 << 6;
+    /** The use button (right). */
+    public static final int KEY_USE = 1 << 7;
+    /** The attack button (left). */
+    public static final int KEY_ATTACK = 1 << 8;
+    /** The pick block button (middle). */
+    public static final int KEY_PICK = 1 << 9;
+    public static final int KEY_SPECIAL = 1 << 10;
+    public static final int KEY_SKILL = 1 << 11;
+    public static final int KEY_DODGE = 1 << 12;
+    public static final int KEY_LOCK_ON = 1 << 13;
+    public static final int KEYS_MASK = (1 << 14) - 1;
+    public static final int KEY_COUNT = 14;
 
     /** Movement keys held when the action key changed. */
     public static final int FORWARD = 1;
@@ -58,9 +87,55 @@ public final class InputWire {
 
     private InputWire() {}
 
-    /** Whether a name is one of {@link #ACTIONS}. */
+    /** Whether a name is one of {@link #ACTIONS} or {@link #KEYS_ACTION} (what can be bound). */
     public static boolean isAction(String name) {
-        return name != null && ACTIONS.contains(name);
+        return name != null && (ACTIONS.contains(name) || KEYS_ACTION.equals(name));
+    }
+
+    /** A decoded KEYS message. */
+    public static final class Keys {
+
+        public final int sequence;
+        public final int clientTick;
+        public final int keys;
+
+        public Keys(int sequence, int clientTick, int keys) {
+            this.sequence = sequence;
+            this.clientTick = clientTick;
+            this.keys = keys & KEYS_MASK;
+        }
+    }
+
+    public static byte[] keys(Keys k) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(KEYS);
+            out.writeInt(k.sequence);
+            out.writeInt(k.clientTick);
+            out.writeInt(k.keys);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
+    /** The KEYS in {@code data}, or null when malformed, of another operation or with unknown bits. */
+    public static Keys readKeys(byte[] data) {
+        if (data == null || data.length != 13 || data[0] != KEYS) {
+            return null;
+        }
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(data))) {
+            in.readByte();
+            int sequence = in.readInt();
+            int tick = in.readInt();
+            int keys = in.readInt();
+            if ((keys & ~KEYS_MASK) != 0) {
+                return null;
+            }
+            return new Keys(sequence, tick, keys);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     /** A decoded ACTION message. */

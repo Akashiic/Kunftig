@@ -42,6 +42,30 @@ public final class KunftigInput {
     public static final String DODGE = "esquiva";
     /** Lock on a target (default key Z). */
     public static final String LOCK_ON = "travar";
+    /**
+     * Not a key: bound, the client reports every held key ({@link #getKeys}, {@link KunftigKeysEvent}) whenever they
+     * change, the way SlashBlade's clients do while a blade is in the hand.
+     */
+    public static final String KEYS = "teclas";
+    /** Held keys ({@link #getKeys}). */
+    public static final int KEY_FORWARD = 1;
+    public static final int KEY_BACK = 1 << 1;
+    public static final int KEY_LEFT = 1 << 2;
+    public static final int KEY_RIGHT = 1 << 3;
+    public static final int KEY_JUMP = 1 << 4;
+    public static final int KEY_SNEAK = 1 << 5;
+    public static final int KEY_SPRINT = 1 << 6;
+    /** The use button (right). */
+    public static final int KEY_USE = 1 << 7;
+    /** The attack button (left). */
+    public static final int KEY_ATTACK = 1 << 8;
+    /** The pick block button (middle). */
+    public static final int KEY_PICK = 1 << 9;
+    public static final int KEY_SPECIAL = 1 << 10;
+    public static final int KEY_SKILL = 1 << 11;
+    public static final int KEY_DODGE = 1 << 12;
+    public static final int KEY_LOCK_ON = 1 << 13;
+
     /** Every action a Kunftig client has a key for. */
     public static final List<String> ACTIONS = Collections
         .unmodifiableList(Arrays.asList(SPECIAL, SKILL, DODGE, LOCK_ON));
@@ -56,6 +80,12 @@ public final class KunftigInput {
         Set<String> getBound(Player player);
 
         boolean isHeld(Player player, String action);
+
+        int getKeys(Player player);
+
+        long getLastPress(Player player, int key);
+
+        long getTick();
 
         boolean sendsInput(Player player);
     }
@@ -123,6 +153,21 @@ public final class KunftigInput {
     /** Whether the player holds a bound action's key down, as his client last said. */
     public static boolean isHeld(Player player, String action) {
         return provider().isHeld(player, action);
+    }
+
+    /** The keys the player holds ({@link #KEY_FORWARD} ...), while {@link #KEYS} is bound; 0 otherwise. */
+    public static int getKeys(Player player) {
+        return provider().getKeys(player);
+    }
+
+    /** The server tick ({@link #getTick}) {@code key} last went down, or -1. */
+    public static long getLastPress(Player player, int key) {
+        return provider().getLastPress(player, key);
+    }
+
+    /** Kunftig's server tick counter (the clock of {@link #getLastPress}). */
+    public static long getTick() {
+        return provider().getTick();
     }
 
     /** Whether this player's client can report input (Kunftig 9 or newer, listening to the input channel). */

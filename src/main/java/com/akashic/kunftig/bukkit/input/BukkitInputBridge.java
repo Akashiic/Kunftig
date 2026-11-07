@@ -20,6 +20,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.api.bukkit.input.KunftigInput;
 import com.akashic.kunftig.api.bukkit.input.KunftigInputEvent;
+import com.akashic.kunftig.api.bukkit.input.KunftigKeysEvent;
 import com.akashic.kunftig.bukkit.fishing.CraftBridge;
 import com.akashic.kunftig.input.InputGate;
 import com.akashic.kunftig.input.InputWire;
@@ -115,6 +116,23 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
     }
 
     @Override
+    public int getKeys(Player player) {
+        mainThread();
+        return gate.keys(player.getUniqueId());
+    }
+
+    @Override
+    public long getLastPress(Player player, int key) {
+        mainThread();
+        return gate.lastPress(player.getUniqueId(), key);
+    }
+
+    @Override
+    public long getTick() {
+        return tick;
+    }
+
+    @Override
     public boolean sendsInput(Player player) {
         return player.getListeningPluginChannels()
             .contains(InputWire.CHANNEL);
@@ -131,6 +149,15 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
             if (owner != null && owner.isEnabled()) {
                 Bukkit.getScheduler()
                     .runTask(owner, () -> onPluginMessageReceived(channel, player, message));
+            }
+            return;
+        }
+        InputWire.Keys keys = InputWire.readKeys(message);
+        if (keys != null) {
+            int old = player.isOnline() ? gate.acceptKeys(player.getUniqueId(), keys, tick) : -1;
+            if (old >= 0 && old != keys.keys) {
+                Bukkit.getPluginManager()
+                    .callEvent(new KunftigKeysEvent(player, old, keys.keys, keys.clientTick));
             }
             return;
         }

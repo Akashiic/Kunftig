@@ -503,6 +503,27 @@ public void onInput(KunftigInputEvent e) {
 * Canal `kunftig:input`, nos dois sentidos (o servidor manda `BIND`, o cliente manda `ACTION`). Thread principal.
   `-Dkunftig.input.disable=true` no cliente desliga as teclas e o canal.
 
+### Teclas seguradas (API 9)
+
+Para combos no estilo do SlashBlade, que olham as teclas seguradas no momento do clique (Sneak + frente + clique
+direito é outro golpe), o plugin liga a pseudo-ação `KunftigInput.KEYS` ("teclas"): o cliente manda todas as teclas
+seguradas sempre que mudam, como o `MoveCommandMessage` do SlashBlade.
+
+```java
+KunftigInput.bind(jogador, KunftigInput.KEYS, KunftigInput.SPECIAL);   // com a lâmina na mão
+int teclas = KunftigInput.getKeys(jogador);                            // KEY_FORWARD, KEY_BACK, KEY_SNEAK, KEY_USE...
+long quando = KunftigInput.getLastPress(jogador, KunftigInput.KEY_SNEAK); // no relógio de KunftigInput.getTick()
+
+@EventHandler
+public void onTeclas(KunftigKeysEvent e) {
+    if (e.pressed(KunftigInput.KEY_SNEAK)) { /* lock-on */ }
+}
+```
+
+* Bits: frente, trás, esquerda, direita, pulo, Sneak, corrida, botão de usar (direito), de atacar (esquerdo), do meio,
+  e as quatro teclas do Kunftig (especial, habilidade, esquiva, travar).
+* Mesmo limite e mesma sequência das ações (o cliente nunca é confiado). Desligar `KEYS` zera as teclas.
+
 ## 15. HUD na tela (API 9)
 
 Elementos na tela de um jogador, desenhados depois do HUD do vanilla: texto (com `§` e quebras de linha), uma barra e

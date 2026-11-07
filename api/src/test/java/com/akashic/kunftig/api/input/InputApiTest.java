@@ -41,6 +41,22 @@ class InputApiTest {
         KunftigInput.install(new KunftigInput.Provider() {
 
             @Override
+            public int getKeys(Player player) {
+                return 0;
+            }
+
+            @Override
+            public long getLastPress(Player player, int key) {
+                return -1;
+            }
+
+            @Override
+            public long getTick() {
+                return 0;
+            }
+
+
+            @Override
             public void register(Plugin plugin) {
                 calls.add("register");
             }

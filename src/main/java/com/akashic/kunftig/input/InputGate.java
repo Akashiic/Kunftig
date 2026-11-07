@@ -32,6 +32,12 @@ public final class InputGate<K> {
         double tokens = BURST;
         long refilledAt;
         int dropped;
+        int keys;
+        final long[] lastPress = new long[InputWire.KEY_COUNT];
+
+        Entry() {
+            java.util.Arrays.fill(lastPress, -1L);
+        }
     }
 
     private final Map<K, Entry> entries = new HashMap<>();
@@ -53,6 +59,9 @@ public final class InputGate<K> {
         Entry e = entries.computeIfAbsent(player, k -> new Entry());
         e.bound = Collections.unmodifiableSet(clean);
         e.held.retainAll(clean);
+        if (!clean.contains(InputWire.KEYS_ACTION)) {
+            e.keys = 0;
+        }
         return e.bound;
     }
 
@@ -88,12 +97,70 @@ public final class InputGate<K> {
         if (e != null) {
             e.hasSequence = false;
             e.held.clear();
+            e.keys = 0;
             e.tokens = BURST;
         }
     }
 
     public Collection<K> players() {
         return Collections.unmodifiableSet(entries.keySet());
+    }
+
+    /** The rate limit and the sequence, shared by every message of a connection. */
+    private static boolean admit(Entry e, int sequence, long now) {
+        e.tokens = Math.min(BURST, e.tokens + Math.max(0, now - e.refilledAt) * PER_TICK);
+        e.refilledAt = now;
+        if (e.tokens < 1) {
+            e.dropped++;
+            return false;
+        }
+        e.tokens -= 1; // every message costs, even one dropped below: a flood is a flood
+        if (e.hasSequence && sequence - e.lastSequence <= 0) {
+            e.dropped++;
+            return false; // a repeat or an old message
+        }
+        e.hasSequence = true;
+        e.lastSequence = sequence;
+        return true;
+    }
+
+    /**
+     * Whether a KEYS message gets through at server tick {@code now} (only while {@link InputWire#KEYS_ACTION} is
+     * bound); one that does updates the held keys and the tick each newly held key went down.
+     *
+     * @return the keys held before, or -1 when dropped
+     */
+    public int acceptKeys(K player, InputWire.Keys keys, long now) {
+        Entry e = entries.get(player);
+        if (keys == null || e == null || !admit(e, keys.sequence, now)) {
+            return -1;
+        }
+        if (!e.bound.contains(InputWire.KEYS_ACTION)) {
+            e.dropped++;
+            return -1;
+        }
+        int old = e.keys;
+        int pressed = keys.keys & ~old;
+        for (int b = 0; b < InputWire.KEY_COUNT; b++) {
+            if ((pressed & (1 << b)) != 0) {
+                e.lastPress[b] = now;
+            }
+        }
+        e.keys = keys.keys;
+        return old;
+    }
+
+    /** The keys a player holds, as his last accepted KEYS message says (0 when keys are not bound). */
+    public int keys(K player) {
+        Entry e = entries.get(player);
+        return e == null || !e.bound.contains(InputWire.KEYS_ACTION) ? 0 : e.keys;
+    }
+
+    /** The server tick a key ({@link InputWire#KEY_FORWARD} ...) last went down, or -1. */
+    public long lastPress(K player, int key) {
+        Entry e = entries.get(player);
+        int b = Integer.numberOfTrailingZeros(key);
+        return e == null || b >= InputWire.KEY_COUNT ? -1 : e.lastPress[b];
     }
 
     /**
@@ -105,22 +172,9 @@ public final class InputGate<K> {
             return false;
         }
         Entry e = entries.get(player);
-        if (e == null) {
-            return false; // nothing bound for this player: no plugin asked for his input
+        if (e == null || !admit(e, action.sequence, now)) {
+            return false; // nothing bound for this player (no plugin asked for his input), a flood or an old message
         }
-        e.tokens = Math.min(BURST, e.tokens + Math.max(0, now - e.refilledAt) * PER_TICK);
-        e.refilledAt = now;
-        if (e.tokens < 1) {
-            e.dropped++;
-            return false;
-        }
-        e.tokens -= 1; // every message costs, even one dropped below: a flood is a flood
-        if (e.hasSequence && action.sequence - e.lastSequence <= 0) {
-            e.dropped++;
-            return false; // a repeat or an old message
-        }
-        e.hasSequence = true;
-        e.lastSequence = action.sequence;
         if (!e.bound.contains(action.action)) {
             e.dropped++;
             return false;

@@ -97,4 +97,17 @@ class InputWireTest {
         }
         return bytes.toByteArray();
     }
+
+    @Test
+    void keysRoundTripAndRejectUnknownBits() {
+        InputWire.Keys k = InputWire
+            .readKeys(InputWire.keys(new InputWire.Keys(7, 99, InputWire.KEY_USE | InputWire.KEY_BACK)));
+        assertEquals(7, k.sequence);
+        assertEquals(99, k.clientTick);
+        assertEquals(InputWire.KEY_USE | InputWire.KEY_BACK, k.keys);
+        byte[] bad = InputWire.keys(new InputWire.Keys(1, 1, 0));
+        bad[9] = 0x40; // a bit far beyond the mask
+        org.junit.jupiter.api.Assertions.assertNull(InputWire.readKeys(bad));
+        org.junit.jupiter.api.Assertions.assertTrue(InputWire.isAction(InputWire.KEYS_ACTION));
+    }
 }

@@ -38,6 +38,7 @@ public final class InputClient {
     private Set<String> bound = Collections.emptySet();
     private int sequence;
     private int clientTick;
+    private int sentKeys;
 
     private InputClient() {}
 
@@ -69,6 +70,7 @@ public final class InputClient {
     public void onJoinGame(NetHandlerPlayClient handler) {
         bound = Collections.emptySet();
         sequence = 0;
+        sentKeys = 0;
         for (Map.Entry<String, Boolean> e : down.entrySet()) {
             e.setValue(Boolean.FALSE);
         }
@@ -124,6 +126,44 @@ public final class InputClient {
                 send(player, action, now);
             }
         }
+        if (bound.contains(InputWire.KEYS_ACTION)) {
+            int k = playing ? keys(mc, player) : 0;
+            if (k != sentKeys && player != null && player.sendQueue != null) {
+                sentKeys = k;
+                player.sendQueue.addToSendQueue(
+                    new C17PacketCustomPayload(
+                        InputWire.CHANNEL,
+                        InputWire.keys(new InputWire.Keys(++sequence, clientTick, k))));
+            }
+        } else {
+            sentKeys = 0;
+        }
+    }
+
+    /** Every held key, as SlashBlade's {@code MoveInputHandler} samples them. */
+    private int keys(Minecraft mc, EntityClientPlayerMP player) {
+        int m = movement(player);
+        int k = 0;
+        k |= (m & InputWire.FORWARD) != 0 ? InputWire.KEY_FORWARD : 0;
+        k |= (m & InputWire.BACK) != 0 ? InputWire.KEY_BACK : 0;
+        k |= (m & InputWire.LEFT) != 0 ? InputWire.KEY_LEFT : 0;
+        k |= (m & InputWire.RIGHT) != 0 ? InputWire.KEY_RIGHT : 0;
+        k |= (m & InputWire.JUMP) != 0 ? InputWire.KEY_JUMP : 0;
+        k |= (m & InputWire.SNEAK) != 0 ? InputWire.KEY_SNEAK : 0;
+        k |= (m & InputWire.SPRINT) != 0 ? InputWire.KEY_SPRINT : 0;
+        k |= mc.gameSettings.keyBindUseItem.getIsKeyPressed() ? InputWire.KEY_USE : 0;
+        k |= mc.gameSettings.keyBindAttack.getIsKeyPressed() ? InputWire.KEY_ATTACK : 0;
+        k |= mc.gameSettings.keyBindPickBlock.getIsKeyPressed() ? InputWire.KEY_PICK : 0;
+        k |= held(InputWire.SPECIAL) ? InputWire.KEY_SPECIAL : 0;
+        k |= held(InputWire.SKILL) ? InputWire.KEY_SKILL : 0;
+        k |= held(InputWire.DODGE) ? InputWire.KEY_DODGE : 0;
+        k |= held(InputWire.LOCK_ON) ? InputWire.KEY_LOCK_ON : 0;
+        return k;
+    }
+
+    private boolean held(String action) {
+        KeyBinding b = keys.get(action);
+        return b != null && b.getIsKeyPressed();
     }
 
     private void send(EntityClientPlayerMP player, String action, boolean pressed) {
