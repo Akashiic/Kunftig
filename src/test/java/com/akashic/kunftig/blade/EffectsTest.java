@@ -63,6 +63,8 @@ class EffectsTest {
         EffectWire.Lock l = (EffectWire.Lock) EffectWire.read(EffectWire.lock(new EffectWire.Lock("ok", -1, 0x3333FF)));
         assertEquals(-1, l.entityId);
 
+        EffectWire.Hits hh = (EffectWire.Hits) EffectWire.read(EffectWire.hits(new EffectWire.Hits("ok", 27)));
+        assertEquals(27, hh.hits);
         EffectWire.Rank k = (EffectWire.Rank) EffectWire.read(EffectWire.rank(new EffectWire.Rank("ok", 5000)));
         assertEquals(ConcentrationRank.MAX_POINTS, k.points, "clamped");
     }

@@ -41,7 +41,7 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * </ul>
  * The rank HUD ({@code RankRenderer}): the rank's letter filling with the progress and a gauge, at two thirds of the
  * width and a fifth of the height, for 6 seconds after each change, the letter's text variant for 1 second after a
- * rise. Client thread only.
+ * rise; under it, the DmC-style hit counter ("27 HITS"). Client thread only.
  */
 public final class BladeHud {
 
@@ -52,6 +52,9 @@ public final class BladeHud {
     private int lockTarget = -1;
     private int lockColor;
     private String rankNamespace;
+    private String hitsNamespace;
+    private int hits;
+    private long hitsTime;
     private final ConcentrationRank rank = new ConcentrationRank();
     private int loggedErrors;
 
@@ -59,6 +62,8 @@ public final class BladeHud {
 
     public void clear() {
         lockTarget = -1;
+        hits = 0;
+        hitsNamespace = null;
         rankNamespace = null;
         rank.reset();
     }
@@ -72,6 +77,24 @@ public final class BladeHud {
         lockNamespace = l.namespace;
         lockTarget = l.entityId;
         lockColor = l.color;
+    }
+
+    /** The DmC-style hit counter: shows {@code hits} under the rank for {@link #HITS_TICKS} ticks; 0 hides it. */
+    public void hits(EffectWire.Hits h) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld == null) {
+            return;
+        }
+        hitsNamespace = h.namespace;
+        hits = h.hits;
+        hitsTime = mc.theWorld.getTotalWorldTime();
+    }
+
+    /** Ticks the counter stays after the last hit. */
+    public static final int HITS_TICKS = 60;
+
+    public int hits() {
+        return hits;
     }
 
     public void rank(EffectWire.Rank r) {
@@ -132,16 +155,20 @@ public final class BladeHud {
 
     @SubscribeEvent
     public void onRenderLivingPre(RenderLivingEvent.Pre event) {
-        reticle(event);
+        reticle(event, true);
     }
 
     @SubscribeEvent
     public void onRenderLivingPost(RenderLivingEvent.Post event) {
-        reticle(event);
+        reticle(event, false);
     }
 
-    /** SlashBlade's {@code LockonCircleRender.onRenderLiving}. */
-    private void reticle(RenderLivingEvent event) {
+    /**
+     * SlashBlade's {@code LockonCircleRender.onRenderLiving}, which runs on both the Pre and the Post events (twice as
+     * bright). Here the depth-writing passes (the mask and the ring) run only after the body: before it, the invisible
+     * mask would cut a hole in the target. The ring is drawn twice there to keep SlashBlade's brightness.
+     */
+    private void reticle(RenderLivingEvent event, boolean pre) {
         Minecraft mc = Minecraft.getMinecraft();
         if (event.entity.getEntityId() != lockTarget) {
             return;
@@ -180,11 +207,14 @@ public final class BladeHud {
                 GL11.glScalef(0.0025F, -0.0025F, 0.0025F);
                 int alpha = 0xAA;
                 BladeEffects.effectState(false, () -> BladeEffects.tessellate(base, lockColor, alpha, false));
-                GL11.glPushMatrix();
-                GL11.glTranslatef(0, 0, health * 10.0F);
-                depthWriteState(() -> BladeEffects.tessellate(mask, 0x000000, 0x20, false));
-                GL11.glPopMatrix();
-                depthWriteState(() -> BladeEffects.tessellate(value, lockColor, alpha, false));
+                if (!pre) {
+                    GL11.glPushMatrix();
+                    GL11.glTranslatef(0, 0, health * 10.0F);
+                    depthWriteState(() -> BladeEffects.tessellate(mask, 0x000000, 0x20, false));
+                    GL11.glPopMatrix();
+                    depthWriteState(() -> BladeEffects.tessellate(value, lockColor, alpha, false));
+                    depthWriteState(() -> BladeEffects.tessellate(value, lockColor, alpha, false));
+                }
             } finally {
                 GL11.glPopMatrix();
             }
@@ -212,14 +242,15 @@ public final class BladeHud {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.thePlayer == null || mc.theWorld == null || mc.gameSettings.hideGUI || rankNamespace == null) {
+        if (mc.thePlayer == null || mc.theWorld == null || mc.gameSettings.hideGUI) {
             return;
         }
         if (mc.currentScreen != null && !(mc.currentScreen instanceof GuiChat)) {
             return;
         }
         long now = mc.theWorld.getTotalWorldTime();
-        if (!rank.visible(now)) {
+        drawHits(mc, event.resolution, now, event.partialTicks);
+        if (rankNamespace == null || !rank.visible(now)) {
             return;
         }
         BladeIndex.Effect fx = BladeClient.INSTANCE.index()
@@ -259,6 +290,64 @@ public final class BladeHud {
             GL11.glPopAttrib();
             GL11.glPopMatrix();
         }
+    }
+
+    /**
+     * The hit counter under the rank: the digits and HITS (the {@code contador} texture), popping a quarter bigger for
+     * a few ticks at each hit and fading in its last second.
+     */
+    private void drawHits(Minecraft mc, ScaledResolution res, long now, float partial) {
+        if (hits <= 0 || hitsNamespace == null || now >= hitsTime + HITS_TICKS) {
+            return;
+        }
+        BladeIndex.Effect fx = BladeClient.INSTANCE.index()
+            .effect(hitsNamespace, BladeIndex.HITS);
+        if (fx == null) {
+            return;
+        }
+        float age = now - hitsTime + partial;
+        float pop = 1 + 0.25F * Math.max(0, 1 - age / 4);
+        float alpha = Math.min(1, (HITS_TICKS - age) / 20F);
+        String digits = Integer.toString(hits);
+        mc.getTextureManager()
+            .bindTexture(BladeClient.INSTANCE.location(fx.texture));
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_TEXTURE_BIT);
+        try {
+            GL11.glTranslatef(res.getScaledWidth() * 2 / 3F + 8, res.getScaledHeight() / 5F + 62, 0);
+            GL11.glScalef(pop, pop, 1);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glEnable(GL11.GL_ALPHA_TEST);
+            GL11.glAlphaFunc(GL11.GL_GREATER, 0.0F);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glColor4f(1, 1, 1, alpha);
+            int x = 0;
+            for (char ch : digits.toCharArray()) {
+                int d = ch - '0';
+                quadTex(x, -12, 16, 24, d * 32 / 512F, 0, 32 / 512F, 48 / 64F);
+                x += 14;
+            }
+            quadTex(x + 2, -8, 56, 20, 320 / 512F, 4 / 64F, 112 / 512F, 40 / 64F);
+            GL11.glColor4f(1, 1, 1, 1);
+        } finally {
+            GL11.glPopAttrib();
+            GL11.glPopMatrix();
+        }
+    }
+
+    private static void quadTex(float x, float y, float w, float h, float u, float v, float uw, float vh) {
+        Tessellator t = Tessellator.instance;
+        t.startDrawingQuads();
+        t.addVertexWithUV(x, y + h, 0, u, v + vh);
+        t.addVertexWithUV(x + w, y + h, 0, u + uw, v + vh);
+        t.addVertexWithUV(x + w, y, 0, u + uw, v);
+        t.addVertexWithUV(x, y, 0, u, v);
+        t.draw();
     }
 
     /** SlashBlade's {@code drawTexturedQuad} on a 256x256 texture. */

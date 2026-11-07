@@ -130,6 +130,8 @@ public final class BladeEffects {
             BladeHud.INSTANCE.lock((EffectWire.Lock) m);
         } else if (m instanceof EffectWire.Rank) {
             BladeHud.INSTANCE.rank((EffectWire.Rank) m);
+        } else if (m instanceof EffectWire.Hits) {
+            BladeHud.INSTANCE.hits((EffectWire.Hits) m);
         }
     }
 

@@ -97,6 +97,11 @@ public final class BladeIndex {
     public static final String LOCKON = "mira";
     /** The rank HUD: a texture only, laid out as SlashBlade's {@code textures/gui/rank.png} (256x256). */
     public static final String RANK = "rank";
+    /**
+     * The hit counter: a texture only, digits 0..9 in 32x48 cells from x 0, the word HITS at (320, 4) 112x40, on
+     * 512x64.
+     */
+    public static final String HITS = "contador";
 
     private final Map<String, Blade> blades = new LinkedHashMap<>();
     private final Map<String, Map<String, Effect>> effects = new LinkedHashMap<>();
@@ -164,7 +169,7 @@ public final class BladeIndex {
                     continue;
                 }
                 Map<?, ?> f = (Map<?, ?>) e.getValue();
-                boolean textureOnly = RANK.equals(name);
+                boolean textureOnly = RANK.equals(name) || HITS.equals(name);
                 String obj = textureOnly ? null : resource(f, "obj", namespace, source + ": efeitos." + name, true);
                 String tex = resource(f, "textura", namespace, source + ": efeitos." + name, true);
                 if ((textureOnly || obj != null) && tex != null) {

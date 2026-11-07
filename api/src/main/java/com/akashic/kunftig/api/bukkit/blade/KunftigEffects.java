@@ -76,6 +76,8 @@ public final class KunftigEffects {
         void lockOn(Player owner, String namespace, Entity target, int color);
 
         void rank(Player owner, String namespace, int points);
+
+        void hits(Player owner, String namespace, int hits);
     }
 
     private static volatile Provider provider;
@@ -200,6 +202,21 @@ public final class KunftigEffects {
             throw new IllegalArgumentException("namespace must match " + NAMESPACE + ": " + namespace);
         }
         provider().rank(owner, namespace, Math.max(0, Math.min(MAX_RANK_POINTS, points)));
+    }
+
+    /**
+     * {@code owner}'s combo hit counter (DmC style, the {@code contador} texture): "27 HITS" under the rank HUD,
+     * popping at each hit and gone 3 seconds after the last; 0 hides it at once.
+     */
+    public static void hits(Player owner, String namespace, int hits) {
+        if (owner == null) {
+            throw new IllegalArgumentException("owner required");
+        }
+        if (namespace == null || !NAMESPACE.matcher(namespace)
+            .matches()) {
+            throw new IllegalArgumentException("namespace must match " + NAMESPACE + ": " + namespace);
+        }
+        provider().hits(owner, namespace, Math.max(0, Math.min(9999, hits)));
     }
 
     /** SlashBlade's projectile rotation toward {@code v}: {yaw atan2(x, z), pitch atan2(y, horizontal)}, degrees. */

@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
  * REMOVE (5):        int id, boolean burst
  * LOCK (6):          UTF namespace, int entityId (-1: none), int color (RGB)       (only to the blade's holder)
  * RANK (7):          UTF namespace, int points (0 .. 1799)                         (only to the rank's owner)
+ * HITS (8):          UTF namespace, int hits (0: the combo ended)                  (only to the attacker)
  * </pre>
  *
  * Projectiles move on the client as SlashBlade's summoned swords and drives do (see {@link EffectProjectile}); the
@@ -41,6 +42,7 @@ public final class EffectWire {
     public static final byte REMOVE = 5;
     public static final byte LOCK = 6;
     public static final byte RANK = 7;
+    public static final byte HITS = 8;
     public static final int KIND_DRIVE = 0;
     public static final int KIND_SWORD = 1;
     public static final Pattern NAMESPACE = Pattern.compile("[a-z0-9_.-]{1,64}");
@@ -224,6 +226,18 @@ public final class EffectWire {
         }
     }
 
+    /** The receiving player's combo hit count (a DmC-style counter); 0 ends the combo. */
+    public static final class Hits {
+
+        public final String namespace;
+        public final int hits;
+
+        public Hits(String namespace, int hits) {
+            this.namespace = namespace;
+            this.hits = Math.max(0, Math.min(9999, hits));
+        }
+    }
+
     private interface Writer {
 
         void write(DataOutputStream out) throws IOException;
@@ -350,6 +364,14 @@ public final class EffectWire {
         });
     }
 
+    public static byte[] hits(Hits h) {
+        checkName("namespace", h.namespace);
+        return encode(HITS, out -> {
+            out.writeUTF(h.namespace);
+            out.writeInt(h.hits);
+        });
+    }
+
     /** The slash in {@code data}, or null when malformed or another operation. */
     public static Slash readSlash(byte[] data) {
         Object o = read(data);
@@ -358,7 +380,7 @@ public final class EffectWire {
 
     /**
      * The message in {@code data} ({@link Slash}, {@link JudgementCut}, {@link Projectile}, {@link Move},
-     * {@link Stick}, {@link Remove}, {@link Lock} or {@link Rank}), or null when malformed or unknown.
+     * {@link Stick}, {@link Remove}, {@link Lock}, {@link Rank} or {@link Hits}), or null when malformed or unknown.
      */
     public static Object read(byte[] data) {
         if (data == null || data.length < 2) {
@@ -450,6 +472,8 @@ public final class EffectWire {
                 return new Lock(name(in), in.readInt(), in.readInt());
             case RANK:
                 return new Rank(name(in), in.readInt());
+            case HITS:
+                return new Hits(name(in), in.readInt());
             default:
                 return null;
         }

@@ -118,8 +118,10 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sb) enabled: this client will take screenshots and quit");
                 return;
             }
-            if (mode.length == 1 && mode[0].equals("sbfx")) {
+            if (mode.length <= 3 && mode[0].equals("sbfx")) {
                 RodRenderHarness h = new RodRenderHarness();
+                h.fxNs = mode.length >= 2 ? mode[1] : "sbref";
+                h.fxBlade = mode.length >= 3 ? mode[2] : "sbref:yamato";
                 h.planSlashBladeEffects();
                 FMLCommonHandler.instance()
                     .bus()
@@ -702,10 +704,12 @@ public final class RodRenderHarness {
     }
 
     private net.minecraft.entity.monster.EntityZombie target;
+    private String fxNs = "sbref";
+    private String fxBlade = "sbref:yamato";
 
     /** The Judgement Cut, drives, summoned swords, the lock-on and the rank HUD, with SlashBlade's own models. */
     private void planSlashBladeEffects() {
-        String k = "sbref:yamato";
+        String k = fxBlade;
         com.akashic.kunftig.client.blade.BladeEffects fx = com.akashic.kunftig.client.blade.BladeEffects.INSTANCE;
         com.akashic.kunftig.client.blade.BladeHud hud = com.akashic.kunftig.client.blade.BladeHud.INSTANCE;
         int color = 0x3333FF;
@@ -722,6 +726,22 @@ public final class RodRenderHarness {
             p.worldObj.spawnEntityInWorld(target);
             report("sbfx effects=" + fx.count());
         }));
+        // slash arcs at ranks none, B and SSS, seen from behind
+        for (float rank : new float[] { 0, 3, 5.5F }) {
+            int prev = 0;
+            for (int tick : new int[] { 1, 3, 5, 7 }) {
+                final boolean first = prev == 0;
+                steps.add(new Step(String.format("sbfx-slash-r%.1f-t%02d", rank, tick), tick - prev, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        place(p, 180, 0);
+                        slash(p, -10, rank);
+                    }
+                }));
+                prev = tick;
+            }
+            steps.add(new Step(String.format("sbfx-slash-r%.1f-rest", rank), 12, (mc, p) -> {}));
+        }
         // Judgement Cut on the zombie's eyes, critical: three sub-slashes 120 degrees apart (ticks 1, 2, 3)
         int[] jcTicks = { 1, 2, 3, 5, 7, 9 };
         int previous = 0;
@@ -733,7 +753,7 @@ public final class RodRenderHarness {
                     double ey = target.posY + target.getEyeHeight();
                     fx.add(
                         new com.akashic.kunftig.blade.EffectWire.JudgementCut(
-                            "sbref",
+                            fxNs,
                             target.posX,
                             ey,
                             target.posZ,
@@ -747,7 +767,7 @@ public final class RodRenderHarness {
                         if (++n[0] <= 3) {
                             fx.add(
                                 new com.akashic.kunftig.blade.EffectWire.Slash(
-                                    "sbref",
+                                    fxNs,
                                     target.posX,
                                     ey,
                                     target.posZ,
@@ -769,7 +789,7 @@ public final class RodRenderHarness {
         steps.add(new Step("sbfx-jc-red-t04b", 4, (mc, p) -> {
             fx.add(
                 new com.akashic.kunftig.blade.EffectWire.JudgementCut(
-                    "sbref",
+                    fxNs,
                     target.posX,
                     target.posY + target.getEyeHeight(),
                     target.posZ,
@@ -803,7 +823,7 @@ public final class RodRenderHarness {
             double vz = dz / len * 3;
             fx.add(
                 new com.akashic.kunftig.blade.EffectWire.Projectile(
-                    "sbref",
+                    fxNs,
                     "espada",
                     20,
                     com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
@@ -836,7 +856,7 @@ public final class RodRenderHarness {
             for (int i = 0; i < 8; i++) {
                 fx.add(
                     new com.akashic.kunftig.blade.EffectWire.Projectile(
-                        "sbref",
+                        fxNs,
                         "espada",
                         30 + i,
                         com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
@@ -887,7 +907,7 @@ public final class RodRenderHarness {
                 double oz = i == 0 ? 0 : rnd.nextDouble() * 5 - 2.5;
                 fx.add(
                     new com.akashic.kunftig.blade.EffectWire.Projectile(
-                        "sbref",
+                        fxNs,
                         "espada",
                         40 + i,
                         com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
@@ -930,7 +950,7 @@ public final class RodRenderHarness {
             place(p, 180 + 50, 0);
             view(mc, 0);
             mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = 230;
-            hud.lock(new com.akashic.kunftig.blade.EffectWire.Lock("sbref", target.getEntityId(), color));
+            hud.lock(new com.akashic.kunftig.blade.EffectWire.Lock(fxNs, target.getEntityId(), color));
             net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), true);
         }));
         steps.add(new Step("sbfx-lock-t10", 9, (mc, p) -> report("lock yaw=" + mc.thePlayer.rotationYaw)));
@@ -947,20 +967,20 @@ public final class RodRenderHarness {
         steps.add(new Step("sbfx-rank-d-rise", 3, (mc, p) -> {
             net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), false);
             hud.unlock();
-            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank("sbref", 450));
+            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank(fxNs, 450));
+            hud.hits(new com.akashic.kunftig.blade.EffectWire.Hits(fxNs, 12));
         }));
         steps.add(new Step("sbfx-rank-d", 25, (mc, p) -> {}));
-        steps.add(
-            new Step(
-                "sbfx-rank-sss-rise",
-                3,
-                (mc, p) -> hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank("sbref", 1700))));
+        steps.add(new Step("sbfx-rank-sss-rise", 3, (mc, p) -> {
+            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank(fxNs, 1700));
+            hud.hits(new com.akashic.kunftig.blade.EffectWire.Hits(fxNs, 57));
+        }));
         steps.add(new Step("sbfx-rank-sss", 25, (mc, p) -> {}));
         steps.add(new Step("sbfx-rank-gone", 100, (mc, p) -> {}));
     }
 
     /** SlashBlade's Drive.doSlash for the harness: at the feet + eyes*0.75 + look*0.3, along the look. */
-    private static void drive(com.akashic.kunftig.client.blade.BladeEffects fx, EntityPlayerMP p, int id, float roll,
+    private void drive(com.akashic.kunftig.client.blade.BladeEffects fx, EntityPlayerMP p, int id, float roll,
         double speed, int color, float lifetime) {
         double yaw = Math.toRadians(p.rotationYaw);
         double lx = -Math.sin(yaw);
@@ -969,7 +989,7 @@ public final class RodRenderHarness {
         double vz = lz * speed;
         fx.add(
             new com.akashic.kunftig.blade.EffectWire.Projectile(
-                "sbref",
+                fxNs,
                 "onda",
                 id,
                 com.akashic.kunftig.blade.EffectWire.KIND_DRIVE,
@@ -987,7 +1007,7 @@ public final class RodRenderHarness {
     }
 
     /** SlashBlade's doSlash for the harness: at the feet + eyes*0.75 + look*0.3, the player's yaw, pitch 0, blue. */
-    private static void slash(EntityPlayerMP p, float roll, float rank) {
+    private void slash(EntityPlayerMP p, float roll, float rank) {
         double yaw = Math.toRadians(p.rotationYaw);
         double pitch = Math.toRadians(p.rotationPitch);
         double lx = -Math.sin(yaw) * Math.cos(pitch);
@@ -995,7 +1015,7 @@ public final class RodRenderHarness {
         double lz = Math.cos(yaw) * Math.cos(pitch);
         com.akashic.kunftig.client.blade.BladeEffects.INSTANCE.add(
             new com.akashic.kunftig.blade.EffectWire.Slash(
-                "sbref",
+                fxNs,
                 p.posX + lx * 0.3,
                 p.posY + 1.62 * 0.75 + ly * 0.3,
                 p.posZ + lz * 0.3,

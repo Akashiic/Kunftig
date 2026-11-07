@@ -255,6 +255,14 @@ public final class BukkitBladeBridge implements KunftigBlades.Provider, KunftigE
         }
     }
 
+    @Override
+    public void hits(Player owner, String namespace, int hits) {
+        mainThread();
+        if (listens(owner)) {
+            send(owner, EffectWire.CHANNEL, EffectWire.hits(new EffectWire.Hits(namespace, hits)));
+        }
+    }
+
     private static boolean listens(Player p) {
         return p.getListeningPluginChannels()
             .contains(EffectWire.CHANNEL);

@@ -584,7 +584,8 @@ SlashBlade portados do código (MIT) do SlashBlade: Resharped, passada por passa
     "onda":       { "obj": "model/util/drive.obj",    "textura": "model/util/ss.png" },
     "espada":     { "obj": "model/util/ss.obj",       "textura": "model/util/ss.png" },
     "mira":       { "obj": "model/util/lockon.obj",   "textura": "model/util/lockon.png" },
-    "rank":       { "textura": "textures/gui/rank.png" }
+    "rank":       { "textura": "textures/gui/rank.png" },
+    "contador":   { "textura": "textures/gui/contador.png" }
   }
 }
 ```
@@ -592,7 +593,8 @@ SlashBlade portados do código (MIT) do SlashBlade: Resharped, passada por passa
 Os grupos que cada modelo precisa são os do SlashBlade: `base` (corte, onda), `base` e `wind` (julgamento), `ss`
 (espada), `lockonBase`, `lockonHealthMask` e `lockonHealth` (mira); o `rank` é a textura 256x256 no layout do
 `rank.png` do SlashBlade. **A arte do SlashBlade é "todos os direitos reservados": um pack distribuído usa modelos e
-texturas próprios** com os mesmos grupos.
+texturas próprios** com os mesmos grupos. O `contador` é a textura do contador de golpes (512x64: dígitos 0..9 em
+células 32x48 a partir de x 0, a palavra HITS em (320, 4) com 112x40).
 
 ```java
 // a lâmina: a cadeia de estados de combo (quadros do VMD da lâmina) e o trecho do corpo
@@ -615,6 +617,7 @@ KunftigEffects.drive("overkill", local, olhar.multiply(2), 0f, cor, 10);
 // só para o dono
 KunftigEffects.lockOn(jogador, "overkill", alvo, cor);   // null: solta
 KunftigEffects.rank(jogador, "overkill", pontos);        // a cada mudança (0..1799)
+KunftigEffects.hits(jogador, "overkill", golpes);        // contador estilo DmC; 0 esconde
 ```
 
 * **Corte**: o arco gira 135 graus e some em 10 ticks; as passadas dependem do nível do rank (0 nenhum, 1 D ... 5 S,
@@ -633,5 +636,7 @@ KunftigEffects.rank(jogador, "overkill", pontos);        // a cada mudança (0..
   caminho por quadro, como o SlashBlade). O alvo é escolhido pelo plugin ao apertar o Sneak.
 * **Rank**: o cliente deixa os pontos caírem 1 por tick até o piso do nível (S, SS e SSS voltam a S) e mostra o HUD por
   6 segundos depois de cada mudança, com o texto do rank por 1 segundo depois de subir.
+* **Contador de golpes** (estilo DmC): "27 HITS" embaixo do rank, crescendo um pouco a cada golpe e sumindo 3 segundos
+  depois do último.
 * Canais `kunftig:blade` e `kunftig:effect`. Thread principal. `KunftigApi.isBladesAvailable()` diz se o servidor tem.
 
