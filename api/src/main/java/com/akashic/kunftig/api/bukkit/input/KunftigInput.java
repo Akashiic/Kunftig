@@ -122,7 +122,7 @@ public final class KunftigInput {
      * The actions this player's client reports from now on, replacing those bound before (none: it reports nothing).
      * Keys held when an action is unbound are not released with an event.
      *
-     * @throws IllegalArgumentException for a name that is not one of {@link #ACTIONS}
+     * @throws IllegalArgumentException for a name that is neither one of {@link #ACTIONS} nor {@link #KEYS}
      */
     public static void bind(Player player, String... actions) {
         bind(player, Arrays.asList(actions == null ? new String[0] : actions));
@@ -136,8 +136,9 @@ public final class KunftigInput {
         Set<String> clean = new java.util.LinkedHashSet<>();
         if (actions != null) {
             for (String a : actions) {
-                if (!ACTIONS.contains(a)) {
-                    throw new IllegalArgumentException("unknown input action: " + a + " (one of " + ACTIONS + ")");
+                if (!ACTIONS.contains(a) && !KEYS.equals(a)) {
+                    throw new IllegalArgumentException(
+                        "unknown input action: " + a + " (one of " + ACTIONS + ", or " + KEYS + ")");
                 }
                 clean.add(a);
             }

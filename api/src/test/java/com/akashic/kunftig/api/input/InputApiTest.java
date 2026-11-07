@@ -88,13 +88,16 @@ class InputApiTest {
             KunftigInput.bind(p, KunftigInput.SPECIAL, KunftigInput.LOCK_ON, KunftigInput.SPECIAL);
             KunftigInput.bind(p);
             KunftigInput.bind(p, (java.util.Collection<String>) null);
+            // the held keys are a pseudo-action, bound along with the others (Overkill binds KEYS + SPECIAL)
+            KunftigInput.bind(p, KunftigInput.KEYS, KunftigInput.SPECIAL);
             assertThrows(IllegalArgumentException.class, () -> KunftigInput.bind(p, "voar"));
             assertThrows(IllegalArgumentException.class, () -> KunftigInput.bind(null, KunftigInput.SPECIAL));
             assertThrows(IllegalArgumentException.class, () -> KunftigInput.register(null));
             assertEquals(Collections.singleton(KunftigInput.DODGE), KunftigInput.getBound(p));
             assertTrue(KunftigInput.isHeld(p, KunftigInput.DODGE));
             assertTrue(KunftigInput.sendsInput(p));
-            assertEquals(Arrays.asList("register", "bind [especial, travar]", "bind []", "bind []"), calls);
+            assertEquals(Arrays.asList("register", "bind [especial, travar]", "bind []", "bind []",
+                "bind [teclas, especial]"), calls);
         } finally {
             KunftigInput.install(null);
         }

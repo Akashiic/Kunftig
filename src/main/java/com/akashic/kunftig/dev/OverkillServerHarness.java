@@ -197,8 +197,9 @@ public final class OverkillServerHarness {
                 return 30;
             case 99: {
                 Container c = mc.thePlayer.openContainer;
-                report("open container: " + c.getClass()
-                    .getSimpleName() + " slots " + c.inventorySlots.size());
+                report(
+                    "open container: " + c.getClass()
+                        .getSimpleName() + " slots " + c.inventorySlots.size());
                 if (c.inventorySlots.size() < 63) {
                     report("the forge did not open");
                     return -1;
@@ -324,15 +325,21 @@ public final class OverkillServerHarness {
             }
             return "(zombies around: " + n + ")";
         }
-        return String.format(java.util.Locale.ROOT, "(zombie %d: %.1f/%.1f%s)", target.getEntityId(),
-            target.getHealth(), target.getMaxHealth(), target.isDead ? " dead" : "");
+        return String.format(
+            java.util.Locale.ROOT,
+            "(zombie %d: %.1f/%.1f%s)",
+            target.getEntityId(),
+            target.getHealth(),
+            target.getMaxHealth(),
+            target.isDead ? " dead" : "");
     }
 
     private static String describe(ItemStack st) {
         if (st == null) {
             return "nothing";
         }
-        StringBuilder b = new StringBuilder(st.getDisplayName()).append(" x").append(st.stackSize);
+        StringBuilder b = new StringBuilder(st.getDisplayName()).append(" x")
+            .append(st.stackSize);
         NBTTagCompound tag = st.getTagCompound();
         if (tag != null && tag.hasKey("display")) {
             NBTTagList lore = tag.getCompoundTag("display")
