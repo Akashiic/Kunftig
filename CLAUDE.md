@@ -40,7 +40,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   ```
   It is then pinned in AkashicFishing's `libs/`.
 * **Dev harness** (`com.akashic.kunftig.dev`, enabled with `-Dkunftig.devHarness=true` and a `kunftig-rod-harness`
-  file in the client's run directory: `caixa`, `skins`, `server`, `observer`, `fish`, `cells`, `edge`, `perf`):
+  file in the client's run directory: `caixa`, `skins`, `boss`, `server`, `observer`, `fish`, `cells`, `edge`, `perf`):
   * it is **never in the release jar**: `shadowJar` excludes it;
   * for a test jar, comment out that exclude, build, then `git checkout build.gradle.kts`.
 * Work on the branch named in the session; no force-push; a merged PR is not reused (merge `main` into the branch and

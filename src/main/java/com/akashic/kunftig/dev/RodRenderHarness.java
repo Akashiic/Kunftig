@@ -122,6 +122,10 @@ public final class RodRenderHarness {
                 SkinHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
             }
+            if ((mode.length == 3 || mode.length == 4) && mode[0].equals("boss")) {
+                BossHarness.install(mode[1], Integer.parseInt(mode[2]), mode.length == 4 ? mode[3] : "");
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("caixa")) {
                 LuckBoxHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;

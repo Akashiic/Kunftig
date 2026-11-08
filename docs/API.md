@@ -474,8 +474,13 @@ if (KunftigApi.apiVersion() >= 9) {
 * **Transição:** só quando a exibição troca de estado (não na primeira vez que o jogador a vê). Depois da mistura, o
   tempo da animação volta a contar do começo do estado, como no servidor.
 * **Deslize:** de onde ela está na tela até o ponto novo, girando pelo lado mais curto; trocar de mundo sempre pula.
+* **Visto no jogo** (o boss do AkashicFishing, num Crucible local com o harness `boss`):
+  * o modelo em escala 4;
+  * os ossos escondidos pelo manifesto;
+  * os 16 estados trocando com a mistura de 6 ticks (o roteiro `boss ... anim` lê o controlador e os ossos);
+  * três tentáculos deslizando em volta do lago.
 * **A verificar no jogo:** a mistura do GeckoLib entre estados com várias exibições do mesmo modelo (os ossos são
-  compartilhados entre elas).
+  compartilhados entre elas); um osso escondido e mostrado de novo pelo servidor.
 
 ## 14. Trava de voo (API 9)
 
@@ -502,6 +507,10 @@ if (KunftigApi.apiVersion() >= 9 && KunftigApi.isPlayersAvailable()) {
 * **Não é anticheat:** um cliente sem Kunftig, ou modificado, ainda sobe. Para "ninguém voa aqui", o plugin confere
   também se o jogador fica no ar.
 * Thread principal. Canal `kunftig:flight` (servidor para cliente, 1 byte).
+* **Visto no jogo:** com um plugin de teste dando `setAllowFlight(true)` a cada tick (como um mod de voo) e o cliente
+  segurando o pulo com o voo ligado:
+  * sem a trava, o jogador subiu 37,5 blocos em 5 s;
+  * com a trava, só a altura do pulo (1,25 bloco).
 * **A verificar no jogo:** cada mod de voo do modpack, e a ordem dos ticks (um mod que ligue o voo depois do fim do
   tick do jogador).
 
