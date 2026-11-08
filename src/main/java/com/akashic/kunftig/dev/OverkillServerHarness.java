@@ -223,7 +223,14 @@ public final class OverkillServerHarness {
         c("/xp 300L @me");
         // creative: the target never hits back (its knockback would put the player in the air mid-combo)
         c("/gamemode 1 @me");
-        c("/tp @me 0.5 4 0.5");
+        // a stone platform high above the terrain (the world may put the spawn inside blocks)
+        c("/tp @me 0.5 201 0.5");
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -1; z <= 5; z++) {
+                c("/setblock " + x + " 200 " + z + " stone");
+            }
+        }
+        c("/tp @me 0.5 201 0.5");
         add(mc -> {
             mc.thePlayer.rotationYaw = 0;
             mc.thePlayer.rotationPitch = 10;
@@ -625,6 +632,10 @@ public final class OverkillServerHarness {
                     mc.thePlayer.posY,
                     mc.thePlayer.motionY,
                     mc.thePlayer.onGround));
+        }
+        if (mc.thePlayer.getHealth() <= 0 && ticks % 40 == 0) {
+            report("dead: respawning");
+            mc.thePlayer.respawnPlayer();
         }
         if (wait > 0) {
             wait--;
