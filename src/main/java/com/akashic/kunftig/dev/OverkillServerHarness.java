@@ -279,7 +279,7 @@ public final class OverkillServerHarness {
         click(9);
         shot("06-combo-b1");
         for (int i = 0; i < 6; i++) {
-            clickq(5);
+            click(5);
             if (i == 2 || i == 5) {
                 shot("07-combo-b" + (i + 2));
             }
