@@ -362,6 +362,13 @@ public final class BossHarness {
             return false;
         }
         goneTicks = 0;
+        if ("morrer".equals(boss.state) && !sawDeath) {
+            sawDeath = true;
+            deathTick = t;
+        }
+        if (sawDeath && (t == deathTick + 8 || t == deathTick + 40)) {
+            shot = "boss-derrotado-" + (t - deathTick);
+        }
         double[] p = POINTS[target % POINTS.length];
         double s = boss.scale[0];
         double r = Math.toRadians(-boss.yaw);
@@ -443,6 +450,8 @@ public final class BossHarness {
     private int hookedAt = -1;
     private boolean hookSeen;
     private int goneTicks;
+    private boolean sawDeath;
+    private int deathTick;
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
