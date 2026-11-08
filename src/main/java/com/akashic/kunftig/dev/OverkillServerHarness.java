@@ -110,6 +110,7 @@ public final class OverkillServerHarness {
     }
 
     private void note(String what) {
+        ensureTarget();
         add(mc -> {
             report("-- " + what + " " + health());
             return 0;
@@ -126,6 +127,35 @@ public final class OverkillServerHarness {
         add(mc -> {
             mc.thePlayer.sendChatMessage("/overkill info");
             return Math.max(0, wait - 1);
+        });
+    }
+
+    /** A click without asking the state (for the fast strings, where a chat line would shift the rhythm). */
+    private void clickq(int wait) {
+        add(mc -> {
+            look(mc);
+            click(mc.gameSettings.keyBindUseItem);
+            return wait;
+        });
+    }
+
+    private void info() {
+        c("/overkill info");
+    }
+
+    /** A new target when the last one died (or is gone). */
+    private void ensureTarget() {
+        add(mc -> {
+            look(mc);
+            if (target == null || target.getHealth() <= 0 || target.isDead) {
+                cmd(mc, "/summon PigZombie ~0 ~ ~3 {HealF:200,Attributes:[{Name:generic.maxHealth,Base:200}]}");
+                return 20;
+            }
+            return 0;
+        });
+        add(mc -> {
+            look(mc);
+            return 2;
         });
     }
 
@@ -160,7 +190,7 @@ public final class OverkillServerHarness {
 
     /** A sturdy target that stays put until hit and does not burn: a zombie pigman with 200 health. */
     private void target() {
-        c("/summon PigZombie ~0 ~ ~3 {Health:200,Attributes:[{Name:generic.maxHealth,Base:200}]}");
+        c("/summon PigZombie ~0 ~ ~3 {HealF:200,Attributes:[{Name:generic.maxHealth,Base:200}]}");
         w(20);
         add(mc -> {
             look(mc);
@@ -230,11 +260,12 @@ public final class OverkillServerHarness {
         click(9);
         shot("06-combo-b1");
         for (int i = 0; i < 6; i++) {
-            click(5);
+            clickq(5);
             if (i == 2 || i == 5) {
                 shot("07-combo-b" + (i + 2));
             }
         }
+        info();
         w(40);
 
         note("upperslash (Sneak + back + click)");
@@ -301,13 +332,16 @@ public final class OverkillServerHarness {
             });
             add(mc -> {
                 key(mc.gameSettings.keyBindUseItem, false);
-                mc.thePlayer.sendChatMessage("/overkill info");
-                return 3;
+                return 4;
             });
+            info();
             shot("17-art-" + n + "-" + arts[n]);
-            w(8);
+            w(10);
             shot("18-art-" + n + "-" + arts[n] + "-b");
-            w(40);
+            w(12);
+            shot("18-art-" + n + "-" + arts[n] + "-c");
+            note("after the art");
+            w(30);
         }
         note("after the arts");
         view(0);
