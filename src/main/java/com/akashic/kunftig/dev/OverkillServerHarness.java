@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
@@ -13,7 +14,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.monster.EntityZombie;
+import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -73,206 +74,283 @@ public final class OverkillServerHarness {
 
     // ---- the script ----------------------------------------------------------------------------------------------
 
-    /** One step per call; returns the ticks to wait before the next. Negative ends. */
-    private int run(Minecraft mc, int s) {
-        String me = mc.thePlayer.getCommandSenderName();
-        int x = 0;
-        int z = 0;
-        switch (s) {
-            case 0:
-                return cmd(mc, "/gamerule doDaylightCycle false");
-            case 1:
-                return cmd(mc, "/time set 6000");
-            case 2:
-                return cmd(mc, "/gamerule doMobSpawning false");
-            case 3:
-                return cmd(mc, "/effect " + me + " 11 3600 4");
-            case 4:
-                return cmd(mc, "/effect " + me + " 10 3600 4");
-            case 5:
-                return cmd(mc, "/xp 200L " + me);
-            case 6:
-                return cmd(mc, "/tp " + me + " " + (x + 0.5) + " 4 " + (z + 0.5));
-            case 7:
-                mc.thePlayer.rotationYaw = 0;
-                mc.thePlayer.rotationPitch = 10;
-                return cmd(mc, "/clear " + me);
-            case 8:
-                return cmd(mc, "/overkill dar katana/kusanagi " + me);
-            case 9:
-                return cmd(mc, "/overkill pedra mitica 3 " + me);
-            case 10:
-                return cmd(mc, "/overkill ofuda 100 1 " + me);
-            case 11:
-                return cmd(mc, "/overkill pedra tamahagane 1 " + me);
-            case 12:
-                mc.thePlayer.inventory.currentItem = 0;
-                report("hand: " + describe(mc.thePlayer.getHeldItem()));
-                return 40;
-            case 13:
-                report("hand after the star: " + describe(mc.thePlayer.getHeldItem()));
-                shoot("01-empunhada");
-                return 20;
-            case 14:
-                return cmd(mc, zombie(0, 3));
-            case 15:
-                look(mc);
-                return 20;
-            case 16:
-                // lock-on: hold Sneak
-                key(mc.gameSettings.keyBindSneak, true);
-                return 20;
-            case 17:
-                shoot("02-lock-on");
-                report("target: " + health());
-                return 5;
-            case 18:
-            case 20:
-            case 22:
-            case 24:
-                click(mc.gameSettings.keyBindUseItem);
-                report("right click (combo) " + health());
-                return 3;
-            case 19:
-            case 21:
-            case 23:
-            case 25:
-                shoot("03-combo-" + (s - 17) / 2);
-                return 5;
-            case 26:
-                report("after the combo: " + health());
-                return 30;
-            case 27:
-                // the slash art: hold the use button 12 ticks (just), then release
-                key(mc.gameSettings.keyBindSneak, false);
-                key(mc.gameSettings.keyBindUseItem, true);
-                return 12;
-            case 28:
-                shoot("04-carregada");
-                key(mc.gameSettings.keyBindUseItem, false);
-                report("released the charge " + health());
-                return 4;
-            case 29:
-                shoot("05-slash-art");
-                return 6;
-            case 30:
-                shoot("06-slash-art-2");
-                return 30;
-            case 31:
-                report("after the slash art: " + health());
-                return 5;
-            case 32:
-            case 33:
-            case 34:
-                // three more zombies, killed with combos
-                return cmd(mc, zombie(s - 33, 3));
-            case 35:
-                look(mc);
-                mc.gameSettings.thirdPersonView = 1;
-                return 10;
-            default:
-                break;
-        }
-        if (s >= 36 && s < 96) {
-            // a click every 4 ticks for 12 seconds; looking at the nearest zombie
-            look(mc);
-            click(mc.gameSettings.keyBindUseItem);
-            if (s == 40) {
-                shoot("07-terceira-pessoa");
-            }
-            if (s % 10 == 0) {
-                report("fighting: " + health());
-            }
-            return 4;
-        }
-        switch (s) {
-            case 96:
-                mc.gameSettings.thirdPersonView = 0;
-                return 40;
-            case 97:
-                report("hand after the fight: " + describe(mc.thePlayer.getHeldItem()));
-                report("inventory: " + inventory(mc));
-                return cmd(mc, "/forja");
-            case 98:
-                return 30;
-            case 99: {
-                Container c = mc.thePlayer.openContainer;
-                report(
-                    "open container: " + c.getClass()
-                        .getSimpleName() + " slots " + c.inventorySlots.size());
-                if (c.inventorySlots.size() < 63) {
-                    report("the forge did not open");
-                    return -1;
-                }
-                shoot("08-forja-vazia");
-                return 10;
-            }
-            case 100:
-                // the katana from the hotbar (container slot 54) to the katana slot: shift-click
-                shift(mc, 54);
-                return 10;
-            case 101:
-                shift(mc, findStack(mc, "Pedra de Afiar"));
-                return 10;
-            case 102:
-                shift(mc, findStack(mc, "Ofuda"));
-                return 15;
-            case 103:
-                report("forge: " + forge(mc));
-                shoot("09-forja-pronta");
-                return 5;
-            case 104:
-                windowClick(mc, 22, 0, 0);
-                report("pressed APRIMORAR");
-                return 12;
-            case 105:
-                shoot("10-forja-sorteio");
-                return 20;
-            case 106:
-                shoot("11-forja-resultado");
-                report("forge: " + forge(mc));
-                return 40;
-            case 107:
-                report("output: " + describe(slotStack(mc, 16)));
-                shift(mc, 16);
-                return 10;
-            case 108:
-                // again: back in, repair, out
-                shift(mc, findKatana(mc));
-                return 10;
-            case 109:
-                windowClick(mc, 18, 0, 0);
-                report("pressed Reparar");
-                return 15;
-            case 110:
-                report("forge after the repair: " + forge(mc));
-                shoot("12-forja-reparo");
-                shift(mc, 10);
-                return 10;
-            case 111:
-                mc.thePlayer.closeScreen();
-                return 20;
-            case 112:
-                report("inventory at the end: " + inventory(mc));
-                for (int i = 0; i < 9; i++) {
-                    ItemStack st = mc.thePlayer.inventory.getStackInSlot(i);
-                    if (st != null && st.getItem() == net.minecraft.init.Items.golden_sword) {
-                        mc.thePlayer.inventory.currentItem = i;
-                    }
-                }
-                return 20;
-            case 113:
-                report("katana at the end: " + describe(mc.thePlayer.getHeldItem()));
-                shoot("13-fim");
-                return 20;
-            default:
-                return -1;
-        }
+    /** One step: does its thing, returns the ticks to wait before the next. */
+    private interface Act {
+
+        int run(Minecraft mc);
     }
 
-    /** A zombie relative to the player (the chat takes 100 characters), with a helmet against the sun. */
-    private String zombie(int dx, int dz) {
-        return "/summon Zombie ~" + dx + " ~ ~" + dz + " {Equipment:[{},{},{},{},{id:310}]}";
+    private final List<Act> script = new ArrayList<>();
+
+    private int run(Minecraft mc, int s) {
+        if (script.isEmpty()) {
+            build();
+        }
+        return s < script.size() ? script.get(s)
+            .run(mc) : -1;
+    }
+
+    private void add(Act a) {
+        script.add(a);
+    }
+
+    private void c(String command) {
+        add(mc -> cmd(mc, command.replace("@me", mc.thePlayer.getCommandSenderName())));
+    }
+
+    private void w(int ticks) {
+        add(mc -> ticks);
+    }
+
+    private void shot(String name) {
+        add(mc -> {
+            shoot(name);
+            return 1;
+        });
+    }
+
+    private void note(String what) {
+        add(mc -> {
+            report("-- " + what + " " + health());
+            return 0;
+        });
+    }
+
+    /** A right click (a combo click), then the server's combo state (/overkill info answers in the chat). */
+    private void click(int wait) {
+        add(mc -> {
+            look(mc);
+            click(mc.gameSettings.keyBindUseItem);
+            return 1;
+        });
+        add(mc -> {
+            mc.thePlayer.sendChatMessage("/overkill info");
+            return Math.max(0, wait - 1);
+        });
+    }
+
+    private void keys(boolean down, String... which) {
+        add(mc -> {
+            for (String k : which) {
+                KeyBinding b = k.equals("sneak") ? mc.gameSettings.keyBindSneak
+                    : k.equals("back") ? mc.gameSettings.keyBindBack
+                        : k.equals("forward") ? mc.gameSettings.keyBindForward : mc.gameSettings.keyBindJump;
+                key(b, down);
+            }
+            return 0;
+        });
+    }
+
+    private void jump() {
+        keys(true, "jump");
+        w(2);
+        keys(false, "jump");
+    }
+
+    private void slot(int n) {
+        add(mc -> {
+            mc.thePlayer.inventory.currentItem = n;
+            return 30;
+        });
+        add(mc -> {
+            report("hand: " + describe(mc.thePlayer.getHeldItem()));
+            return 0;
+        });
+    }
+
+    /** A sturdy target that stays put until hit and does not burn: a zombie pigman with 200 health. */
+    private void target() {
+        c("/summon PigZombie ~0 ~ ~3 {Health:200,Attributes:[{Name:generic.maxHealth,Base:200}]}");
+        w(20);
+        add(mc -> {
+            look(mc);
+            return 5;
+        });
+    }
+
+    private void view(int mode) {
+        add(mc -> {
+            mc.gameSettings.thirdPersonView = mode;
+            return 0;
+        });
+    }
+
+    private void build() {
+        c("/gamerule doDaylightCycle false");
+        c("/time set 6000");
+        c("/gamerule doMobSpawning false");
+        c("/effect @me 11 3600 4");
+        c("/effect @me 10 3600 4");
+        c("/xp 300L @me");
+        c("/tp @me 0.5 4 0.5");
+        add(mc -> {
+            mc.thePlayer.rotationYaw = 0;
+            mc.thePlayer.rotationPitch = 10;
+            return 0;
+        });
+        c("/clear @me");
+        c("/overkill dar katana/kusanagi @me");
+        c("/overkill dar katana/serpente @me");
+        c("/overkill dar katana/sakurajima @me");
+        c("/overkill dar katana/raijin @me");
+        c("/overkill pedra mitica 3 @me");
+        c("/overkill ofuda 100 1 @me");
+        slot(0);
+        shot("01-empunhada");
+        target();
+
+        // lock-on: hold Sneak
+        keys(true, "sneak");
+        w(15);
+        shot("02-lock-on");
+        keys(false, "sneak");
+        w(10);
+        view(1);
+
+        note("combo A");
+        click(4);
+        click(4);
+        shot("03-combo-a3");
+        click(7);
+        click(6);
+        shot("04-combo-a4");
+        w(40);
+
+        note("combo C (click at the end of A2)");
+        click(4);
+        click(13);
+        click(5);
+        shot("05-combo-c");
+        w(40);
+
+        note("combo B (click at the end of A3)");
+        click(4);
+        click(4);
+        click(14);
+        click(9);
+        shot("06-combo-b1");
+        for (int i = 0; i < 6; i++) {
+            click(5);
+            if (i == 2 || i == 5) {
+                shot("07-combo-b" + (i + 2));
+            }
+        }
+        w(40);
+
+        note("upperslash (Sneak + back + click)");
+        keys(true, "sneak", "back");
+        w(2);
+        click(1);
+        keys(false, "sneak", "back");
+        w(4);
+        shot("08-upperslash");
+        w(40);
+
+        note("rapid slash (Sneak + forward + click)");
+        keys(true, "sneak", "forward");
+        w(2);
+        click(1);
+        keys(false, "sneak", "forward");
+        w(4);
+        shot("09-rapid-slash");
+        w(40);
+
+        note("aerial rave A (jump + clicks)");
+        jump();
+        w(2);
+        click(4);
+        click(4);
+        shot("10-aerial-a2");
+        click(5);
+        shot("11-aerial-a3");
+        w(40);
+
+        note("aerial rave B (click at the end of A2 in the air)");
+        jump();
+        w(2);
+        click(4);
+        click(12);
+        click(9);
+        shot("12-aerial-b3");
+        click(5);
+        shot("13-aerial-b4");
+        w(40);
+
+        note("aerial cleave (in the air: Sneak + back + click)");
+        jump();
+        w(4);
+        keys(true, "sneak", "back");
+        click(1);
+        keys(false, "sneak", "back");
+        w(3);
+        shot("14-aerial-cleave");
+        w(12);
+        shot("15-aerial-cleave-landing");
+        w(40);
+        shot("16-rank");
+
+        String[] arts = { "julgamento", "onda", "corte-circular", "fio-da-tempestade" };
+        for (int k = 0; k < 4; k++) {
+            int n = k;
+            note("slash art of slot " + n);
+            slot(n);
+            add(mc -> {
+                look(mc);
+                key(mc.gameSettings.keyBindUseItem, true);
+                return 12;
+            });
+            add(mc -> {
+                key(mc.gameSettings.keyBindUseItem, false);
+                mc.thePlayer.sendChatMessage("/overkill info");
+                return 3;
+            });
+            shot("17-art-" + n + "-" + arts[n]);
+            w(8);
+            shot("18-art-" + n + "-" + arts[n] + "-b");
+            w(40);
+        }
+        note("after the arts");
+        view(0);
+        add(mc -> {
+            report("inventory: " + inventory(mc));
+            mc.thePlayer.inventory.currentItem = 0;
+            return 20;
+        });
+        add(mc -> {
+            report("katana at the end: " + describe(mc.thePlayer.getHeldItem()));
+            return 0;
+        });
+        c("/forja");
+        w(20);
+        add(mc -> {
+            if (mc.thePlayer.openContainer.inventorySlots.size() < 63) {
+                report("the forge did not open");
+                return -1;
+            }
+            shift(mc, 54);
+            return 8;
+        });
+        add(mc -> {
+            shift(mc, findStack(mc, "Pedra de Afiar"));
+            return 8;
+        });
+        add(mc -> {
+            windowClick(mc, 22, 0, 0);
+            report("pressed APRIMORAR");
+            return 12;
+        });
+        shot("19-forja-sorteio");
+        w(50);
+        add(mc -> {
+            report("forge: " + forge(mc));
+            shoot("20-forja-resultado");
+            return 5;
+        });
+        add(mc -> {
+            shift(mc, 16);
+            mc.thePlayer.closeScreen();
+            return 20;
+        });
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
@@ -296,7 +374,7 @@ public final class OverkillServerHarness {
         double best = 1e9;
         target = null;
         for (Object o : mc.theWorld.loadedEntityList) {
-            if (o instanceof EntityZombie && ((EntityZombie) o).getHealth() > 0) {
+            if (o instanceof EntityMob && ((EntityMob) o).getHealth() > 0) {
                 double d = mc.thePlayer.getDistanceSqToEntity((Entity) o);
                 if (d < best) {
                     best = d;
@@ -319,7 +397,7 @@ public final class OverkillServerHarness {
             Minecraft mc = Minecraft.getMinecraft();
             int n = 0;
             for (Object o : mc.theWorld.loadedEntityList) {
-                if (o instanceof EntityZombie) {
+                if (o instanceof EntityMob) {
                     n++;
                 }
             }
