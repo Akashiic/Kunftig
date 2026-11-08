@@ -118,6 +118,15 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sb) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 2 && mode[0].equals("sbseq")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planSlashBladeSequences(mode[1]);
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sbseq) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length <= 3 && mode[0].equals("sbfx")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.fxNs = mode.length >= 2 ? mode[1] : "sbref";
@@ -605,6 +614,47 @@ public final class RodRenderHarness {
      * blade at rest and through combo_a1, combo_a2 and aerial_rave_a1 (blade rig and body motion), from behind, from
      * the front and in first person, at the ticks the reference captures use.
      */
+    /**
+     * Long stretches of the blade motion with their body clips, from behind, every 3 ticks, the hotbar holding only the
+     * blade: to compare where the blade is against the hand with SlashBlade's own captures (A3, A4, aerial B3).
+     */
+    private void planSlashBladeSequences(String k) {
+        com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
+        steps.add(new Step("sbseq-setup", SETTLE_TICKS, (mc, p) -> {
+            for (int i = 0; i < p.inventory.mainInventory.length; i++) {
+                p.inventory.mainInventory[i] = null;
+                mc.thePlayer.inventory.mainInventory[i] = null;
+            }
+            p.inventory.currentItem = 0;
+            mc.thePlayer.inventory.currentItem = 0;
+            place(p, 180, 0);
+            view(mc, 1);
+            hold(p, blade(k));
+        }));
+        Object[][] seqs = { { "a3", 200, 306, Boolean.TRUE }, { "a4", 500, 608, Boolean.TRUE },
+            { "airb3", 1400, 1443, Boolean.FALSE } };
+        for (Object[] q : seqs) {
+            String name = (String) q[0];
+            int start = (Integer) q[1];
+            int end = (Integer) q[2];
+            boolean blend = (Boolean) q[3];
+            int ticks = (int) Math.ceil((end - start) * 2 / 3.0);
+            for (int t = 0; t <= ticks; t += 3) {
+                final boolean first = t == 0;
+                steps.add(new Step(String.format("sbseq-%s-t%02d", name, t), first ? 1 : 3, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        c.play(
+                            mc.thePlayer,
+                            chain(start, end),
+                            new com.akashic.kunftig.blade.BladeWire.Body(start, end, blend));
+                    }
+                }));
+            }
+            steps.add(new Step("sbseq-" + name + "-rest", 30, (mc, p) -> {}));
+        }
+    }
+
     private void planSlashBlade(String k) {
         com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
         steps.add(new Step("sb-tp-back-idle", SETTLE_TICKS, (mc, p) -> {
