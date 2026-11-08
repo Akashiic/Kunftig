@@ -265,6 +265,16 @@ final class ModernFishHookImpl implements ModernFishHook {
     }
 
     @Override
+    public void setMaxDistance(double blocks) {
+        parameters().setMaxDistance(blocks);
+    }
+
+    @Override
+    public double getMaxDistance() {
+        return parameters().maxDistance();
+    }
+
+    @Override
     public boolean isInLava() {
         return access.kunftig$isInLava();
     }

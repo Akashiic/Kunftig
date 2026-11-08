@@ -17,8 +17,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -121,6 +123,16 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
     @Unique
     private boolean kunftig$lavaFishing() {
         return KunftigConfig.fishingEnabled && kunftig$parameters.lavaFishing();
+    }
+
+    /**
+     * Vanilla removes the hook 32 blocks from its angler ({@code getDistanceSqToEntity(angler) > 1024.0D}, the only
+     * 1024.0 in {@code onUpdate}, server side); the hook's own range replaces it (API 10).
+     */
+    @ModifyConstant(method = "onUpdate", constant = @Constant(doubleValue = 1024.0D))
+    private double kunftig$maxDistanceSq(double vanilla) {
+        double d = kunftig$parameters.maxDistance();
+        return d == FishingParameters.DEFAULT_MAX_DISTANCE ? vanilla : d * d;
     }
 
     /** Before {@code Entity.onEntityUpdate} sets the hook on fire. */

@@ -198,7 +198,7 @@ class ParticleApiTest {
         assertEquals(2, spawned.get(2).dataId());
         assertTrue(KunftigParticles.drawsModernParticles(player));
         assertTrue(KunftigApi.isParticlesAvailable());
-        assertEquals(9, KunftigApi.apiVersion());
+        assertEquals(10, KunftigApi.apiVersion());
     }
 
     @Test

@@ -7,7 +7,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
 
 ## Where things are
 
-* **API** (`api/`, `KunftigApi.API_VERSION`, now **9**):
+* **API** (`api/`, `KunftigApi.API_VERSION`, now **10**):
 
   | API | Feature |
   |---|---|
@@ -19,6 +19,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   | 7 | 3D rods (`KunftigRods`) |
   | 8 | displays (`KunftigDisplays`): GeckoLib models placed in the world, with item stacks drawn at bones (AkashicFishing's Caixa da Sorte) |
   | 9 | displays: model and per-display scale, hidden bones, state blends, glides (`drawsExtendedDisplays`, channel `kunftig:display2`); flight lock (`KunftigPlayers.setFlightLocked`, channel `kunftig:flight`, `flight/FlightLock` + `FlightEnvelope`) |
+  | 10 | hook range (`ModernFishHook#setMaxDistance`, a `@ModifyConstant` on vanilla's 32-block check) |
 
   The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14). Raise the version and update the version
   asserts in the API tests when adding to it.

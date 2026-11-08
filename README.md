@@ -87,6 +87,9 @@ the creative-style flight off at the end of each of the player's ticks (rings, a
 `setAllowFlight`), and a Kunftig client also cuts upward speed that does not come from a jump or a push (jetpacks,
 gliders). See [docs/API.md](docs/API.md), section 14 (Portuguese).
 
+`ModernFishHook#setMaxDistance` (API 10) lets a hook go farther than vanilla's 32 blocks from its angler (up to 128),
+for casts at far targets such as AkashicFishing's boss. See [docs/API.md](docs/API.md), section 15.
+
 ## Repository layout
 
 | Path | Contents |

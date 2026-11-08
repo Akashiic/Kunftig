@@ -28,7 +28,7 @@ public final class KunftigApi {
      * ({@code Display#setScale}, {@code setBoneVisible}, {@code teleport(Location, int)},
      * {@code KunftigDisplays#drawsExtendedDisplays}) and the flight lock ({@code KunftigPlayers#setFlightLocked}).
      */
-    private static final int API_VERSION = 9;
+    private static final int API_VERSION = 10;
 
     private KunftigApi() {}
 

@@ -80,6 +80,7 @@ public void onEnable() {
 | `...api.bukkit.rod` | `KunftigRods` (estado da vara 3D: mordida, briga com tensão, captura...) | — | 7 |
 | `...api.bukkit.display` | `KunftigDisplays`, `Display` (modelo GeckoLib animado no mundo, com itens nos ossos) | `ItemDisplay`/`BlockDisplay` (1.19.4+) | 8 |
 | `...api.bukkit.display`, `...api.bukkit.player` | `Display#setScale`, `setBoneVisible`, `teleport(Location, int)`, `KunftigDisplays.drawsExtendedDisplays`; `KunftigPlayers.setFlightLocked` | a escala e a interpolação dos `Display` (1.19.4+) | 9 |
+| `...api.bukkit.fishing` | `ModernFishHook#setMaxDistance` / `getMaxDistance` (o alcance da boia) | (extensão do Kunftig) | 10 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -514,3 +515,20 @@ if (KunftigApi.apiVersion() >= 9 && KunftigApi.isPlayersAvailable()) {
 * **A verificar no jogo:** cada mod de voo do modpack, e a ordem dos ticks (um mod que ligue o voo depois do fim do
   tick do jogador).
 
+## 15. Alcance da boia (API 10)
+
+O Minecraft tira a boia quando ela fica a mais de 32 blocos do pescador. `ModernFishHook#setMaxDistance(blocos)` muda
+isso para uma boia (de 4 a 128 blocos); `getMaxDistance()` lê. Feito para lances em alvos longe, como os pontos
+fracos do boss do AkashicFishing.
+
+```java
+if (KunftigApi.apiVersion() >= 10 && KunftigApi.isFishingAvailable()) {
+    KunftigFishingBukkit.of(event.getHook()).setMaxDistance(70);   // no PlayerFishEvent FISHING
+}
+```
+
+* Só o servidor decide (é ele que tira a boia); o cliente não precisa de nada.
+* O cliente desenha uma boia até 64 blocos dele, e o servidor a acompanha até 64 por padrão: além disso, ela ainda
+  funciona, mas pode não aparecer.
+* No código: um `@ModifyConstant` no `1024.0` (32²) do `onUpdate` da boia, o único dele, a distância ao pescador.
+* Thread principal.
