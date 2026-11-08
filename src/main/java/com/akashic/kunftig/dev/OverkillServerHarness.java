@@ -223,14 +223,15 @@ public final class OverkillServerHarness {
         c("/xp 300L @me");
         // creative: the target never hits back (its knockback would put the player in the air mid-combo)
         c("/gamemode 1 @me");
-        // a stone platform high above the terrain (the world may put the spawn inside blocks)
-        c("/tp @me 0.5 201 0.5");
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -1; z <= 5; z++) {
-                c("/setblock " + x + " 200 " + z + " stone");
+        // a stone platform high above the terrain and away from the spawn (the world may put the spawn inside blocks,
+        // and a protected spawn region removes summoned mobs)
+        c("/tp @me 1000.5 201 1000.5");
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 8; z++) {
+                c("/setblock " + (1000 + x) + " 200 " + (1000 + z) + " stone");
             }
         }
-        c("/tp @me 0.5 201 0.5");
+        c("/tp @me 1000.5 201 1000.5");
         add(mc -> {
             mc.thePlayer.rotationYaw = 0;
             mc.thePlayer.rotationPitch = 10;
