@@ -36,7 +36,7 @@ public final class BossHarness {
     private static final String LEVIATHAN = "akashicfishing:leviata_do_abismo";
     private static final String TENTACLE = "akashicfishing:tentaculo_do_abismo";
     /** Where the player stands: on the band, north of the lake's centre, facing it. */
-    private static final double BAND_Z = -34.5;
+    private double BAND_Z = -34.5;
     /** orbe_e / orbe_d / cauda_nucleo in the "ocioso" state's first frame (boss-trilhas.txt), blocks at scale 1. */
     private static final double[][] POINTS = { { 3.00, 17.46, 6.76 }, { -3.00, 17.46, 6.76 }, { -1.37, 8.57, -18.13 } };
 
@@ -73,7 +73,14 @@ public final class BossHarness {
         this.host = host;
         this.port = port;
         this.only = only;
+        this.big = only.equals("grande");
+        this.radius = big ? 40 : 30;
+        this.BAND_Z = -(radius + 4.5);
     }
+
+    /** "grande": a lake of radius 40 and the size on auto (the biggest boss the lake and the rods allow). */
+    private final boolean big;
+    private final int radius;
 
     static void install(String host, int port, String only) {
         FMLCommonHandler.instance()
@@ -97,14 +104,14 @@ public final class BossHarness {
             "/gamerule doDaylightCycle false",
             "/gamerule keepInventory false",
             "/effect " + me + " 16 3600 0",
-            "/lago 30",
+            "/lago " + radius + " " + (radius + 40),
             "/tp " + me + " 0.5 4 0.5",
             "/af boss local definir",
-            "/af boss local raio 30",
+            "/af boss local raio " + radius,
             "/af boss local margem 10",
             "/tp " + me + " 0.5 5 " + BAND_Z,
             "/af boss local virar aqui",
-            "/af boss tamanho 1",
+            "/af boss tamanho " + (big ? "auto" : "1"),
             "/af boss checar",
             "/af boss status",
             "/give " + me + " 346 1");
@@ -149,6 +156,32 @@ public final class BossHarness {
                     return t > 200 && DisplayClient.INSTANCE.count() == 0;
                 });
             }
+            return;
+        }
+        if (big) {
+            steps.add((mc, t) -> {
+                look(mc, 0, -24);
+                if (t == 0) {
+                    say("/af boss previa 12");
+                }
+                if (t == 30) {
+                    report("displays after /af boss previa: " + describeDisplays());
+                }
+                shotAt(t, 40, "boss-grande-faixa");
+                if (t == 60) {
+                    look(mc, 0, -38);
+                }
+                shotAt(t, 70, "boss-grande-faixa-alto");
+                if (t == 90) {
+                    say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + (-(radius + 36.5)));
+                }
+                shotAt(t, 130, "boss-grande-longe");
+                if (t == 150) {
+                    say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z);
+                }
+                return t > 280 && DisplayClient.INSTANCE.count() == 0;
+            });
+            fight();
             return;
         }
         if (only.equals("luta")) {
