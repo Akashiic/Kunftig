@@ -52,6 +52,7 @@ public final class OverkillServerHarness {
     private boolean quitting;
     private boolean done;
     private EntityLivingBase target;
+    private int traceLeft;
 
     private OverkillServerHarness(String host, int port) {
         this.host = host;
@@ -171,6 +172,14 @@ public final class OverkillServerHarness {
         });
     }
 
+    /** Logs the player's height, vertical speed and ground for the next {@code ticks} ticks (alongside the script). */
+    private void trace(int ticks) {
+        add(mc -> {
+            traceLeft = ticks;
+            return 0;
+        });
+    }
+
     private void jump() {
         keys(true, "jump");
         w(2);
@@ -212,6 +221,8 @@ public final class OverkillServerHarness {
         c("/effect @me 11 3600 4");
         c("/effect @me 10 3600 4");
         c("/xp 300L @me");
+        // creative: the target never hits back (its knockback would put the player in the air mid-combo)
+        c("/gamemode 1 @me");
         c("/tp @me 0.5 4 0.5");
         add(mc -> {
             mc.thePlayer.rotationYaw = 0;
@@ -287,6 +298,7 @@ public final class OverkillServerHarness {
         w(40);
 
         note("aerial rave A (jump + clicks)");
+        trace(40);
         jump();
         w(2);
         click(4);
@@ -582,6 +594,16 @@ public final class OverkillServerHarness {
         if (mc.currentScreen != null && !(mc.currentScreen instanceof GuiContainer)
             && !(mc.currentScreen instanceof net.minecraft.client.gui.GuiChat)) {
             mc.displayGuiScreen(null);
+        }
+        if (traceLeft > 0) {
+            traceLeft--;
+            report(
+                String.format(
+                    java.util.Locale.ROOT,
+                    "  y %.3f vy %.3f ground %s",
+                    mc.thePlayer.posY,
+                    mc.thePlayer.motionY,
+                    mc.thePlayer.onGround));
         }
         if (wait > 0) {
             wait--;

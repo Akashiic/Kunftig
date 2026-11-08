@@ -12,6 +12,11 @@ public final class KunftigPlayers {
     public interface Provider {
 
         int getPing(Player player);
+
+        /** See {@link KunftigPlayers#pushVelocity}. */
+        default void pushVelocity(Player player, double x, double y, double z) {
+            player.setVelocity(new org.bukkit.util.Vector(x, y, z));
+        }
     }
 
     private static volatile Provider provider;
@@ -36,6 +41,23 @@ public final class KunftigPlayers {
             throw new IllegalStateException("KunftigPlayers is not available on this server");
         }
         return current.getPing(player);
+    }
+
+    /**
+     * Sets the player's motion and sends it to his client <b>in this same tick</b>. Bukkit's {@code setVelocity} only
+     * marks the velocity as changed: the entity tracker sends it on its next update of that player, every 2 ticks, and
+     * a later position packet can lose it, so motion set every tick (a hover, a dash) reaches the client in jumps. The
+     * client is authoritative for its own movement, so this is how a server moves a player smoothly. Each component is
+     * limited to ±3.9 by the packet.
+     *
+     * @throws IllegalArgumentException if the player is not an online player of this server
+     */
+    public static void pushVelocity(Player player, double x, double y, double z) {
+        Provider current = provider;
+        if (current == null) {
+            throw new IllegalStateException("KunftigPlayers is not available on this server");
+        }
+        current.pushVelocity(player, x, y, z);
     }
 
     /** Hotbar slots are 0 to 8; anything else in a {@link PlayerItemHeldEvent} is not a real switch. */

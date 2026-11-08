@@ -84,6 +84,7 @@ public void onEnable() {
 | `...api.bukkit.hud` | `KunftigHud`, `HudElement` (texto, barra e imagem na tela) | — | 9 |
 | `...api.bukkit.camera` | `KunftigCamera` (travar a visão num alvo) | — | 9 |
 | resource pack | `ao_atacar` nos estados de `item_models_3d.json` (previsão do golpe no cliente) | — | 9 |
+| `...api.bukkit.player` | `KunftigPlayers.pushVelocity` (movimento do jogador enviado no mesmo tick) | — | 9 |
 | `...api.bukkit.blade` | `KunftigBlades`, `BladeMotion` (lâminas no estilo SlashBlade: OBJ + VMD), `KunftigEffects` (corte, Judgement Cut, drive, espadas invocadas, lock-on, rank) | — | 9 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
@@ -233,6 +234,17 @@ hook.setBiteWindow(baseTicks + Math.min(ping / 50, 10));   // ex.: compensar a l
 
 É a média móvel do 1.7.10 (`(ping * 3 + amostra) / 4` a cada keep-alive), então reage a mudanças em alguns segundos;
 0 logo depois de entrar.
+
+### Movimento do jogador no mesmo tick (API 9)
+
+```java
+KunftigPlayers.pushVelocity(player, 0, vy, 0);   // vai para o cliente agora
+```
+
+O `setVelocity` do Bukkit só marca a velocidade: o rastreador de entidades manda na próxima atualização daquele
+jogador (a cada 2 ticks), e um pacote de posição pode perdê-la. Um movimento posto a cada tick (flutuar no ar, uma
+investida) chega aos trancos. O cliente manda no próprio movimento, então é assim que o servidor move um jogador de
+forma contínua. Cada componente vai até ±3,9 (limite do pacote).
 
 ## 9. Ícone próprio para itens de plugin (o `CustomModelData` do 1.7.10)
 
