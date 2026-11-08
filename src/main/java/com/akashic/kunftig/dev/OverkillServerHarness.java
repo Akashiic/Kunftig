@@ -584,6 +584,27 @@ public final class OverkillServerHarness {
             return;
         }
         if (mc.thePlayer == null || mc.theWorld == null) {
+            if (mc.currentScreen instanceof net.minecraft.client.gui.GuiDisconnected) {
+                // the reason is a private IChatComponent field of the screen
+                StringBuilder why = new StringBuilder();
+                for (java.lang.reflect.Field f : mc.currentScreen.getClass()
+                    .getDeclaredFields()) {
+                    if (net.minecraft.util.IChatComponent.class.isAssignableFrom(f.getType())) {
+                        try {
+                            f.setAccessible(true);
+                            Object v = f.get(mc.currentScreen);
+                            if (v != null) {
+                                why.append(((net.minecraft.util.IChatComponent) v).getUnformattedText());
+                            }
+                        } catch (ReflectiveOperationException e) {
+                            why.append("?");
+                        }
+                    }
+                }
+                report("disconnected: " + why);
+                finish();
+                return;
+            }
             if (ticks > 20 * 600) {
                 report("could not join / disconnected at step " + step);
                 finish();
