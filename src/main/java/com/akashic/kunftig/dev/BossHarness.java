@@ -278,8 +278,8 @@ public final class BossHarness {
         double cz = 0.5;
         for (DisplayClient.Entry e : entries()) {
             if (LEVIATHAN.equals(e.model)) {
-                cx = e.x;
-                cz = e.z;
+                cx = e.motion.x(1f);
+                cz = e.motion.z(1f);
             }
         }
         double me = Math.toDegrees(Math.atan2(mc.thePlayer.posZ - cz, mc.thePlayer.posX - cx));
@@ -288,7 +288,8 @@ public final class BossHarness {
             if (!TENTACLE.equals(e.model)) {
                 continue;
             }
-            double[] p = e.at(now);
+            float pt = DisplayClient.INSTANCE.partialTicks();
+            double[] p = { e.motion.x(pt), e.motion.y(pt), e.motion.z(pt), e.motion.yaw(pt) };
             double angle = Math.toDegrees(Math.atan2(p[2] - cz, p[0] - cx));
             Double before = lastAngle.put(e.id, angle);
             if (before == null) {
@@ -404,10 +405,10 @@ public final class BossHarness {
         }
         double[] p = POINTS[target % POINTS.length];
         double s = boss.scale[0];
-        double r = Math.toRadians(-boss.yaw);
-        double x = boss.x + p[0] * s * Math.cos(r) + p[2] * s * Math.sin(r);
-        double y = boss.y + p[1] * s;
-        double z = boss.z - p[0] * s * Math.sin(r) + p[2] * s * Math.cos(r);
+        double r = Math.toRadians(-boss.motion.yaw(1f));
+        double x = boss.motion.x(1f) + p[0] * s * Math.cos(r) + p[2] * s * Math.sin(r);
+        double y = boss.motion.y(1f) + p[1] * s;
+        double z = boss.motion.z(1f) - p[0] * s * Math.sin(r) + p[2] * s * Math.cos(r);
         double dx = x - mc.thePlayer.posX;
         double dy = y - mc.thePlayer.posY; // posY is the eye on the client player
         double dz = z - mc.thePlayer.posZ;
@@ -693,10 +694,10 @@ public final class BossHarness {
                     e.model.substring(e.model.indexOf(':') + 1),
                     e.variant,
                     e.state,
-                    e.x,
-                    e.y,
-                    e.z,
-                    e.yaw,
+                    e.motion.x(1f),
+                    e.motion.y(1f),
+                    e.motion.z(1f),
+                    e.motion.yaw(1f),
                     e.scale[0],
                     e.scale[1],
                     e.scale[2],

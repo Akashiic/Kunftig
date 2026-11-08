@@ -16,7 +16,8 @@ import java.util.Set;
  * player who relogs or respawns gets every display again), it sees a display while it listens to
  * {@link DisplayWire#CHANNEL}, is in its world and within range, and it stops seeing it {@link #HYSTERESIS} blocks
  * beyond. Each display remembers the tick its state started, so a late viewer gets the state with the time already
- * played. No Minecraft classes; main thread only.
+ * played. A display with a motion (API 9) moves by it every tick here and on the clients, so no message is needed
+ * while it flies. No Minecraft classes; main thread only.
  *
  * @param <C> the connection (player entity) type
  */
@@ -69,16 +70,22 @@ public final class DisplayTracker<C> {
         double y;
         double z;
         float yaw;
+        float pitch;
+        float roll;
+        double vx;
+        double vy;
+        double vz;
+        int glide;
         String state;
         long stateStart;
         List<byte[]> items;
         float[] scale = { 1, 1, 1 };
         Map<String, Boolean> bones = new LinkedHashMap<>();
-        int moveTicks;
         boolean removed;
         boolean stateChanged;
         boolean itemsChanged;
         boolean moved;
+        boolean motionChanged;
         boolean scaleChanged;
         boolean bonesChanged;
         final Set<C> shown = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -132,21 +139,42 @@ public final class DisplayTracker<C> {
         }
 
         public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw) {
-            moveTo(newWorld, nx, ny, nz, nyaw, 0);
+            moveTo(newWorld, nx, ny, nz, nyaw, pitch, roll, 0);
+        }
+
+        /** Moves it, keeping the pitch and roll; viewers glide there over {@code ticks} (0: at once). */
+        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, int ticks) {
+            moveTo(newWorld, nx, ny, nz, nyaw, pitch, roll, ticks);
         }
 
         /**
-         * Moves it; viewers glide there over {@code ticks} client ticks (0: at once). Changing world never glides.
-         * Several moves in one tick send only the last one.
+         * Moves it (and stops its flight): viewers in the same world glide there over {@code glideTicks} (0: jump);
+         * the full rotation, in degrees.
          */
-        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, int ticks) {
-            if (!newWorld.equals(world) || nx != x || ny != y || nz != z || nyaw != yaw) {
-                moveTicks = newWorld.equals(world) ? Math.max(0, Math.min(DisplayWire.MAX_MOVE_TICKS, ticks)) : 0;
+        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, float npitch,
+            float nroll, int glideTicks) {
+            boolean stop = vx != 0 || vy != 0 || vz != 0;
+            if (stop) {
+                vx = 0;
+                vy = 0;
+                vz = 0;
+                motionChanged = true;
+            }
+            if (!newWorld.equals(world) || nx != x
+                || ny != y
+                || nz != z
+                || nyaw != yaw
+                || npitch != pitch
+                || nroll != roll) {
+                // another world is always a jump: viewers there see it appear
+                glide = newWorld.equals(world) ? Math.max(0, Math.min(DisplayWire.MAX_GLIDE, glideTicks)) : 0;
                 world = newWorld;
                 x = nx;
                 y = ny;
                 z = nz;
                 yaw = nyaw;
+                pitch = npitch;
+                roll = nroll;
                 moved = true;
             }
         }
@@ -186,6 +214,29 @@ public final class DisplayTracker<C> {
 
         public synchronized Map<String, Boolean> bones() {
             return Collections.unmodifiableMap(new LinkedHashMap<>(bones));
+        }
+
+        /** Flies from where it is, {@code vx, vy, vz} blocks per tick, on the server and on every client (0: stops). */
+        public synchronized void setMotion(double nvx, double nvy, double nvz) {
+            double a = DisplayWire.speed(nvx);
+            double b = DisplayWire.speed(nvy);
+            double c = DisplayWire.speed(nvz);
+            if (a != vx || b != vy || c != vz) {
+                vx = a;
+                vy = b;
+                vz = c;
+                motionChanged = true;
+            }
+        }
+
+        /** Blocks per tick. */
+        public synchronized double[] motion() {
+            return new double[] { vx, vy, vz };
+        }
+
+        /** Yaw, pitch and roll in degrees. */
+        public synchronized float[] rotation() {
+            return new float[] { yaw, pitch, roll };
         }
 
         public synchronized void remove() {
@@ -261,7 +312,10 @@ public final class DisplayTracker<C> {
                         continue;
                     }
                     if (d.moved) {
-                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw, d.moveTicks)));
+                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw, d.glide, d.pitch, d.roll)));
+                    }
+                    if (d.motionChanged) {
+                        out.add(new Out<>(c, DisplayWire.motion(d.id, d.x, d.y, d.z, d.vx, d.vy, d.vz)));
                     }
                     if (d.scaleChanged) {
                         out.add(new Out<>(c, DisplayWire.scale(d.id, d.scale)));
@@ -277,10 +331,12 @@ public final class DisplayTracker<C> {
                     }
                 }
                 d.moved = false;
-                d.itemsChanged = false;
-                d.stateChanged = false;
+                d.motionChanged = false;
                 d.scaleChanged = false;
                 d.bonesChanged = false;
+                d.glide = 0;
+                d.itemsChanged = false;
+                d.stateChanged = false;
                 for (Viewer<C> v : viewers) {
                     if (!d.shown.contains(v.connection) && sees(v, d, d.range)) {
                         out.add(
@@ -292,6 +348,11 @@ public final class DisplayTracker<C> {
                                     d.y,
                                     d.z,
                                     d.yaw,
+                                    d.pitch,
+                                    d.roll,
+                                    d.vx,
+                                    d.vy,
+                                    d.vz,
                                     d.model,
                                     d.variant,
                                     d.state,
@@ -302,6 +363,10 @@ public final class DisplayTracker<C> {
                         d.shown.add(v.connection);
                     }
                 }
+                // a flying display moves on its own, here as on the clients (after this tick's messages)
+                d.x += d.vx;
+                d.y += d.vy;
+                d.z += d.vz;
             }
         }
         tick++;

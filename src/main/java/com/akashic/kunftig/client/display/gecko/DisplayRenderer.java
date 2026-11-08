@@ -111,7 +111,7 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
     }
 
     @Override
-    public void render(DisplayClient.Entry e, DisplayModelIndex.Model def, double dx, double dy, double dz, float yaw,
+    public void render(DisplayClient.Entry e, DisplayModelIndex.Model def, double dx, double dy, double dz,
         float partialTicks) {
         DisplayModelIndex.State st = def.states.get(e.state);
         DisplayAnimatable a = animatable(def);
@@ -125,9 +125,9 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         a.model.setLivingAnimations(a, Math.floorMod(e.id, KEYS), null);
         Minecraft mc = Minecraft.getMinecraft();
         int light = mc.theWorld.getLightBrightnessForSkyBlocks(
-            MathHelper.floor_double(e.x),
-            MathHelper.floor_double(e.y + 1.5),
-            MathHelper.floor_double(e.z),
+            MathHelper.floor_double(e.motion.x(partialTicks)),
+            MathHelper.floor_double(e.motion.y(partialTicks) + 1.5),
+            MathHelper.floor_double(e.motion.z(partialTicks)),
             0);
         float lx = light % 65536;
         float ly = light / 65536f;
@@ -155,7 +155,10 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(dx, dy, dz);
-            GL11.glRotatef(-yaw, 0, 1, 0);
+            GL11.glRotatef(-e.motion.yaw(partialTicks), 0, 1, 0);
+            // API 9: pitch tips the front (+Z) down, then roll turns about the front
+            GL11.glRotatef(e.motion.pitch(partialTicks), 1, 0, 0);
+            GL11.glRotatef(e.motion.roll(partialTicks), 0, 0, 1);
             if (scaled) {
                 // API 9: the model's scale and the display's; normals renormalised (the lighting would darken)
                 GL11.glScalef(sx, sy, sz);

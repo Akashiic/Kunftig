@@ -43,6 +43,15 @@ colors on any 1.7.10 client and modern particles (`END_ROD`, `SOUL_FIRE_FLAME`, 
 particle. Plus `KunftigPlayers.getPing(player)`, 1.17's `Player#getPing`. Study (Portuguese):
 [docs/particles/ESTUDO.md](docs/particles/ESTUDO.md).
 
+## Feature 8: input, screen HUD, lock-on and attack prediction (API 11)
+
+For action combat on 1.7.10 (the Overkill plugin): **`KunftigInput`** gives the client keys of its own in Controls
+(special, skill, dodge, lock on) that reach plugins as `KunftigInputEvent`, validated and rate limited;
+**`KunftigHud`** draws text, bars and pictures on a player's screen; **`KunftigCamera`** locks the view on a target;
+**displays** glide, fly by themselves and turn on every axis (`Display#moveTo`, `setMotion`, `setRotation`); and a
+3D held model can start the next attack of a combo on the click (`ao_atacar`), confirmed by the server without
+restarting. See [docs/API.md](docs/API.md), sections 13 and 16 to 20 (Portuguese).
+
 ## Mods that get in the way on Crucible
 
 **PlayerContainerFix (BQ3-Thermos-patch): remove it on Crucible.** It fixes BetterQuesting's `ClassCastException` in

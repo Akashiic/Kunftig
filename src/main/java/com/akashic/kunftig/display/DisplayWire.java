@@ -17,25 +17,31 @@ import java.util.Map;
  * classes here.
  *
  * <pre>
- * SHOW  (0): int id, double x, y, z, float yaw, UTF model, UTF variant, UTF state, int elapsed, items
- *            [API 9: float sx, sy, sz, bones]
- * STATE (1): int id, UTF state, int elapsed
- * ITEMS (2): int id, items
- * MOVE  (3): int id, double x, y, z, float yaw [API 9: unsigned short ticks]
- * HIDE  (4): int id
- * SCALE (5): int id, float sx, sy, sz                                   (API 9)
- * BONES (6): int id, bones                                              (API 9)
- * items:     byte count, then per item: unsigned short length (0: empty bone), bytes
- * bones:     unsigned short count, then per bone: UTF name, boolean visible (the bones whose visibility the server
- *            set; every other bone keeps the manifest's default)
+ * SHOW   (0): int id, double x, y, z, float yaw, UTF model, UTF variant, UTF state, int elapsed, items
+ *             [API 9: float sx, sy, sz, bones] [API 11: float pitch, float roll, double vx, vy, vz]
+ * STATE  (1): int id, UTF state, int elapsed
+ * ITEMS  (2): int id, items
+ * MOVE   (3): int id, double x, y, z, float yaw [API 9: unsigned short ticks] [API 11: float pitch, float roll]
+ * HIDE   (4): int id
+ * SCALE  (5): int id, float sx, sy, sz                                                        (API 9)
+ * BONES  (6): int id, bones                                                                   (API 9)
+ * MOTION (7): int id, double x, y, z, double vx, vy, vz                                       (API 11)
+ * items:      byte count, then per item: unsigned short length (0: empty bone), bytes
+ * bones:      unsigned short count, then per bone: UTF name, boolean visible (the bones whose visibility the server
+ *             set; every other bone keeps the manifest's default)
  * </pre>
  *
  * {@code elapsed}: server ticks the state has been playing (a player who arrives late sees it from there).
- * {@code ticks}
- * of a move: over how many client ticks the client glides there (0: at once). The API 9 parts are added at the end of
- * existing operations or as new operations, so an API 8 client still reads everything it knows (it stops reading
- * before the extra bytes and ignores unknown operations). Kunftig clients register the channel on join; those that
- * also draw the API 9 parts register {@link #CHANNEL_V2} as well.
+ * {@code ticks} of a move: over how many client ticks the client glides there (0: at once), position and angles the
+ * short way round. {@code vx, vy, vz}: blocks per tick the display flies on its own, on the client and on the server
+ * alike (a projectile), until the next MOVE or MOTION. The newer parts are added at the end of existing operations
+ * (in API order) or as new operations, so an older client reads what it knows: it stops reading before the extra
+ * bytes and ignores unknown operations. Kunftig clients register the channel on join; those that also draw the
+ * API 9 parts register {@link #CHANNEL_V2} as well.
+ * <p>
+ * Two lines of the mod once both called their additions "API 9" (AkashicFishing's scale, bones and glides; Overkill's
+ * rotation and flight, whose MOTION was operation 5). They were merged as API 9 and API 11; a client from either
+ * line alone must be updated with the server.
  */
 public final class DisplayWire {
 
@@ -54,12 +60,18 @@ public final class DisplayWire {
     public static final byte HIDE = 4;
     public static final byte SCALE = 5;
     public static final byte BONES = 6;
+    public static final byte MOTION = 7;
 
     public static final int MAX_ITEMS = 8;
     public static final int MAX_ITEM_BYTES = 0xFFFF;
     public static final int MAX_NAME = 160;
     public static final int MAX_BONES = 512;
-    public static final int MAX_MOVE_TICKS = 200;
+    /** Longest glide in ticks. */
+    public static final int MAX_MOVE_TICKS = 255;
+    /** {@link #MAX_MOVE_TICKS}, the name Overkill's line used. */
+    public static final int MAX_GLIDE = MAX_MOVE_TICKS;
+    /** Fastest flight, blocks per tick on each axis (a vanilla arrow at full draw does about 3). */
+    public static final double MAX_SPEED = 10;
     public static final float MIN_SCALE = 0.01f;
     public static final float MAX_SCALE = 64f;
 
@@ -87,6 +99,15 @@ public final class DisplayWire {
         public final Map<String, Boolean> bones;
         /** MOVE: client ticks to glide over. */
         public final int ticks;
+        /** {@link #ticks}, the name Overkill's line used. */
+        public final int glideTicks;
+        /** SHOW and MOVE (API 11): the pitch and roll, degrees. */
+        public float pitch;
+        public float roll;
+        /** SHOW and MOTION (API 11): blocks per tick it flies. */
+        public double vx;
+        public double vy;
+        public double vz;
 
         Message(byte op, int id, double x, double y, double z, float yaw, String model, String variant, String state,
             int elapsed, List<byte[]> items, float[] scale, Map<String, Boolean> bones, int ticks) {
@@ -104,18 +125,74 @@ public final class DisplayWire {
             this.scale = scale;
             this.bones = bones;
             this.ticks = ticks;
+            this.glideTicks = ticks;
         }
     }
 
-    /** API 8 SHOW (scale 1, no bone set). */
+    /** API 8 SHOW (scale 1, no bone set, upright, not flying). */
     public static byte[] show(int id, double x, double y, double z, float yaw, String model, String variant,
         String state, int elapsed, List<byte[]> items) {
-        return show(id, x, y, z, yaw, model, variant, state, elapsed, items, NO_SCALE, Collections.emptyMap());
+        return show(
+            id,
+            x,
+            y,
+            z,
+            yaw,
+            0,
+            0,
+            0,
+            0,
+            0,
+            model,
+            variant,
+            state,
+            elapsed,
+            items,
+            NO_SCALE,
+            Collections.emptyMap());
     }
 
+    /** SHOW with the API 9 parts (scale and bones). */
     public static byte[] show(int id, double x, double y, double z, float yaw, String model, String variant,
         String state, int elapsed, List<byte[]> items, float[] scale, Map<String, Boolean> bones) {
-        return write(SHOW, id, x, y, z, yaw, model, variant, state, elapsed, items, scale, bones, 0);
+        return show(id, x, y, z, yaw, 0, 0, 0, 0, 0, model, variant, state, elapsed, items, scale, bones);
+    }
+
+    /** SHOW with the API 11 parts (the full rotation and the flight, blocks per tick). */
+    public static byte[] show(int id, double x, double y, double z, float yaw, float pitch, float roll, double vx,
+        double vy, double vz, String model, String variant, String state, int elapsed, List<byte[]> items) {
+        return show(
+            id,
+            x,
+            y,
+            z,
+            yaw,
+            pitch,
+            roll,
+            vx,
+            vy,
+            vz,
+            model,
+            variant,
+            state,
+            elapsed,
+            items,
+            NO_SCALE,
+            Collections.emptyMap());
+    }
+
+    /** SHOW with everything. */
+    public static byte[] show(int id, double x, double y, double z, float yaw, float pitch, float roll, double vx,
+        double vy, double vz, String model, String variant, String state, int elapsed, List<byte[]> items,
+        float[] scale, Map<String, Boolean> bones) {
+        byte[] base = write(SHOW, id, x, y, z, yaw, model, variant, state, elapsed, items, scale, bones, 0);
+        return append(base, out -> {
+            out.writeFloat(finite(pitch));
+            out.writeFloat(finite(roll));
+            out.writeDouble(speed(vx));
+            out.writeDouble(speed(vy));
+            out.writeDouble(speed(vz));
+        });
     }
 
     public static byte[] state(int id, String state, int elapsed) {
@@ -127,11 +204,64 @@ public final class DisplayWire {
     }
 
     public static byte[] move(int id, double x, double y, double z, float yaw) {
-        return move(id, x, y, z, yaw, 0);
+        return move(id, x, y, z, yaw, 0, 0, 0);
     }
 
+    /** MOVE gliding over {@code ticks} (0: a jump), upright. */
     public static byte[] move(int id, double x, double y, double z, float yaw, int ticks) {
-        return write(MOVE, id, x, y, z, yaw, null, null, null, 0, null, null, null, ticks);
+        return move(id, x, y, z, yaw, ticks, 0, 0);
+    }
+
+    /** MOVE gliding over {@code ticks} (0: a jump), with the full rotation (API 11). */
+    public static byte[] move(int id, double x, double y, double z, float yaw, int ticks, float pitch, float roll) {
+        byte[] base = write(MOVE, id, x, y, z, yaw, null, null, null, 0, null, null, null, ticks);
+        return append(base, out -> {
+            out.writeFloat(finite(pitch));
+            out.writeFloat(finite(roll));
+        });
+    }
+
+    /** MOTION (API 11): from {@code x, y, z} the display flies {@code vx, vy, vz} blocks per tick. */
+    public static byte[] motion(int id, double x, double y, double z, double vx, double vy, double vz) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(MOTION);
+            out.writeInt(id);
+            out.writeDouble(x);
+            out.writeDouble(y);
+            out.writeDouble(z);
+            out.writeDouble(speed(vx));
+            out.writeDouble(speed(vy));
+            out.writeDouble(speed(vz));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
+    /** A speed within {@link #MAX_SPEED} (not a number: 0). */
+    public static double speed(double v) {
+        return Double.isNaN(v) ? 0 : Math.max(-MAX_SPEED, Math.min(MAX_SPEED, v));
+    }
+
+    private static float finite(float v) {
+        return Float.isFinite(v) ? v : 0;
+    }
+
+    private interface Extra {
+
+        void write(DataOutputStream out) throws IOException;
+    }
+
+    private static byte[] append(byte[] base, Extra extra) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.write(base);
+            extra.write(out);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
     }
 
     public static byte[] hide(int id) {
@@ -270,10 +400,38 @@ public final class DisplayWire {
         }
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(data))) {
             byte op = in.readByte();
-            if (op < SHOW || op > BONES) {
+            if (op < SHOW || op > MOTION) {
                 return null;
             }
             int id = in.readInt();
+            if (op == MOTION) {
+                double[] v = new double[6];
+                for (int i = 0; i < 6; i++) {
+                    v[i] = in.readDouble();
+                    if (!Double.isFinite(v[i])) {
+                        return null;
+                    }
+                }
+                Message m = new Message(
+                    op,
+                    id,
+                    v[0],
+                    v[1],
+                    v[2],
+                    0,
+                    null,
+                    null,
+                    null,
+                    0,
+                    Collections.emptyList(),
+                    NO_SCALE.clone(),
+                    Collections.emptyMap(),
+                    0);
+                m.vx = speed(v[3]);
+                m.vy = speed(v[4]);
+                m.vz = speed(v[5]);
+                return m;
+            }
             double x = 0;
             double y = 0;
             double z = 0;
@@ -326,7 +484,22 @@ public final class DisplayWire {
             if (op == MOVE && in.available() >= 2) {
                 ticks = Math.min(MAX_MOVE_TICKS, in.readUnsignedShort());
             }
-            return new Message(op, id, x, y, z, yaw, model, variant, state, elapsed, items, scale, bones, ticks);
+            Message m = new Message(op, id, x, y, z, yaw, model, variant, state, elapsed, items, scale, bones, ticks);
+            // API 11, after the API 9 parts
+            if (op == SHOW && in.available() >= 32) {
+                m.pitch = in.readFloat();
+                m.roll = in.readFloat();
+                m.vx = speed(in.readDouble());
+                m.vy = speed(in.readDouble());
+                m.vz = speed(in.readDouble());
+            } else if (op == MOVE && in.available() >= 8) {
+                m.pitch = in.readFloat();
+                m.roll = in.readFloat();
+            }
+            if (!Float.isFinite(m.pitch) || !Float.isFinite(m.roll)) {
+                return null;
+            }
+            return m;
         } catch (IOException e) {
             return null;
         }

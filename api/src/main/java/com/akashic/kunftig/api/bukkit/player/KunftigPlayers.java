@@ -16,6 +16,11 @@ public final class KunftigPlayers {
         void setFlightLocked(Player player, boolean locked);
 
         boolean isFlightLocked(Player player);
+
+        /** See {@link KunftigPlayers#pushVelocity}. */
+        default void pushVelocity(Player player, double x, double y, double z) {
+            player.setVelocity(new org.bukkit.util.Vector(x, y, z));
+        }
     }
 
     private static volatile Provider provider;
@@ -100,5 +105,23 @@ public final class KunftigPlayers {
     /** Internal: called by the mod. */
     public static void install(Provider implementation) {
         provider = implementation;
+    }
+
+    /**
+     * Sets the player's motion and sends it to his client <b>in this same tick</b>. Bukkit's {@code setVelocity} only
+     * marks the velocity as changed: the entity tracker sends it on its next update of that player, every 2 ticks, and
+     * a later position packet can lose it, so motion set every tick (a hover, a dash) reaches the client in jumps. The
+     * client is authoritative for its own movement, so this is how a server moves a player smoothly. Each component is
+     * limited to ±3.9 by the packet.
+     *
+     * @throws IllegalArgumentException if the player is not an online player of this server
+     * @since API 11
+     */
+    public static void pushVelocity(Player player, double x, double y, double z) {
+        Provider current = provider;
+        if (current == null) {
+            throw new IllegalStateException("KunftigPlayers is not available on this server");
+        }
+        current.pushVelocity(player, x, y, z);
     }
 }

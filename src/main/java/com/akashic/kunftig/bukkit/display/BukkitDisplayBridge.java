@@ -222,7 +222,7 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
         @Override
         public Location getLocation() {
             double[] p = state.position();
-            return new Location(Bukkit.getWorld(state.world()), p[0], p[1], p[2], (float) p[3], 0);
+            return new Location(Bukkit.getWorld(state.world()), p[0], p[1], p[2], (float) p[3], state.rotation()[1]);
         }
 
         @Override
@@ -265,17 +265,18 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
 
         @Override
         public void teleport(Location location) {
-            teleport(location, 0);
-        }
-
-        @Override
-        public void teleport(Location location, int ticks) {
             if (location == null || location.getWorld() == null) {
                 throw new IllegalArgumentException("location with a world required");
             }
-            if (ticks < 0 || ticks > DisplayWire.MAX_MOVE_TICKS) {
-                throw new IllegalArgumentException("ticks must be 0.." + DisplayWire.MAX_MOVE_TICKS + ": " + ticks);
+            moveTo(location, 0);
+        }
+
+        @Override
+        public void moveTo(Location location, int glideTicks) {
+            if (location == null || location.getWorld() == null) {
+                throw new IllegalArgumentException("location with a world required");
             }
+            float[] r = state.rotation();
             state.moveTo(
                 location.getWorld()
                     .getName(),
@@ -283,7 +284,9 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
                 location.getY(),
                 location.getZ(),
                 location.getYaw(),
-                ticks);
+                r[1],
+                r[2],
+                glideTicks);
         }
 
         @Override
@@ -324,6 +327,48 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
         @Override
         public void resetBones() {
             state.resetBones();
+        }
+
+        @Override
+        public void setRotation(float yaw, float pitch, float roll) {
+            if (!Float.isFinite(yaw) || !Float.isFinite(pitch) || !Float.isFinite(roll)) {
+                throw new IllegalArgumentException("rotation must be finite");
+            }
+            double[] p = state.position();
+            double[] v = state.motion();
+            state.moveTo(state.world(), p[0], p[1], p[2], yaw, pitch, roll, 1);
+            if (v[0] != 0 || v[1] != 0 || v[2] != 0) {
+                state.setMotion(v[0], v[1], v[2]); // turning does not stop a flight
+            }
+        }
+
+        @Override
+        public float getPitch() {
+            return state.rotation()[1];
+        }
+
+        @Override
+        public float getRoll() {
+            return state.rotation()[2];
+        }
+
+        @Override
+        public void setMotion(org.bukkit.util.Vector perTick) {
+            if (perTick == null) {
+                state.setMotion(0, 0, 0);
+                return;
+            }
+            if (!Double.isFinite(perTick.getX()) || !Double.isFinite(perTick.getY())
+                || !Double.isFinite(perTick.getZ())) {
+                throw new IllegalArgumentException("motion must be finite");
+            }
+            state.setMotion(perTick.getX(), perTick.getY(), perTick.getZ());
+        }
+
+        @Override
+        public org.bukkit.util.Vector getMotion() {
+            double[] v = state.motion();
+            return new org.bukkit.util.Vector(v[0], v[1], v[2]);
         }
 
         @Override

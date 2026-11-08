@@ -89,6 +89,7 @@ o item `akashicfishing:vara/vara-solar.ouro.m3.cast` usa esse modelo no estágio
 | `display` | sim, por contexto | `rotation` (graus, sinais do Bedrock), `translation` (pixels), `scale`, aplicados depois de levar a `pega` à origem |
 | `contextos` | não | onde desenhar em 3D (padrão: os de `display`) |
 | `linha_pendurada` | não | a linha pendurada na ponta (com a linha recolhida): `osso` (pendurado ao longo do seu -Y) e `comprimento` (pixels do modelo). Vira um pêndulo no mundo: a gravidade a puxa para baixo, ela fica para trás quando a ponta se move e volta ao meio, amortecida. Sem ele, a linha segue o modelo |
+| `estados.<s>.ao_atacar` | não | API 11: o estado que um ataque (clique esquerdo do jogador local) começa durante este, na hora, sem esperar o servidor: um nome, ou `{"estado": ..., "de": ticks, "ate": ticks}` para uma janela contada do início do estado (sem `ate`, até o fim). O servidor confirmando o mesmo estado em até 20 ticks não recomeça a animação. Ver [API.md](../API.md), seção 19 |
 | `balanco` | não | a inércia em primeira pessoa: `pivo` (o osso que gira na pega, a raiz), `curva` (os ossos que dividem a curvatura, do cabo à ponta) e `forca` (0 a 3, padrão 1). Sem ele, só o balanço do vanilla |
 
 ### Modelos que não são varas (peixes)
@@ -144,6 +145,8 @@ O display experimentado sai no chat e no log como JSON, pronto para o `DISPLAY` 
   protocolo, rastreador do servidor, matrizes do `display` (desfazer o vanilla devolve exatamente o `display`).
 * `./gradlew :test -ProdPack=<pasta do pack>`: confere um pack de verdade (todo arquivo, osso e animação citados
   existem). O pack do AkashicFishing (branch `claude/kind-ride-ts9apr`): 8 varas e 34 peixes, nenhum problema.
+  O mesmo comando confere as exibições do pack (`kunftig/displays.json`: arquivos, animações dos estados e ossos de
+  `itens`, `luz` e `translucido`), pelo `DisplayPackCheckTest`.
 * Harness visual (desenvolvimento): com um arquivo `kunftig-rod-harness` em `run/client` e o pack em
   `run/client/resourcepacks`, `./gradlew runClient` abre um mundo plano, segura varas com modelos reais, toca estados,
   lança a linha e salva `screenshots/rods-*.png` de cada contexto (`dev/RodRenderHarness`, fora do jar).

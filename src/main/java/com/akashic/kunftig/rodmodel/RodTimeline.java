@@ -3,8 +3,10 @@ package com.akashic.kunftig.rodmodel;
 /**
  * Which state one player's 3D rod is in, and since when (client ticks). The client infers some states on its own
  * (issue #13): {@code sacar} when a rod comes to the hand, {@code lancar} when the line goes out, {@code parada} when
- * the line comes back from a looping state; the others come from the server ({@code KunftigRods}). The latest event
- * wins, and a state that does not loop goes back to {@code parada} when it ends. No Minecraft classes; client thread.
+ * the line comes back from a looping state, and (API 9) the next attack of a combo when the local player swings
+ * ({@code ao_atacar}); the others come from the server ({@code KunftigRods}). The latest event wins, except that the
+ * server confirming a predicted attack does not restart it; a state that does not loop goes back to {@code parada}
+ * when it ends. No Minecraft classes; client thread.
  */
 public final class RodTimeline {
 
@@ -17,7 +19,26 @@ public final class RodTimeline {
 
         /** Length in client ticks, at least 1. */
         int lengthTicks(String state);
+
+        /**
+         * The state an attack starts {@code elapsedTicks} into {@code state} ({@code ao_atacar}), or null: the client
+         * waits for the server.
+         */
+        default String attack(String state, long elapsedTicks) {
+            return null;
+        }
     }
+
+    /**
+     * Client ticks a predicted state waits for the server to confirm it: a state from the server that matches one
+     * predicted within this many ticks is the same attack and does not restart the animation (20: 1 s of ping).
+     */
+    public static final int PREDICTION_TICKS = 20;
+    /** Predictions kept at once (a combo clicked faster than the round trip). */
+    private static final int MAX_PREDICTIONS = 8;
+
+    private final java.util.ArrayDeque<String> predicted = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<Long> predictedAt = new java.util.ArrayDeque<>();
 
     private String held;
     private boolean seen;
@@ -89,10 +110,14 @@ public final class RodTimeline {
             held = null;
             state = null;
             lineOut = line;
+            predicted.clear();
+            predictedAt.clear();
             return;
         }
         if (!heldModel.equals(held)) {
             held = heldModel;
+            predicted.clear();
+            predictedAt.clear();
             lineOut = line;
             if (first && state != null) {
                 return; // the server's state arrived before the player did
@@ -144,6 +169,63 @@ public final class RodTimeline {
     /** A state from the server (or the debug command), started at {@code startTick}. */
     public void server(String newState, long startTick) {
         begin(newState, startTick);
+    }
+
+    /**
+     * The local player attacked (a swing, the same click the server sees as an arm swing). Starts the state the
+     * current one's {@code ao_atacar} names, if the attack falls in its window, and remembers it as predicted.
+     *
+     * @return whether a state was started
+     */
+    public boolean localAttack(long now, Clips clips) {
+        expire(now);
+        if (held == null || state == null) {
+            return false;
+        }
+        String next = clips.attack(state, now - start);
+        if (next == null || !clips.has(next)) {
+            return false;
+        }
+        begin(next, now);
+        if (predicted.size() == MAX_PREDICTIONS) {
+            predicted.poll();
+            predictedAt.poll();
+        }
+        predicted.add(next);
+        predictedAt.add(now);
+        return true;
+    }
+
+    /**
+     * A state from the server at client tick {@code now}, started at {@code startTick}. If it is one the client
+     * predicted ({@link #localAttack}) and still waits for, it is that attack confirmed: the animation already
+     * playing goes on (along with any later prediction). Anything else is the server's word and replaces what plays.
+     */
+    public void fromServer(String newState, long startTick, long now) {
+        expire(now);
+        if (predicted.contains(newState)) {
+            while (!predicted.isEmpty()) {
+                predictedAt.poll();
+                if (newState.equals(predicted.poll())) {
+                    return; // confirmed; older predictions were confirmed before or skipped by the server
+                }
+            }
+        }
+        predicted.clear();
+        predictedAt.clear();
+        begin(newState, startTick);
+    }
+
+    /** States predicted and not yet confirmed (oldest first; for tests and the debug command). */
+    public java.util.List<String> pending() {
+        return new java.util.ArrayList<>(predicted);
+    }
+
+    private void expire(long now) {
+        while (!predictedAt.isEmpty() && now - predictedAt.peek() > PREDICTION_TICKS) {
+            predictedAt.poll();
+            predicted.poll();
+        }
     }
 
     public void setTension(float value) {

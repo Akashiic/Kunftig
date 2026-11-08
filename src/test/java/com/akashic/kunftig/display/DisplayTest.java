@@ -168,7 +168,9 @@ class DisplayTest {
         assertArrayEquals(new float[] { 1, 1, 1 }, old.scale, 0f);
         assertTrue(old.bones.isEmpty());
         byte[] move = DisplayWire.move(5, 1, 2, 3, 4, 7);
-        assertEquals(0, DisplayWire.read(Arrays.copyOf(move, move.length - 2)).ticks, "MOVE sem a cauda: pula");
+        // the tail is the API 9 ticks (2 bytes) and the API 11 pitch and roll (8)
+        assertEquals(0, DisplayWire.read(Arrays.copyOf(move, move.length - 10)).ticks, "MOVE sem a cauda: pula");
+        assertEquals(7, DisplayWire.read(Arrays.copyOf(move, move.length - 8)).ticks, "MOVE da API 9: desliza");
     }
 
     @Test
@@ -203,7 +205,7 @@ class DisplayTest {
         out = t.update(near);
         assertTrue(DisplayWire.read(out.get(0).data).bones.isEmpty());
         d.moveTo("outro", 0, 0, 0, 0, 5);
-        assertEquals(0, d.moveTicks, "outro mundo: pula");
+        assertEquals(0, d.glide, "outro mundo: pula");
     }
 
     @Test

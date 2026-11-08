@@ -294,10 +294,17 @@ public final class RodModelIndex {
                     armWithLine,
                     Boolean.TRUE.equals(loop),
                     Boolean.TRUE.equals(twoHands),
-                    WITH_LINE.equals(twoHands)));
+                    WITH_LINE.equals(twoHands),
+                    attack(s.get("ao_atacar"), "estados." + name + ".ao_atacar")));
         }
         if (!states.containsKey(RodModelDef.IDLE)) {
             throw new Invalid("estados needs \"" + RodModelDef.IDLE + "\"");
+        }
+        for (Map.Entry<String, RodModelDef.Clips> e : states.entrySet()) {
+            RodModelDef.Attack a = e.getValue().attack;
+            if (a != null && !states.containsKey(a.next)) {
+                throw new Invalid("estados." + e.getKey() + ".ao_atacar: no state '" + a.next + "' in estados");
+            }
         }
 
         Set<String> light = bones(o, "luz");
@@ -720,5 +727,46 @@ public final class RodModelIndex {
             out.add((String) b);
         }
         return out;
+    }
+
+    /**
+     * {@code ao_atacar}: a state name, or {@code {"estado": ..., "de": ticks, "ate": ticks}}; null when absent.
+     */
+    private static RodModelDef.Attack attack(Object o, String where) throws Invalid {
+        if (o == null) {
+            return null;
+        }
+        if (o instanceof String) {
+            return new RodModelDef.Attack(stateName((String) o, where), 0, -1);
+        }
+        if (!(o instanceof Map)) {
+            throw new Invalid(where + " must be a state name or {\"estado\", \"de\", \"ate\"}");
+        }
+        Map<?, ?> m = (Map<?, ?>) o;
+        String next = stateName(text(m, "estado", true, where), where);
+        int from = ticks(m.get("de"), 0, where + ".de");
+        int to = ticks(m.get("ate"), -1, where + ".ate");
+        if (to >= 0 && to < from) {
+            throw new Invalid(where + ": ate (" + to + ") comes before de (" + from + ")");
+        }
+        return new RodModelDef.Attack(next, from, to);
+    }
+
+    private static String stateName(String name, String where) throws Invalid {
+        if (!STATE.matcher(name)
+            .matches()) {
+            throw new Invalid(where + ": invalid state '" + name + "'");
+        }
+        return name;
+    }
+
+    private static int ticks(Object v, int absent, String where) throws Invalid {
+        if (v == null) {
+            return absent;
+        }
+        if (!(v instanceof Double) || (Double) v < 0 || (Double) v > 10000 || (Double) v != Math.floor((Double) v)) {
+            throw new Invalid(where + " must be a whole number of ticks, 0 to 10000");
+        }
+        return ((Double) v).intValue();
     }
 }
