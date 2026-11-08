@@ -40,6 +40,8 @@ public final class KunftigDisplays {
             double viewRange);
 
         boolean drawsDisplays(Player player);
+
+        boolean drawsExtendedDisplays(Player player);
     }
 
     private static volatile Provider provider;
@@ -102,6 +104,20 @@ public final class KunftigDisplays {
     /** Whether this player's client draws displays (Kunftig with the display channel; GeckoLib and the pack too). */
     public static boolean drawsDisplays(Player player) {
         return provider().drawsDisplays(player);
+    }
+
+    /**
+     * Whether the player's client also draws the API 9 parts of displays: the model scale ({@code escala} and
+     * {@link Display#setScale}), bones hidden and shown ({@code ocultos} and {@link Display#setBoneVisible}), the
+     * blend between states ({@code transicao}) and glides ({@link Display#teleport(Location, int)}). A client that
+     * {@link #drawsDisplays draws displays} but not these draws them at the manifest's base size, with every bone,
+     * and jumps between states and places: for a model built small and scaled up (like a boss), treat it as a client
+     * that cannot draw it.
+     *
+     * @since API 9
+     */
+    public static boolean drawsExtendedDisplays(Player player) {
+        return provider().drawsExtendedDisplays(player);
     }
 
     /** Internal: called by the mod. */

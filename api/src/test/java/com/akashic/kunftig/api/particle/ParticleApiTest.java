@@ -198,7 +198,7 @@ class ParticleApiTest {
         assertEquals(2, spawned.get(2).dataId());
         assertTrue(KunftigParticles.drawsModernParticles(player));
         assertTrue(KunftigApi.isParticlesAvailable());
-        assertEquals(8, KunftigApi.apiVersion());
+        assertEquals(9, KunftigApi.apiVersion());
     }
 
     @Test
@@ -206,7 +206,37 @@ class ParticleApiTest {
         Player player = stub(Player.class);
         assertFalse(KunftigApi.isPlayersAvailable());
         assertThrows(IllegalStateException.class, () -> KunftigPlayers.getPing(player));
-        KunftigPlayers.install(p -> 42);
-        assertEquals(42, KunftigPlayers.getPing(player));
+        assertThrows(IllegalStateException.class, () -> KunftigPlayers.setFlightLocked(player, true));
+        java.util.Set<Player> locked = new java.util.HashSet<>();
+        KunftigPlayers.install(new KunftigPlayers.Provider() {
+
+            @Override
+            public int getPing(Player p) {
+                return 42;
+            }
+
+            @Override
+            public void setFlightLocked(Player p, boolean lock) {
+                if (lock) {
+                    locked.add(p);
+                } else {
+                    locked.remove(p);
+                }
+            }
+
+            @Override
+            public boolean isFlightLocked(Player p) {
+                return locked.contains(p);
+            }
+        });
+        try {
+            assertEquals(42, KunftigPlayers.getPing(player));
+            KunftigPlayers.setFlightLocked(player, true);
+            assertTrue(KunftigPlayers.isFlightLocked(player));
+            KunftigPlayers.setFlightLocked(player, false);
+            assertFalse(KunftigPlayers.isFlightLocked(player));
+        } finally {
+            KunftigPlayers.install(null);
+        }
     }
 }

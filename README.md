@@ -76,8 +76,16 @@ section 12 (Portuguese).
 Plugins place a GeckoLib model at a location through `KunftigDisplays` (API 8): a state (animation), a texture
 variant and up to 8 item stacks drawn at bones of the model. The server tracks who is in range (late joiners see the
 animation where it is) and the client draws it with world light, glowing and translucent bones. Models come from
-`assets/<namespace>/kunftig/displays.json`. AkashicFishing's Caixa da Sorte uses it. See [docs/API.md](docs/API.md),
-section 13 (Portuguese).
+`assets/<namespace>/kunftig/displays.json`. AkashicFishing's Caixa da Sorte uses it. API 9 adds model and per-display
+scale, bones hidden and shown at runtime, blends between states and glides between positions (AkashicFishing's lake
+boss). See [docs/API.md](docs/API.md), section 13 (Portuguese).
+
+## Feature 8: flight lock (server + client)
+
+`KunftigPlayers.setFlightLocked` (API 9) keeps a player from flying, whatever gives the flight: the server switches
+the creative-style flight off at the end of each of the player's ticks (rings, armour, baubles, spells, Bukkit's
+`setAllowFlight`), and a Kunftig client also cuts upward speed that does not come from a jump or a push (jetpacks,
+gliders). See [docs/API.md](docs/API.md), section 14 (Portuguese).
 
 ## Repository layout
 

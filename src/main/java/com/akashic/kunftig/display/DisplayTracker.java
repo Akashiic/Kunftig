@@ -72,10 +72,15 @@ public final class DisplayTracker<C> {
         String state;
         long stateStart;
         List<byte[]> items;
+        float[] scale = { 1, 1, 1 };
+        Map<String, Boolean> bones = new LinkedHashMap<>();
+        int moveTicks;
         boolean removed;
         boolean stateChanged;
         boolean itemsChanged;
         boolean moved;
+        boolean scaleChanged;
+        boolean bonesChanged;
         final Set<C> shown = Collections.newSetFromMap(new IdentityHashMap<>());
 
         State(int id, String world, double x, double y, double z, float yaw, String model, String variant, String state,
@@ -127,7 +132,16 @@ public final class DisplayTracker<C> {
         }
 
         public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw) {
+            moveTo(newWorld, nx, ny, nz, nyaw, 0);
+        }
+
+        /**
+         * Moves it; viewers glide there over {@code ticks} client ticks (0: at once). Changing world never glides.
+         * Several moves in one tick send only the last one.
+         */
+        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, int ticks) {
             if (!newWorld.equals(world) || nx != x || ny != y || nz != z || nyaw != yaw) {
+                moveTicks = newWorld.equals(world) ? Math.max(0, Math.min(DisplayWire.MAX_MOVE_TICKS, ticks)) : 0;
                 world = newWorld;
                 x = nx;
                 y = ny;
@@ -135,6 +149,43 @@ public final class DisplayTracker<C> {
                 yaw = nyaw;
                 moved = true;
             }
+        }
+
+        /** The scale on the model's X, Y and Z, on top of the manifest's (1, 1, 1 by default). */
+        public synchronized void setScale(float sx, float sy, float sz) {
+            float[] next = { DisplayWire.clampScale(sx), DisplayWire.clampScale(sy), DisplayWire.clampScale(sz) };
+            if (next[0] != scale[0] || next[1] != scale[1] || next[2] != scale[2]) {
+                scale = next;
+                scaleChanged = true;
+            }
+        }
+
+        public synchronized float[] scale() {
+            return scale.clone();
+        }
+
+        /** Shows or hides a bone (and everything under it), whatever the manifest says. */
+        public synchronized void setBone(String bone, boolean visible) {
+            Boolean old = bones.get(bone);
+            if (old == null || old != visible) {
+                if (old == null && bones.size() >= DisplayWire.MAX_BONES) {
+                    throw new IllegalStateException("at most " + DisplayWire.MAX_BONES + " bones set per display");
+                }
+                bones.put(bone, visible);
+                bonesChanged = true;
+            }
+        }
+
+        /** Every bone back to the manifest's default. */
+        public synchronized void resetBones() {
+            if (!bones.isEmpty()) {
+                bones.clear();
+                bonesChanged = true;
+            }
+        }
+
+        public synchronized Map<String, Boolean> bones() {
+            return Collections.unmodifiableMap(new LinkedHashMap<>(bones));
         }
 
         public synchronized void remove() {
@@ -210,7 +261,13 @@ public final class DisplayTracker<C> {
                         continue;
                     }
                     if (d.moved) {
-                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw)));
+                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw, d.moveTicks)));
+                    }
+                    if (d.scaleChanged) {
+                        out.add(new Out<>(c, DisplayWire.scale(d.id, d.scale)));
+                    }
+                    if (d.bonesChanged) {
+                        out.add(new Out<>(c, DisplayWire.bones(d.id, d.bones)));
                     }
                     if (d.itemsChanged) {
                         out.add(new Out<>(c, DisplayWire.items(d.id, d.items)));
@@ -222,13 +279,26 @@ public final class DisplayTracker<C> {
                 d.moved = false;
                 d.itemsChanged = false;
                 d.stateChanged = false;
+                d.scaleChanged = false;
+                d.bonesChanged = false;
                 for (Viewer<C> v : viewers) {
                     if (!d.shown.contains(v.connection) && sees(v, d, d.range)) {
                         out.add(
                             new Out<>(
                                 v.connection,
-                                DisplayWire
-                                    .show(d.id, d.x, d.y, d.z, d.yaw, d.model, d.variant, d.state, elapsed, d.items)));
+                                DisplayWire.show(
+                                    d.id,
+                                    d.x,
+                                    d.y,
+                                    d.z,
+                                    d.yaw,
+                                    d.model,
+                                    d.variant,
+                                    d.state,
+                                    elapsed,
+                                    d.items,
+                                    d.scale,
+                                    d.bones)));
                         d.shown.add(v.connection);
                     }
                 }

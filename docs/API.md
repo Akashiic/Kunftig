@@ -79,6 +79,7 @@ public void onEnable() {
 | `...api.bukkit.hologram` | `KunftigHolograms`, `Hologram` (texto flutuante no mundo) | `TextDisplay` (1.19.4+) | 6 |
 | `...api.bukkit.rod` | `KunftigRods` (estado da vara 3D: mordida, briga com tensão, captura...) | — | 7 |
 | `...api.bukkit.display` | `KunftigDisplays`, `Display` (modelo GeckoLib animado no mundo, com itens nos ossos) | `ItemDisplay`/`BlockDisplay` (1.19.4+) | 8 |
+| `...api.bukkit.display`, `...api.bukkit.player` | `Display#setScale`, `setBoneVisible`, `teleport(Location, int)`, `KunftigDisplays.drawsExtendedDisplays`; `KunftigPlayers.setFlightLocked` | a escala e a interpolação dos `Display` (1.19.4+) | 9 |
 
 Pesca: guia completo em [fishing/API.md](fishing/API.md).
 
@@ -387,7 +388,7 @@ if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
 * Em primeira pessoa, a vara tem inércia (`balanco` no manifesto): fica para trás ao girar a câmera, andar de lado ou
   pular, e volta com um pequeno balanço. `-Dkunftig.rodSway.disable=true` no cliente desliga só isso.
 
-## 13. Exibições: modelos 3D animados no mundo (API 8)
+## 13. Exibições: modelos 3D animados no mundo (API 8 e 9)
 
 Uma exibição é um modelo Bedrock (GeckoLib) que o plugin põe num ponto do mundo, com uma animação (o estado) e até
 8 itens desenhados nos ossos que o modelo indica (o item gira e se move com o osso). Não é entidade: o servidor
@@ -439,4 +440,68 @@ if (KunftigApi.apiVersion() >= 8 && KunftigApi.isDisplaysAvailable()) {
 * Thread principal. Isole as chamadas numa classe só, chamada depois de conferir `apiVersion() >= 8`: um Kunftig
   mais antigo não tem essas classes.
 * `-Dkunftig.displays.disable=true` no cliente desliga as exibições (o cliente nem registra o canal).
+
+### Escala, ossos, transição e deslize (API 9)
+
+Para modelos grandes e vivos (o boss do AkashicFishing), a API 9 acrescenta à exibição:
+
+```jsonc
+"leviata_do_abismo": {
+  "...": "...",
+  "escala": 4,                                  // o modelo é desenhado 4 vezes o tamanho (0,05 a 64)
+  "ocultos": ["orbe_e_apagado", "orbe_d_apagado"], // ossos que começam escondidos (e o que está embaixo deles)
+  "transicao": 6                                // ticks de mistura ao entrar num estado novo (0 a 40)
+}
+```
+
+```java
+if (KunftigApi.apiVersion() >= 9) {
+    d.setScale(1.5);                            // em cima do "escala" do manifesto; setScale(1, 1, 2) estica no Z
+    d.setBoneVisible("orbe_e", false);          // esconde o osso e os filhos
+    d.setBoneVisible("orbe_e_apagado", true);   // mostra um que o manifesto escondia
+    d.resetBones();                             // todos de volta ao padrão do manifesto
+    d.teleport(proximoPonto, 2);                // desliza até lá em 2 ticks (posição e yaw): mova a cada tick
+                                                // com 1 a 3 ticks para girar ou andar suave
+}
+```
+
+* **Quem desenha:** `KunftigDisplays.drawsExtendedDisplays(player)` diz se o cliente desenha essas partes (o canal
+  `kunftig:display2`, só de registro). Um cliente da API 8 desenha o modelo no tamanho base, com todos os ossos, e
+  pula entre estados e pontos: para um modelo feito pequeno e ampliado, trate como quem não desenha.
+* **Compatível:** as partes novas vão no fim das mensagens antigas ou em operações novas, que um cliente da API 8
+  ignora.
+* **Escala:** vale para o modelo e os itens dos ossos; a luz das faces é renormalizada.
+* **Transição:** só quando a exibição troca de estado (não na primeira vez que o jogador a vê). Depois da mistura, o
+  tempo da animação volta a contar do começo do estado, como no servidor.
+* **Deslize:** de onde ela está na tela até o ponto novo, girando pelo lado mais curto; trocar de mundo sempre pula.
+* **A verificar no jogo:** a mistura do GeckoLib entre estados com várias exibições do mesmo modelo (os ossos são
+  compartilhados entre elas).
+
+## 14. Trava de voo (API 9)
+
+`KunftigPlayers.setFlightLocked(player, true)` impede um jogador (fora do criativo) de voar, venha o voo de onde vier,
+até `setFlightLocked(player, false)`. Feita para arenas e lutas onde voar é proibido (o boss do AkashicFishing).
+
+```java
+if (KunftigApi.apiVersion() >= 9 && KunftigApi.isPlayersAvailable()) {
+    KunftigPlayers.setFlightLocked(jogador, true);   // ao entrar na arena
+    // ...
+    KunftigPlayers.setFlightLocked(jogador, false);  // ao sair
+}
+```
+
+* **No servidor:** no fim de cada tick do jogador travado, depois que anéis, armaduras, baubles e feitiços ligaram o
+  voo, o voo é desligado e o cliente avisado. Isso pega todo voo "de criativo", que liga as capacidades do jogador: o
+  `setAllowFlight` do Bukkit, o anel de anjo do Extra Utilities, a armadura da Draconic Evolution, a tiara da Botania,
+  a armadura do Avaritia, o voo do Ars Magica, os arreios do Thaumcraft, o morcego da Witchery...
+* **No cliente (Kunftig):** o mesmo, mais um corte no empuxo. A velocidade para cima só pode cair como a gravidade faz
+  cair, depois de sair do chão (pulo, pulo melhorado) ou de um empurrão de fora (golpe, explosão, `setVelocity` do
+  plugin). Isso corta jetpacks, planadores e feitiços de subida. Na água, na lava, na escada e montado, nada é cortado.
+* **Soltar** não devolve o voo: os mods ligam de novo sozinhos; o plugin que tirou o `allowFlight` do Bukkit devolve.
+  A trava continua depois de o jogador sair do servidor, até ser solta.
+* **Não é anticheat:** um cliente sem Kunftig, ou modificado, ainda sobe. Para "ninguém voa aqui", o plugin confere
+  também se o jogador fica no ar.
+* Thread principal. Canal `kunftig:flight` (servidor para cliente, 1 byte).
+* **A verificar no jogo:** cada mod de voo do modpack, e a ordem dos ticks (um mod que ligue o voo depois do fim do
+  tick do jogador).
 

@@ -35,7 +35,8 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * Client side of the displays ({@code KunftigDisplays}, API 8): registers {@link DisplayWire#CHANNEL} on join, keeps
+ * Client side of the displays ({@code KunftigDisplays}, API 8 and 9): registers {@link DisplayWire#CHANNEL} on join,
+ * keeps
  * what the server sent, reads the packs' {@code kunftig/displays.json} on every resource reload and, at the end of the
  * world render, hands each display in range to the {@link Renderer} (GeckoLib's, installed only when GeckoLib is
  * loaded; without it nothing is drawn and nothing else happens). Every connection, respawn or dimension change starts
@@ -63,18 +64,65 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         /** The client tick the state started at (the server's elapsed time already counted). */
         public volatile long start;
         public volatile List<ItemStack> items;
+        /** API 9: the scale the server set ({x, y, z}), on top of the manifest's. */
+        public volatile float[] scale = { 1, 1, 1 };
+        /** API 9: the bones whose visibility the server set. */
+        public volatile Map<String, Boolean> bones = Collections.emptyMap();
+        // a glide (API 9): from where, since when (client ticks, fractional) and over how many ticks
+        private double fromX;
+        private double fromY;
+        private double fromZ;
+        private float fromYaw;
+        private double glideStart;
+        private int glideTicks;
 
         Entry(int id, String model, String variant) {
             this.id = id;
             this.model = model;
             this.variant = variant;
         }
+
+        /** Where it is drawn at client time {@code now}: {x, y, z, yaw}, part of the way through a glide. */
+        public synchronized double[] at(double now) {
+            double u = glideTicks <= 0 ? 1 : (now - glideStart) / glideTicks;
+            if (u >= 1) {
+                return new double[] { x, y, z, yaw };
+            }
+            u = Math.max(0, u);
+            double dyaw = ((yaw - fromYaw) % 360 + 540) % 360 - 180; // the short way round
+            return new double[] { fromX + (x - fromX) * u, fromY + (y - fromY) * u, fromZ + (z - fromZ) * u,
+                fromYaw + dyaw * u };
+        }
+
+        synchronized void moveTo(double nx, double ny, double nz, float nyaw, int ticks, double now) {
+            if (ticks > 0) {
+                double[] p = at(now);
+                fromX = p[0];
+                fromY = p[1];
+                fromZ = p[2];
+                fromYaw = (float) p[3];
+                glideStart = now;
+            }
+            glideTicks = ticks;
+            x = nx;
+            y = ny;
+            z = nz;
+            yaw = nyaw;
+        }
+
+        /** Whether a bone is drawn: what the server set, else hidden only if the manifest starts it hidden. */
+        public boolean boneVisible(String bone, DisplayModelIndex.Model model) {
+            Boolean set = bones.get(bone);
+            return set != null ? set : !model.hiddenBones.contains(bone);
+        }
     }
 
     /** Draws one display (GeckoLib's, see {@code client.display.gecko}). */
     public interface Renderer {
 
-        void render(Entry entry, DisplayModelIndex.Model model, double dx, double dy, double dz, float partialTicks);
+        /** Draws it {@code dx, dy, dz} from the camera, turned by {@code yaw} (both already glided). */
+        void render(Entry entry, DisplayModelIndex.Model model, double dx, double dy, double dz, float yaw,
+            float partialTicks);
 
         /** The packs were reloaded: drop whatever was built from the old ones. */
         void reset();
@@ -131,8 +179,11 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         if (renderer == null) {
             return;
         }
+        // the API 9 channel only says this client draws scale, hidden bones, transitions and glides
         handler.addToSendQueue(
-            new C17PacketCustomPayload("REGISTER", DisplayWire.CHANNEL.getBytes(StandardCharsets.UTF_8)));
+            new C17PacketCustomPayload(
+                "REGISTER",
+                (DisplayWire.CHANNEL + "\0" + DisplayWire.CHANNEL_V2).getBytes(StandardCharsets.UTF_8)));
     }
 
     /** Respawn or dimension change: the server shows them again where they apply. */
@@ -156,6 +207,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
                 e.state = m.state;
                 e.start = clock - m.elapsed;
                 e.items = decode(m.items);
+                e.scale = m.scale;
+                e.bones = m.bones;
                 displays.put(m.id, e);
                 break;
             }
@@ -177,10 +230,21 @@ public final class DisplayClient implements IResourceManagerReloadListener {
             case DisplayWire.MOVE: {
                 Entry e = displays.get(m.id);
                 if (e != null) {
-                    e.x = m.x;
-                    e.y = m.y;
-                    e.z = m.z;
-                    e.yaw = m.yaw;
+                    e.moveTo(m.x, m.y, m.z, m.yaw, m.ticks, clock + partialTicks);
+                }
+                break;
+            }
+            case DisplayWire.SCALE: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.scale = m.scale;
+                }
+                break;
+            }
+            case DisplayWire.BONES: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.bones = m.bones;
                 }
                 break;
             }
@@ -285,20 +349,22 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         double cy = view.lastTickPosY + (view.posY - view.lastTickPosY) * t;
         double cz = view.lastTickPosZ + (view.posZ - view.lastTickPosZ) * t;
         DisplayModelIndex idx = index;
+        double now = clock + (mc.isGamePaused() ? 0 : t);
         for (Entry e : displays.values()) {
             DisplayModelIndex.Model model = idx.models()
                 .get(e.model);
             if (model == null) {
                 continue; // the pack does not declare it
             }
-            double dx = e.x - cx;
-            double dy = e.y - cy;
-            double dz = e.z - cz;
+            double[] p = e.at(now);
+            double dx = p[0] - cx;
+            double dy = p[1] - cy;
+            double dz = p[2] - cz;
             if (dx * dx + dy * dy + dz * dz > model.maxDistance * model.maxDistance) {
                 continue;
             }
             try {
-                r.render(e, model, dx, dy, dz, t);
+                r.render(e, model, dx, dy, dz, (float) p[3], t);
             } catch (RuntimeException | LinkageError ex) {
                 if (loggedErrors++ < MAX_LOGGED_ERRORS) {
                     Kunftig.LOG.error("Kunftig displays: cannot draw {}", e.model, ex);

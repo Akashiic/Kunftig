@@ -24,9 +24,11 @@ public final class KunftigApi {
      * fishing ({@code ModernFishHook#setLavaFishing}). 4: item models ({@code KunftigItems#setModel}). 5:
      * {@code ModernFishHook#setReelLocked}, {@code setCatchAimedAtAngler} and {@code KunftigPlayers#isHotbarSwitch}.
      * 6: holograms ({@code KunftigHolograms}). 7: the state of 3D fishing rods ({@code KunftigRods}). 8: 3D models
-     * in the world ({@code KunftigDisplays}).
+     * in the world ({@code KunftigDisplays}). 9: display scale, hidden bones, state blends and glides
+     * ({@code Display#setScale}, {@code setBoneVisible}, {@code teleport(Location, int)},
+     * {@code KunftigDisplays#drawsExtendedDisplays}) and the flight lock ({@code KunftigPlayers#setFlightLocked}).
      */
-    private static final int API_VERSION = 8;
+    private static final int API_VERSION = 9;
 
     private KunftigApi() {}
 

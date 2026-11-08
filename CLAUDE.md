@@ -7,7 +7,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
 
 ## Where things are
 
-* **API** (`api/`, `KunftigApi.API_VERSION`, now **8**):
+* **API** (`api/`, `KunftigApi.API_VERSION`, now **9**):
 
   | API | Feature |
   |---|---|
@@ -18,11 +18,12 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   | 6 | holograms |
   | 7 | 3D rods (`KunftigRods`) |
   | 8 | displays (`KunftigDisplays`): GeckoLib models placed in the world, with item stacks drawn at bones (AkashicFishing's Caixa da Sorte) |
+  | 9 | displays: model and per-display scale, hidden bones, state blends, glides (`drawsExtendedDisplays`, channel `kunftig:display2`); flight lock (`KunftigPlayers.setFlightLocked`, channel `kunftig:flight`, `flight/FlightLock` + `FlightEnvelope`) |
 
-  The guide is in `docs/API.md` (Portuguese; the displays are in section 13). Raise the version and update the version
+  The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14). Raise the version and update the version
   asserts in the API tests when adding to it.
 * **Wire protocols** are raw plugin messages:
-  * `kunftig:holo`, `kunftig:rod` and `kunftig:display`;
+  * `kunftig:holo`, `kunftig:rod`, `kunftig:display` and `kunftig:flight`;
   * a client registers a channel only when it can draw it, so plugins know who needs a fallback
     (`drawsDisplays`, `drawsRodModels`...).
 * **Client rendering** of rods and displays goes through GeckoLib Unofficial 1.0.4, loaded reflectively; without it,

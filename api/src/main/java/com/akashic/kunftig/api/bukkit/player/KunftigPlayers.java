@@ -12,6 +12,10 @@ public final class KunftigPlayers {
     public interface Provider {
 
         int getPing(Player player);
+
+        void setFlightLocked(Player player, boolean locked);
+
+        boolean isFlightLocked(Player player);
     }
 
     private static volatile Provider provider;
@@ -36,6 +40,39 @@ public final class KunftigPlayers {
             throw new IllegalStateException("KunftigPlayers is not available on this server");
         }
         return current.getPing(player);
+    }
+
+    /**
+     * Locks or frees the player's flight (API 9): while locked, a player who is not in creative cannot fly, whatever
+     * gives the flight. On the server, at the end of each of the player's ticks (after rings, armour, baubles and
+     * spells switched flying on), flying is switched off and the client told: every mod that flies through the player's
+     * capabilities, like the creative flight (Extra Utilities' angel ring, Draconic Evolution's armour, Botania's tiara,
+     * Ars Magica's flight...), and Bukkit's {@code setAllowFlight}, are covered. A Kunftig client also cuts upward
+     * speed that does not come from a jump or a push (a hit, an explosion, {@code setVelocity}): jetpacks, gliders,
+     * lift spells. The lock outlives the player's logout until freed; freeing it does not give flight back (the mods
+     * switch it on again by themselves; a plugin that took Bukkit's {@code allowFlight} away gives it back).
+     * <p>
+     * A protection layer, not an anticheat: a client without Kunftig, or a modified one, can still move upward, so for
+     * a rule like "no flying in this arena" also check that players do not stay in the air. Main thread only.
+     *
+     * @throws IllegalArgumentException if the player is not an online player of this server
+     * @since API 9
+     */
+    public static void setFlightLocked(Player player, boolean locked) {
+        Provider current = provider;
+        if (current == null) {
+            throw new IllegalStateException("KunftigPlayers is not available on this server");
+        }
+        current.setFlightLocked(player, locked);
+    }
+
+    /** Whether {@link #setFlightLocked} locked the player. @since API 9 */
+    public static boolean isFlightLocked(Player player) {
+        Provider current = provider;
+        if (current == null) {
+            throw new IllegalStateException("KunftigPlayers is not available on this server");
+        }
+        return current.isFlightLocked(player);
     }
 
     /** Hotbar slots are 0 to 8; anything else in a {@link PlayerItemHeldEvent} is not a real switch. */

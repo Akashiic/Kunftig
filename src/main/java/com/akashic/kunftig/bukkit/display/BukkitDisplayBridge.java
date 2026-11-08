@@ -10,6 +10,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -88,6 +89,12 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
     public boolean drawsDisplays(Player player) {
         return player.getListeningPluginChannels()
             .contains(DisplayWire.CHANNEL);
+    }
+
+    @Override
+    public boolean drawsExtendedDisplays(Player player) {
+        return drawsDisplays(player) && player.getListeningPluginChannels()
+            .contains(DisplayWire.CHANNEL_V2);
     }
 
     @SubscribeEvent
@@ -258,8 +265,16 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
 
         @Override
         public void teleport(Location location) {
+            teleport(location, 0);
+        }
+
+        @Override
+        public void teleport(Location location, int ticks) {
             if (location == null || location.getWorld() == null) {
                 throw new IllegalArgumentException("location with a world required");
+            }
+            if (ticks < 0 || ticks > DisplayWire.MAX_MOVE_TICKS) {
+                throw new IllegalArgumentException("ticks must be 0.." + DisplayWire.MAX_MOVE_TICKS + ": " + ticks);
             }
             state.moveTo(
                 location.getWorld()
@@ -267,7 +282,48 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
                 location.getX(),
                 location.getY(),
                 location.getZ(),
-                location.getYaw());
+                location.getYaw(),
+                ticks);
+        }
+
+        @Override
+        public void setScale(double x, double y, double z) {
+            for (double v : new double[] { x, y, z }) {
+                if (!(v >= DisplayWire.MIN_SCALE && v <= DisplayWire.MAX_SCALE)) {
+                    throw new IllegalArgumentException(
+                        "scale must be " + DisplayWire.MIN_SCALE + ".." + DisplayWire.MAX_SCALE + ": " + v);
+                }
+            }
+            state.setScale((float) x, (float) y, (float) z);
+        }
+
+        @Override
+        public void setScale(double scale) {
+            setScale(scale, scale, scale);
+        }
+
+        @Override
+        public double[] getScale() {
+            float[] s = state.scale();
+            return new double[] { s[0], s[1], s[2] };
+        }
+
+        @Override
+        public void setBoneVisible(String bone, boolean visible) {
+            if (bone == null || bone.isEmpty() || bone.length() > DisplayWire.MAX_NAME) {
+                throw new IllegalArgumentException("bone name required (at most " + DisplayWire.MAX_NAME + " chars)");
+            }
+            state.setBone(bone, visible);
+        }
+
+        @Override
+        public Map<String, Boolean> getBoneVisibility() {
+            return state.bones();
+        }
+
+        @Override
+        public void resetBones() {
+            state.resetBones();
         }
 
         @Override

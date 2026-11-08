@@ -26,7 +26,9 @@
     "rodmodel.RenderFishLineMixin",
     "rodmodel.ModelBipedRodArmMixin",
     "rodmodel.RenderPlayerCastRodMixin",
-    "rodmodel.ItemFishingRodCastMixin"
+    "rodmodel.ItemFishingRodCastMixin",
+    "flight.NetHandlerPlayClientFlightMixin",
+    "flight.EntityPlayerFlightMixin"
   ],
   "server": []
 }

@@ -2,11 +2,13 @@ package com.akashic.kunftig.bukkit.player;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.api.bukkit.player.KunftigPlayers;
 import com.akashic.kunftig.bukkit.fishing.CraftBridge;
+import com.akashic.kunftig.flight.FlightLock;
 
 /** {@link KunftigPlayers} on Thermos/Crucible. Loaded reflectively, only where Bukkit exists. */
 public final class BukkitPlayerBridge implements KunftigPlayers.Provider {
@@ -26,5 +28,22 @@ public final class BukkitPlayerBridge implements KunftigPlayers.Provider {
             throw new IllegalArgumentException("Not an online player: " + player);
         }
         return ((EntityPlayerMP) handle).ping;
+    }
+
+    @Override
+    public void setFlightLocked(Player player, boolean locked) {
+        if (!Bukkit.isPrimaryThread()) {
+            throw new IllegalStateException("KunftigPlayers.setFlightLocked must be used on the main thread");
+        }
+        net.minecraft.entity.Entity handle = CraftBridge.handle(player);
+        if (!(handle instanceof EntityPlayerMP)) {
+            throw new IllegalArgumentException("Not an online player: " + player);
+        }
+        FlightLock.INSTANCE.set((EntityPlayerMP) handle, locked);
+    }
+
+    @Override
+    public boolean isFlightLocked(Player player) {
+        return FlightLock.INSTANCE.isLocked(player.getUniqueId());
     }
 }
