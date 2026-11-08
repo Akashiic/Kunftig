@@ -10,6 +10,7 @@ import net.minecraft.util.ResourceLocation;
 
 import com.akashic.kunftig.client.display.DisplayClient;
 
+import software.bernie.geckolib3.core.AnimationState;
 import software.bernie.geckolib3.core.IAnimatable;
 import software.bernie.geckolib3.core.controller.AnimationController;
 import software.bernie.geckolib3.core.event.predicate.AnimationEvent;
@@ -86,8 +87,10 @@ final class DisplayGeoModel extends AnimatedGeoModel<DisplayAnimatable> {
             .getOrCreateAnimationData(key)
             .getAnimationControllers()
             .values()) {
-            if (c instanceof DisplayAnimatable.Controller && ((DisplayAnimatable.Controller) c).pendingOffset) {
-                // GeckoLib started the animation now; count its time from the state's start instead.
+            if (c instanceof DisplayAnimatable.Controller && ((DisplayAnimatable.Controller) c).pendingOffset
+                && ((AnimationController) c).getAnimationState() == AnimationState.Running) {
+                // GeckoLib started the animation now (or at the end of the blend); count its time from the state's
+                // start instead, as the server does.
                 ((AnimationController) c).tickOffset = ((DisplayAnimatable.Controller) c).offset;
                 ((DisplayAnimatable.Controller) c).pendingOffset = false;
                 processor.preAnimationSetup(a, seek);

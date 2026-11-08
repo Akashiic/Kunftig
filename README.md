@@ -43,6 +43,15 @@ colors on any 1.7.10 client and modern particles (`END_ROD`, `SOUL_FIRE_FLAME`, 
 particle. Plus `KunftigPlayers.getPing(player)`, 1.17's `Player#getPing`. Study (Portuguese):
 [docs/particles/ESTUDO.md](docs/particles/ESTUDO.md).
 
+## Feature 8: input, screen HUD, lock-on and attack prediction (API 11)
+
+For action combat on 1.7.10 (the Overkill plugin): **`KunftigInput`** gives the client keys of its own in Controls
+(special, skill, dodge, lock on) that reach plugins as `KunftigInputEvent`, validated and rate limited;
+**`KunftigHud`** draws text, bars and pictures on a player's screen; **`KunftigCamera`** locks the view on a target;
+**displays** glide, fly by themselves and turn on every axis (`Display#moveTo`, `setMotion`, `setRotation`); and a
+3D held model can start the next attack of a combo on the click (`ao_atacar`), confirmed by the server without
+restarting. See [docs/API.md](docs/API.md), sections 13 and 16 to 20 (Portuguese).
+
 ## Mods that get in the way on Crucible
 
 **PlayerContainerFix (BQ3-Thermos-patch): remove it on Crucible.** It fixes BetterQuesting's `ClassCastException` in
@@ -76,8 +85,19 @@ section 12 (Portuguese).
 Plugins place a GeckoLib model at a location through `KunftigDisplays` (API 8): a state (animation), a texture
 variant and up to 8 item stacks drawn at bones of the model. The server tracks who is in range (late joiners see the
 animation where it is) and the client draws it with world light, glowing and translucent bones. Models come from
-`assets/<namespace>/kunftig/displays.json`. AkashicFishing's Caixa da Sorte uses it. See [docs/API.md](docs/API.md),
-section 13 (Portuguese).
+`assets/<namespace>/kunftig/displays.json`. AkashicFishing's Caixa da Sorte uses it. API 9 adds model and per-display
+scale, bones hidden and shown at runtime, blends between states and glides between positions (AkashicFishing's lake
+boss). See [docs/API.md](docs/API.md), section 13 (Portuguese).
+
+## Feature 8: flight lock (server + client)
+
+`KunftigPlayers.setFlightLocked` (API 9) keeps a player from flying, whatever gives the flight: the server switches
+the creative-style flight off at the end of each of the player's ticks (rings, armour, baubles, spells, Bukkit's
+`setAllowFlight`), and a Kunftig client also cuts upward speed that does not come from a jump or a push (jetpacks,
+gliders). See [docs/API.md](docs/API.md), section 14 (Portuguese).
+
+`ModernFishHook#setMaxDistance` (API 10) lets a hook go farther than vanilla's 32 blocks from its angler (up to 128),
+for casts at far targets such as AkashicFishing's boss. See [docs/API.md](docs/API.md), section 15.
 
 ## Repository layout
 

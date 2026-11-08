@@ -58,8 +58,21 @@ public final class RodModelDef {
             this(rod, aura, arm, null, loop, twoHands, false);
         }
 
+        /**
+         * What the client plays on its own when the holder attacks (left click) during this state
+         * ({@code ao_atacar}), or null: nothing until the server says. The attack prediction of API 9: a combo
+         * starts on the client the instant of the click, and the server's confirmation does not restart it.
+         */
+        public final Attack attack;
+
         Clips(String rod, String aura, String arm, String armWithLine, boolean loop, boolean twoHands,
             boolean twoHandsWithLine) {
+            this(rod, aura, arm, armWithLine, loop, twoHands, twoHandsWithLine, null);
+        }
+
+        Clips(String rod, String aura, String arm, String armWithLine, boolean loop, boolean twoHands,
+            boolean twoHandsWithLine, Attack attack) {
+            this.attack = attack;
             this.rod = rod;
             this.aura = aura;
             this.arm = arm;
@@ -77,6 +90,29 @@ public final class RodModelDef {
         /** Whether both hands hold the rod, with the line out or not. */
         public boolean twoHands(boolean line) {
             return twoHands || line && twoHandsWithLine;
+        }
+    }
+
+    /**
+     * A state's {@code ao_atacar}: the state the client starts when the holder attacks within a window of the current
+     * state ({@code de} to {@code ate} ticks after it started, inclusive; without {@code ate}, until it ends).
+     */
+    public static final class Attack {
+
+        public final String next;
+        public final int from;
+        /** Inclusive; -1: until the state ends. */
+        public final int to;
+
+        public Attack(String next, int from, int to) {
+            this.next = next;
+            this.from = from;
+            this.to = to;
+        }
+
+        /** Whether an attack {@code elapsed} ticks into the state starts {@link #next}. */
+        public boolean accepts(long elapsed) {
+            return elapsed >= from && (to < 0 || elapsed <= to);
         }
     }
 

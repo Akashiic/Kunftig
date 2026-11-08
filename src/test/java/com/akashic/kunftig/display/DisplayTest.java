@@ -6,9 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -111,5 +116,126 @@ class DisplayTest {
             1,
             idx.errors()
                 .size());
+    }
+
+    @Test
+    void api9PartsTravelAndApi8MessagesStillRead() throws IOException {
+        Map<String, Boolean> bones = new LinkedHashMap<>();
+        bones.put("orbe_e", false);
+        bones.put("orbe_e_apagado", true);
+        DisplayWire.Message m = DisplayWire.read(
+            DisplayWire.show(
+                3,
+                0,
+                62,
+                0,
+                200f,
+                "akashicfishing:leviata_do_abismo",
+                "abismo",
+                "ocioso",
+                0,
+                null,
+                new float[] { 1, 1, 2.5f },
+                bones));
+        assertArrayEquals(new float[] { 1, 1, 2.5f }, m.scale, 1e-6f);
+        assertEquals(bones, m.bones);
+        DisplayWire.Message sc = DisplayWire.read(DisplayWire.scale(3, new float[] { 0.001f, 100f, Float.NaN }));
+        assertEquals(DisplayWire.SCALE, sc.op);
+        assertArrayEquals(new float[] { DisplayWire.MIN_SCALE, DisplayWire.MAX_SCALE, 1 }, sc.scale, 1e-6f);
+        DisplayWire.Message bn = DisplayWire.read(DisplayWire.bones(3, bones));
+        assertEquals(DisplayWire.BONES, bn.op);
+        assertEquals(bones, bn.bones);
+        assertEquals(3, DisplayWire.read(DisplayWire.move(3, 1, 2, 3, 4, 3)).ticks);
+        assertEquals(DisplayWire.MAX_MOVE_TICKS, DisplayWire.read(DisplayWire.move(3, 1, 2, 3, 4, 9999)).ticks);
+
+        // an API 8 server's SHOW and MOVE (without the API 9 tails) read with the defaults
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(DisplayWire.SHOW);
+            out.writeInt(5);
+            out.writeDouble(1);
+            out.writeDouble(2);
+            out.writeDouble(3);
+            out.writeFloat(0);
+            out.writeUTF("ns:m");
+            out.writeUTF("");
+            out.writeUTF("abrir");
+            out.writeInt(0);
+            out.writeByte(0);
+        }
+        DisplayWire.Message old = DisplayWire.read(bytes.toByteArray());
+        assertEquals("abrir", old.state);
+        assertArrayEquals(new float[] { 1, 1, 1 }, old.scale, 0f);
+        assertTrue(old.bones.isEmpty());
+        byte[] move = DisplayWire.move(5, 1, 2, 3, 4, 7);
+        // the tail is the API 9 ticks (2 bytes) and the API 11 pitch and roll (8)
+        assertEquals(0, DisplayWire.read(Arrays.copyOf(move, move.length - 10)).ticks, "MOVE sem a cauda: pula");
+        assertEquals(7, DisplayWire.read(Arrays.copyOf(move, move.length - 8)).ticks, "MOVE da API 9: desliza");
+    }
+
+    @Test
+    void theTrackerSendsScaleBonesAndGlides() {
+        DisplayTracker<String> t = new DisplayTracker<>();
+        DisplayTracker.State<String> d = t.create("w", 0, 62, 0, 0, "ns:boss", "", "ocioso", null, 64);
+        List<DisplayTracker.Viewer<String>> near = Collections
+            .singletonList(new DisplayTracker.Viewer<>("ana", "w", 5, 64, 0, true));
+        d.setScale(2, 2, 2);
+        d.setBone("orbe_e", false);
+        List<DisplayTracker.Out<String>> out = t.update(near);
+        assertEquals(1, out.size(), "quem chega recebe tudo no SHOW");
+        DisplayWire.Message show = DisplayWire.read(out.get(0).data);
+        assertArrayEquals(new float[] { 2, 2, 2 }, show.scale, 0f);
+        assertEquals(Collections.singletonMap("orbe_e", false), show.bones);
+
+        d.setBone("orbe_e", false);
+        d.setScale(2, 2, 2);
+        assertTrue(
+            t.update(near)
+                .isEmpty(),
+            "o mesmo valor não manda nada");
+        d.setScale(1, 1, 3);
+        d.setBone("orbe_e_apagado", true);
+        d.moveTo("w", 1, 62, 0, 10, 2);
+        out = t.update(near);
+        assertEquals(3, out.size());
+        assertEquals(2, DisplayWire.read(out.get(0).data).ticks);
+        assertEquals(DisplayWire.SCALE, DisplayWire.read(out.get(1).data).op);
+        assertEquals(2, DisplayWire.read(out.get(2).data).bones.size());
+        d.resetBones();
+        out = t.update(near);
+        assertTrue(DisplayWire.read(out.get(0).data).bones.isEmpty());
+        d.moveTo("outro", 0, 0, 0, 0, 5);
+        assertEquals(0, d.glide, "outro mundo: pula");
+    }
+
+    @Test
+    void theManifestReadsTheApi9Fields() {
+        DisplayModelIndex idx = new DisplayModelIndex();
+        String base = "\"geo\":\"ns:geo/b.geo.json\",\"animacoes\":\"ns:animations/b.json\",\"textura\":\"ns:textures/b.png\","
+            + "\"estados\":{\"ocioso\":{\"animacao\":\"animation.b.ocioso\",\"laco\":true}}";
+        idx.add(
+            "ns",
+            "{\"_formato\":1,\"exibicoes\":{\"boss\":{" + base
+                + ",\"escala\":4,\"ocultos\":[\"orbe_e_apagado\"],\"transicao\":6},"
+                + "\"simples\":{"
+                + base
+                + "},\"grande\":{"
+                + base
+                + ",\"escala\":500}}}",
+            "test");
+        DisplayModelIndex.Model boss = idx.models()
+            .get("ns:boss");
+        assertEquals(4f, boss.scale, 0f);
+        assertEquals(Collections.singletonList("orbe_e_apagado"), boss.hiddenBones);
+        assertEquals(6, boss.transitionTicks);
+        DisplayModelIndex.Model simple = idx.models()
+            .get("ns:simples");
+        assertEquals(1f, simple.scale, 0f);
+        assertTrue(simple.hiddenBones.isEmpty());
+        assertEquals(0, simple.transitionTicks);
+        assertFalse(
+            idx.models()
+                .containsKey("ns:grande"),
+            "escala fora de 0,05..64");
     }
 }

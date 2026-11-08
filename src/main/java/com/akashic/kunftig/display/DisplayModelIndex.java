@@ -25,7 +25,10 @@ import com.akashic.kunftig.common.text.Json;
  *       "itens": ["item_0", "item_1"],      // bones where the display's item stacks are drawn, in order
  *       "escala_item": 1.0,                 // optional
  *       "luz": [...], "translucido": [...], // bones drawn full bright / without writing depth
- *       "distancia": 48                     // optional: blocks from the camera beyond which it is not drawn
+ *       "distancia": 48,                    // optional: blocks from the camera beyond which it is not drawn
+ *       "escala": 4,                        // optional (API 9): the model is drawn this many times its size
+ *       "ocultos": ["parte_quebrada"],      // optional (API 9): bones (and what is under them) that start hidden
+ *       "transicao": 6                      // optional (API 9): ticks of blend into each new state
  *     }
  *   }
  * }
@@ -69,10 +72,17 @@ public final class DisplayModelIndex {
         public final List<String> lightBones;
         public final List<String> translucentBones;
         public final double maxDistance;
+        /** API 9: the model's own scale (its units times this). */
+        public final float scale;
+        /** API 9: bones hidden until the server shows them. */
+        public final List<String> hiddenBones;
+        /** API 9: ticks of blend into a new state (0: it jumps). */
+        public final int transitionTicks;
 
         Model(String id, String geo, String animations, String texture, Map<String, String> variants,
             Map<String, State> states, List<String> itemBones, float itemScale, List<String> lightBones,
-            List<String> translucentBones, double maxDistance) {
+            List<String> translucentBones, double maxDistance, float scale, List<String> hiddenBones,
+            int transitionTicks) {
             this.id = id;
             this.geo = geo;
             this.animations = animations;
@@ -84,6 +94,9 @@ public final class DisplayModelIndex {
             this.lightBones = lightBones;
             this.translucentBones = translucentBones;
             this.maxDistance = maxDistance;
+            this.scale = scale;
+            this.hiddenBones = hiddenBones;
+            this.transitionTicks = transitionTicks;
         }
 
         /** The texture of a variant, or the default one when the variant is empty or unknown. */
@@ -206,6 +219,8 @@ public final class DisplayModelIndex {
         }
         float scale = (float) number(o, "escala_item", 1, 0.05, 16);
         double distance = number(o, "distancia", 64, 4, 256);
+        float modelScale = (float) number(o, "escala", 1, 0.05, 64);
+        int transition = (int) Math.round(number(o, "transicao", 0, 0, 40));
         return new Model(
             id,
             geo,
@@ -217,7 +232,10 @@ public final class DisplayModelIndex {
             scale,
             names(o, "luz"),
             names(o, "translucido"),
-            distance);
+            distance,
+            modelScale,
+            names(o, "ocultos"),
+            transition);
     }
 
     private static String location(Map<?, ?> o, String field) throws Invalid {

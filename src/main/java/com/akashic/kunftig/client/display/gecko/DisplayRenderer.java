@@ -62,6 +62,9 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
     private static final int KEYS = 256;
     private final FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
     private DisplayAnimatable current;
+    /** The display being drawn (its bones hidden or shown by the server, API 9). */
+    private DisplayClient.Entry currentEntry;
+    private DisplayModelIndex.Model currentDef;
     private Map<String, Pass> passes;
     private Pass pass = Pass.OPAQUE;
     /** The item bones of the display being drawn (name -> index) and their matrices, captured in the opaque pass. */
@@ -116,19 +119,22 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         a.animation = st == null ? null : st.animation;
         a.loop = st != null && st.loop;
         a.start = e.start;
+        a.transition = def.transitionTicks;
         a.model.texture = location(def.texture(e.variant));
         GeoModel model = a.model.getModel(a.model.geo); // also registers the bones for animation
         a.model.setLivingAnimations(a, Math.floorMod(e.id, KEYS), null);
         Minecraft mc = Minecraft.getMinecraft();
         int light = mc.theWorld.getLightBrightnessForSkyBlocks(
-            MathHelper.floor_double(e.x),
-            MathHelper.floor_double(e.y + 1.5),
-            MathHelper.floor_double(e.z),
+            MathHelper.floor_double(e.motion.x(partialTicks)),
+            MathHelper.floor_double(e.motion.y(partialTicks) + 1.5),
+            MathHelper.floor_double(e.motion.z(partialTicks)),
             0);
         float lx = light % 65536;
         float ly = light / 65536f;
 
         current = a;
+        currentEntry = e;
+        currentDef = def;
         passes = passMaps.get(def.id);
         itemBones = new HashMap<>();
         for (int i = 0; i < def.itemBones.size() && i < itemMatrices.length; i++) {
@@ -140,10 +146,24 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         int blendSrc = GL11.glGetInteger(GL11.GL_BLEND_SRC);
         int blendDst = GL11.glGetInteger(GL11.GL_BLEND_DST);
+        boolean normalize = GL11.glIsEnabled(GL11.GL_NORMALIZE);
+        float[] sc = e.scale;
+        float sx = def.scale * sc[0];
+        float sy = def.scale * sc[1];
+        float sz = def.scale * sc[2];
+        boolean scaled = sx != 1 || sy != 1 || sz != 1;
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(dx, dy, dz);
-            GL11.glRotatef(-e.yaw, 0, 1, 0);
+            GL11.glRotatef(-e.motion.yaw(partialTicks), 0, 1, 0);
+            // API 9: pitch tips the front (+Z) down, then roll turns about the front
+            GL11.glRotatef(e.motion.pitch(partialTicks), 1, 0, 0);
+            GL11.glRotatef(e.motion.roll(partialTicks), 0, 0, 1);
+            if (scaled) {
+                // API 9: the model's scale and the display's; normals renormalised (the lighting would darken)
+                GL11.glScalef(sx, sy, sz);
+                GL11.glEnable(GL11.GL_NORMALIZE);
+            }
             RenderHelper.enableStandardItemLighting();
             GL11.glColor4f(1, 1, 1, 1);
             mc.renderEngine.bindTexture(a.model.texture);
@@ -168,7 +188,10 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         } finally {
             pass = Pass.OPAQUE;
             current = null;
+            currentEntry = null;
+            currentDef = null;
             itemBones = null;
+            setEnabled(GL11.GL_NORMALIZE, normalize);
             GlStateManager.disableRescaleNormal();
             RenderHelper.disableStandardItemLighting();
             GL11.glDepthMask(depthMask);
@@ -266,6 +289,9 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
     @Override
     public void renderRecursively(Tessellator tess, DisplayAnimatable animatable, GeoBone bone, float red, float green,
         float blue, float alpha) {
+        if (currentEntry != null && currentDef != null && !currentEntry.boneVisible(bone.getName(), currentDef)) {
+            return; // hidden by the manifest or the server: the bone and everything under it (API 9)
+        }
         MATRIX_STACK.push();
         MATRIX_STACK.translate(bone);
         MATRIX_STACK.moveToPivot(bone);

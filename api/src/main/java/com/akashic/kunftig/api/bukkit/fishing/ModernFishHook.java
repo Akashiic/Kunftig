@@ -165,6 +165,18 @@ public interface ModernFishHook {
     /** The hook is floating in lava. Kunftig extension. */
     boolean isInLava();
 
+    // ---------------------------------------------------------------- Kunftig extensions: range (API level 10)
+
+    /**
+     * How far the hook may get from its angler before it is removed (vanilla: 32 blocks), clamped to 4..128. For
+     * casts at far targets, such as a boss's weak points. Clients draw a hook up to 64 blocks away and the server
+     * tracks it to 64 by default, so past that the hook still works but may not be seen. Main thread. API level 10.
+     */
+    void setMaxDistance(double blocks);
+
+    /** The hook's range in blocks (32 unless changed). API level 10. */
+    double getMaxDistance();
+
     // ---------------------------------------------------------------- Kunftig extensions: minigames (API level 5)
 
     /**

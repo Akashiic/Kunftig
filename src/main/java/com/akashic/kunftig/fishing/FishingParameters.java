@@ -192,6 +192,27 @@ public final class FishingParameters {
         lavaFishing = value;
     }
 
+    // --- range (Kunftig extension, API 10)
+
+    /** Vanilla's: the hook is removed once it is this far from its angler. */
+    public static final double DEFAULT_MAX_DISTANCE = 32.0D;
+    public static final double MIN_MAX_DISTANCE = 4.0D;
+    public static final double MAX_MAX_DISTANCE = 128.0D;
+
+    private double maxDistance = DEFAULT_MAX_DISTANCE;
+
+    public double maxDistance() {
+        return maxDistance;
+    }
+
+    /** How far the hook may get from its angler before it is removed, clamped to 4..128 blocks (vanilla: 32). */
+    public void setMaxDistance(double blocks) {
+        if (Double.isNaN(blocks)) {
+            return;
+        }
+        maxDistance = Math.max(MIN_MAX_DISTANCE, Math.min(MAX_MAX_DISTANCE, blocks));
+    }
+
     // --- caught item aimed at the angler (Kunftig extension, issue #10)
 
     public boolean catchAimedAtAngler() {

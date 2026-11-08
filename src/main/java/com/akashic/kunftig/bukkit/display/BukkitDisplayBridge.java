@@ -10,6 +10,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -88,6 +89,12 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
     public boolean drawsDisplays(Player player) {
         return player.getListeningPluginChannels()
             .contains(DisplayWire.CHANNEL);
+    }
+
+    @Override
+    public boolean drawsExtendedDisplays(Player player) {
+        return drawsDisplays(player) && player.getListeningPluginChannels()
+            .contains(DisplayWire.CHANNEL_V2);
     }
 
     @SubscribeEvent
@@ -215,7 +222,7 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
         @Override
         public Location getLocation() {
             double[] p = state.position();
-            return new Location(Bukkit.getWorld(state.world()), p[0], p[1], p[2], (float) p[3], 0);
+            return new Location(Bukkit.getWorld(state.world()), p[0], p[1], p[2], (float) p[3], state.rotation()[1]);
         }
 
         @Override
@@ -261,13 +268,107 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
             if (location == null || location.getWorld() == null) {
                 throw new IllegalArgumentException("location with a world required");
             }
+            moveTo(location, 0);
+        }
+
+        @Override
+        public void moveTo(Location location, int glideTicks) {
+            if (location == null || location.getWorld() == null) {
+                throw new IllegalArgumentException("location with a world required");
+            }
+            float[] r = state.rotation();
             state.moveTo(
                 location.getWorld()
                     .getName(),
                 location.getX(),
                 location.getY(),
                 location.getZ(),
-                location.getYaw());
+                location.getYaw(),
+                r[1],
+                r[2],
+                glideTicks);
+        }
+
+        @Override
+        public void setScale(double x, double y, double z) {
+            for (double v : new double[] { x, y, z }) {
+                if (!(v >= DisplayWire.MIN_SCALE && v <= DisplayWire.MAX_SCALE)) {
+                    throw new IllegalArgumentException(
+                        "scale must be " + DisplayWire.MIN_SCALE + ".." + DisplayWire.MAX_SCALE + ": " + v);
+                }
+            }
+            state.setScale((float) x, (float) y, (float) z);
+        }
+
+        @Override
+        public void setScale(double scale) {
+            setScale(scale, scale, scale);
+        }
+
+        @Override
+        public double[] getScale() {
+            float[] s = state.scale();
+            return new double[] { s[0], s[1], s[2] };
+        }
+
+        @Override
+        public void setBoneVisible(String bone, boolean visible) {
+            if (bone == null || bone.isEmpty() || bone.length() > DisplayWire.MAX_NAME) {
+                throw new IllegalArgumentException("bone name required (at most " + DisplayWire.MAX_NAME + " chars)");
+            }
+            state.setBone(bone, visible);
+        }
+
+        @Override
+        public Map<String, Boolean> getBoneVisibility() {
+            return state.bones();
+        }
+
+        @Override
+        public void resetBones() {
+            state.resetBones();
+        }
+
+        @Override
+        public void setRotation(float yaw, float pitch, float roll) {
+            if (!Float.isFinite(yaw) || !Float.isFinite(pitch) || !Float.isFinite(roll)) {
+                throw new IllegalArgumentException("rotation must be finite");
+            }
+            double[] p = state.position();
+            double[] v = state.motion();
+            state.moveTo(state.world(), p[0], p[1], p[2], yaw, pitch, roll, 1);
+            if (v[0] != 0 || v[1] != 0 || v[2] != 0) {
+                state.setMotion(v[0], v[1], v[2]); // turning does not stop a flight
+            }
+        }
+
+        @Override
+        public float getPitch() {
+            return state.rotation()[1];
+        }
+
+        @Override
+        public float getRoll() {
+            return state.rotation()[2];
+        }
+
+        @Override
+        public void setMotion(org.bukkit.util.Vector perTick) {
+            if (perTick == null) {
+                state.setMotion(0, 0, 0);
+                return;
+            }
+            if (!Double.isFinite(perTick.getX()) || !Double.isFinite(perTick.getY())
+                || !Double.isFinite(perTick.getZ())) {
+                throw new IllegalArgumentException("motion must be finite");
+            }
+            state.setMotion(perTick.getX(), perTick.getY(), perTick.getZ());
+        }
+
+        @Override
+        public org.bukkit.util.Vector getMotion() {
+            double[] v = state.motion();
+            return new org.bukkit.util.Vector(v[0], v[1], v[2]);
         }
 
         @Override

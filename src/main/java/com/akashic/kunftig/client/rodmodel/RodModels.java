@@ -344,6 +344,12 @@ public final class RodModels implements IResourceManagerReloadListener {
                 return c != null && c.loop;
             }
 
+            @Override
+            public String attack(String state, long elapsedTicks) {
+                RodModelDef.Clips c = rod == null ? null : rod.states.get(name(state));
+                return c == null || c.attack == null || !c.attack.accepts(elapsedTicks) ? null : c.attack.next;
+            }
+
             /** The clip plus the blend into it: the clip starts once the blend is over. */
             @Override
             public int lengthTicks(String state) {
@@ -540,6 +546,21 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
     }
 
+    /**
+     * {@code EntityClientPlayerMP#swingItem}: the local player swings, and the server is told in the same instant
+     * (an arm swing packet). Starts the next attack of the held model's combo ({@code ao_atacar}), if any.
+     */
+    public void onLocalSwing(EntityPlayer player) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!active() || player != mc.thePlayer) {
+            return;
+        }
+        RodModelIndex.Resolved r = resolve(player.getHeldItem());
+        if (r != null) {
+            timeline(player).localAttack(clock, clips(r.model, band(player, player.getHeldItem(), r.model)));
+        }
+    }
+
     /** Debug ({@code /kunftigclient rods state}): plays a state on the local player's rod. */
     public boolean forceLocalState(String state, float tension) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -582,7 +603,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         RodTimeline t = timelines.computeIfAbsent(m.entityId, k -> new RodTimeline());
         t.touch(clock); // the player may spawn on this client right after
         if (m.op == RodWire.STATE) {
-            t.server(m.state, clock - m.elapsedTicks);
+            t.fromServer(m.state, clock - m.elapsedTicks, clock);
         }
         t.setTension(m.tension);
     }

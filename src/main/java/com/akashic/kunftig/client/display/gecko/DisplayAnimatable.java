@@ -28,6 +28,8 @@ final class DisplayAnimatable implements IAnimatable {
     String animation;
     boolean loop;
     long start;
+    /** Ticks of blend into a new state (the manifest's {@code transicao}, API 9). */
+    int transition;
 
     DisplayAnimatable(DisplayModelIndex.Model def, DisplayGeoModel model) {
         this.def = def;
@@ -45,11 +47,15 @@ final class DisplayAnimatable implements IAnimatable {
         return factory;
     }
 
-    /** Starts the animation when the state (or its start) changes; its time then counts from the state's start. */
+    /**
+     * Starts the animation when the state (or its start) changes; once it runs (after the blend, if any), its time
+     * counts from the state's start, so the clients stay in step with the server.
+     */
     static final class Controller extends AnimationController<DisplayAnimatable> {
 
         private String applied;
         private long appliedStart = Long.MIN_VALUE;
+        /** The animation runs and its clock has not been set to the state's start yet. */
         boolean pendingOffset;
         long offset;
 
@@ -64,7 +70,8 @@ final class DisplayAnimatable implements IAnimatable {
                 return PlayState.STOP;
             }
             if (!a.animation.equals(applied) || a.start != appliedStart) {
-                transitionLengthTicks = 0;
+                // blend only from a pose this display had (not on the first sight of it)
+                transitionLengthTicks = applied == null ? 0 : a.transition;
                 markNeedsReload();
                 setAnimation(
                     new AnimationBuilder().addAnimation(

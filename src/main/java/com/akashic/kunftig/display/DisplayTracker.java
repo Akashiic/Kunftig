@@ -16,7 +16,8 @@ import java.util.Set;
  * player who relogs or respawns gets every display again), it sees a display while it listens to
  * {@link DisplayWire#CHANNEL}, is in its world and within range, and it stops seeing it {@link #HYSTERESIS} blocks
  * beyond. Each display remembers the tick its state started, so a late viewer gets the state with the time already
- * played. No Minecraft classes; main thread only.
+ * played. A display with a motion (API 9) moves by it every tick here and on the clients, so no message is needed
+ * while it flies. No Minecraft classes; main thread only.
  *
  * @param <C> the connection (player entity) type
  */
@@ -69,13 +70,24 @@ public final class DisplayTracker<C> {
         double y;
         double z;
         float yaw;
+        float pitch;
+        float roll;
+        double vx;
+        double vy;
+        double vz;
+        int glide;
         String state;
         long stateStart;
         List<byte[]> items;
+        float[] scale = { 1, 1, 1 };
+        Map<String, Boolean> bones = new LinkedHashMap<>();
         boolean removed;
         boolean stateChanged;
         boolean itemsChanged;
         boolean moved;
+        boolean motionChanged;
+        boolean scaleChanged;
+        boolean bonesChanged;
         final Set<C> shown = Collections.newSetFromMap(new IdentityHashMap<>());
 
         State(int id, String world, double x, double y, double z, float yaw, String model, String variant, String state,
@@ -127,14 +139,104 @@ public final class DisplayTracker<C> {
         }
 
         public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw) {
-            if (!newWorld.equals(world) || nx != x || ny != y || nz != z || nyaw != yaw) {
+            moveTo(newWorld, nx, ny, nz, nyaw, pitch, roll, 0);
+        }
+
+        /** Moves it, keeping the pitch and roll; viewers glide there over {@code ticks} (0: at once). */
+        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, int ticks) {
+            moveTo(newWorld, nx, ny, nz, nyaw, pitch, roll, ticks);
+        }
+
+        /**
+         * Moves it (and stops its flight): viewers in the same world glide there over {@code glideTicks} (0: jump);
+         * the full rotation, in degrees.
+         */
+        public synchronized void moveTo(String newWorld, double nx, double ny, double nz, float nyaw, float npitch,
+            float nroll, int glideTicks) {
+            boolean stop = vx != 0 || vy != 0 || vz != 0;
+            if (stop) {
+                vx = 0;
+                vy = 0;
+                vz = 0;
+                motionChanged = true;
+            }
+            if (!newWorld.equals(world) || nx != x
+                || ny != y
+                || nz != z
+                || nyaw != yaw
+                || npitch != pitch
+                || nroll != roll) {
+                // another world is always a jump: viewers there see it appear
+                glide = newWorld.equals(world) ? Math.max(0, Math.min(DisplayWire.MAX_GLIDE, glideTicks)) : 0;
                 world = newWorld;
                 x = nx;
                 y = ny;
                 z = nz;
                 yaw = nyaw;
+                pitch = npitch;
+                roll = nroll;
                 moved = true;
             }
+        }
+
+        /** The scale on the model's X, Y and Z, on top of the manifest's (1, 1, 1 by default). */
+        public synchronized void setScale(float sx, float sy, float sz) {
+            float[] next = { DisplayWire.clampScale(sx), DisplayWire.clampScale(sy), DisplayWire.clampScale(sz) };
+            if (next[0] != scale[0] || next[1] != scale[1] || next[2] != scale[2]) {
+                scale = next;
+                scaleChanged = true;
+            }
+        }
+
+        public synchronized float[] scale() {
+            return scale.clone();
+        }
+
+        /** Shows or hides a bone (and everything under it), whatever the manifest says. */
+        public synchronized void setBone(String bone, boolean visible) {
+            Boolean old = bones.get(bone);
+            if (old == null || old != visible) {
+                if (old == null && bones.size() >= DisplayWire.MAX_BONES) {
+                    throw new IllegalStateException("at most " + DisplayWire.MAX_BONES + " bones set per display");
+                }
+                bones.put(bone, visible);
+                bonesChanged = true;
+            }
+        }
+
+        /** Every bone back to the manifest's default. */
+        public synchronized void resetBones() {
+            if (!bones.isEmpty()) {
+                bones.clear();
+                bonesChanged = true;
+            }
+        }
+
+        public synchronized Map<String, Boolean> bones() {
+            return Collections.unmodifiableMap(new LinkedHashMap<>(bones));
+        }
+
+        /** Flies from where it is, {@code vx, vy, vz} blocks per tick, on the server and on every client (0: stops). */
+        public synchronized void setMotion(double nvx, double nvy, double nvz) {
+            double a = DisplayWire.speed(nvx);
+            double b = DisplayWire.speed(nvy);
+            double c = DisplayWire.speed(nvz);
+            if (a != vx || b != vy || c != vz) {
+                vx = a;
+                vy = b;
+                vz = c;
+                motionChanged = true;
+            }
+        }
+
+        /** Blocks per tick. */
+        public synchronized double[] motion() {
+            return new double[] { vx, vy, vz };
+        }
+
+        /** Yaw, pitch and roll in degrees. */
+        public synchronized float[] rotation() {
+            return new float[] { yaw, pitch, roll };
         }
 
         public synchronized void remove() {
@@ -210,7 +312,16 @@ public final class DisplayTracker<C> {
                         continue;
                     }
                     if (d.moved) {
-                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw)));
+                        out.add(new Out<>(c, DisplayWire.move(d.id, d.x, d.y, d.z, d.yaw, d.glide, d.pitch, d.roll)));
+                    }
+                    if (d.motionChanged) {
+                        out.add(new Out<>(c, DisplayWire.motion(d.id, d.x, d.y, d.z, d.vx, d.vy, d.vz)));
+                    }
+                    if (d.scaleChanged) {
+                        out.add(new Out<>(c, DisplayWire.scale(d.id, d.scale)));
+                    }
+                    if (d.bonesChanged) {
+                        out.add(new Out<>(c, DisplayWire.bones(d.id, d.bones)));
                     }
                     if (d.itemsChanged) {
                         out.add(new Out<>(c, DisplayWire.items(d.id, d.items)));
@@ -220,6 +331,10 @@ public final class DisplayTracker<C> {
                     }
                 }
                 d.moved = false;
+                d.motionChanged = false;
+                d.scaleChanged = false;
+                d.bonesChanged = false;
+                d.glide = 0;
                 d.itemsChanged = false;
                 d.stateChanged = false;
                 for (Viewer<C> v : viewers) {
@@ -227,11 +342,31 @@ public final class DisplayTracker<C> {
                         out.add(
                             new Out<>(
                                 v.connection,
-                                DisplayWire
-                                    .show(d.id, d.x, d.y, d.z, d.yaw, d.model, d.variant, d.state, elapsed, d.items)));
+                                DisplayWire.show(
+                                    d.id,
+                                    d.x,
+                                    d.y,
+                                    d.z,
+                                    d.yaw,
+                                    d.pitch,
+                                    d.roll,
+                                    d.vx,
+                                    d.vy,
+                                    d.vz,
+                                    d.model,
+                                    d.variant,
+                                    d.state,
+                                    elapsed,
+                                    d.items,
+                                    d.scale,
+                                    d.bones)));
                         d.shown.add(v.connection);
                     }
                 }
+                // a flying display moves on its own, here as on the clients (after this tick's messages)
+                d.x += d.vx;
+                d.y += d.vy;
+                d.z += d.vz;
             }
         }
         tick++;

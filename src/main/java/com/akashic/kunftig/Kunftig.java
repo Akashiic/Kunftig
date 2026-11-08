@@ -38,6 +38,10 @@ public final class Kunftig {
         cpw.mods.fml.common.FMLCommonHandler.instance()
             .bus()
             .register(new com.akashic.kunftig.fishing.ModernBobberAnnouncer());
+        // The flight lock (API 9): locked players stop flying at the end of each of their ticks.
+        cpw.mods.fml.common.FMLCommonHandler.instance()
+            .bus()
+            .register(com.akashic.kunftig.flight.FlightLock.INSTANCE);
         if (Boolean.getBoolean("kunftig.devHarness")) {
             install("com.akashic.kunftig.dev.FishingHarness"); // development only, absent from release jars
         }
@@ -78,6 +82,9 @@ public final class Kunftig {
             install("com.akashic.kunftig.bukkit.hologram.BukkitHologramBridge");
             install("com.akashic.kunftig.bukkit.rod.BukkitRodBridge");
             install("com.akashic.kunftig.bukkit.display.BukkitDisplayBridge");
+            install("com.akashic.kunftig.bukkit.input.BukkitInputBridge");
+            install("com.akashic.kunftig.bukkit.screen.BukkitScreenBridge");
+            install("com.akashic.kunftig.bukkit.blade.BukkitBladeBridge");
         }
     }
 

@@ -53,10 +53,16 @@ class DisplayApiTest {
             public boolean drawsDisplays(Player player) {
                 return true;
             }
+
+            @Override
+            public boolean drawsExtendedDisplays(Player player) {
+                return false;
+            }
         });
         try {
             assertTrue(KunftigApi.isDisplaysAvailable());
-            assertEquals(8, KunftigApi.apiVersion());
+            assertEquals(11, KunftigApi.apiVersion());
+            assertFalse(KunftigDisplays.drawsExtendedDisplays(proxy(Player.class)));
             assertSame(made, KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", "epico", "abrir", null));
             assertSame(made, KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", null, "abrir", null, 32));
             assertEquals(

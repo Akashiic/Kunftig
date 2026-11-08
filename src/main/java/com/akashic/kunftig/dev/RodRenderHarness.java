@@ -109,6 +109,45 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (fish) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length <= 2 && mode[0].equals("sb")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planSlashBlade(mode.length == 2 ? mode[1] : "sbref:yamato");
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sb) enabled: this client will take screenshots and quit");
+                return;
+            }
+            if (mode.length == 2 && mode[0].equals("sbseq")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planSlashBladeSequences(mode[1]);
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sbseq) enabled: this client will take screenshots and quit");
+                return;
+            }
+            if (mode.length <= 3 && mode[0].equals("sbfx")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.fxNs = mode.length >= 2 ? mode[1] : "sbref";
+                h.fxBlade = mode.length >= 3 ? mode[2] : "sbref:yamato";
+                h.planSlashBladeEffects();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sbfx) enabled: this client will take screenshots and quit");
+                return;
+            }
+            if (mode.length == 1 && mode[0].equals("blades")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planBlades();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (blades) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("edge")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planEdge();
@@ -118,8 +157,20 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (edge) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 3 && mode[0].equals("skins")) {
+                SkinHarness.install(mode[1], Integer.parseInt(mode[2]));
+                return;
+            }
+            if ((mode.length == 3 || mode.length == 4) && mode[0].equals("boss")) {
+                BossHarness.install(mode[1], Integer.parseInt(mode[2]), mode.length == 4 ? mode[3] : "");
+                return;
+            }
             if (mode.length == 3 && mode[0].equals("caixa")) {
                 LuckBoxHarness.install(mode[1], Integer.parseInt(mode[2]));
+                return;
+            }
+            if (mode.length == 3 && mode[0].equals("overkill")) {
+                OverkillServerHarness.install(mode[1], Integer.parseInt(mode[2]));
                 return;
             }
             if (mode.length == 3 && mode[0].equals("server")) {
@@ -323,6 +374,721 @@ public final class RodRenderHarness {
         place(p, yaw, 0);
         mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
         mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0;
+    }
+
+    /** A sword with an item model (the Overkill pack's blades are golden swords by default). */
+    static ItemStack blade(String model) {
+        ItemStack stack = new ItemStack(Items.golden_sword);
+        NBTTagCompound tag = new NBTTagCompound();
+        NBTTagCompound values = new NBTTagCompound();
+        values.setString("kunftig:model", model);
+        tag.setTag("PublicBukkitValues", values);
+        stack.setTagCompound(tag);
+        return stack;
+    }
+
+    private static String state(Minecraft mc) {
+        return RodModels.INSTANCE.active() ? String.valueOf(
+            RodModels.INSTANCE.timeline(mc.thePlayer)
+                .state())
+            : "-";
+    }
+
+    private void check(String what, Object expected, Object actual) {
+        report(
+            (java.util.Objects.equals(expected, actual) ? "OK   " : "FAIL ") + what
+                + ": expected "
+                + expected
+                + ", got "
+                + actual);
+    }
+
+    /**
+     * API 9 with the Overkill pack (resource pack "Overkill" selected): the katana in first and third person in its
+     * states, the attack prediction driven by real swings, displays turned and flying, the screen HUD and the lock-on.
+     * Checks go to the report as OK / FAIL lines.
+     */
+    private void planBlades() {
+        String k = "overkill:katana/basica";
+        steps.add(new Step("blade-fp-idle", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 10);
+            view(mc, 0);
+            hold(p, blade(k));
+        }));
+        steps.add(new Step("blade-fp-empty", 5, (mc, p) -> hold(p, null)));
+        steps.add(new Step("blade-fp-sacar", 4, (mc, p) -> hold(p, blade(k))));
+        // the attack prediction: real swings of the local player (EntityClientPlayerMP#swingItem)
+        steps.add(new Step("blade-fp-predict-golpe_1", 5, (mc, p) -> {
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            mc.thePlayer.swingItem();
+            check("swing from idle predicts golpe_1", "golpe_1", state(mc));
+        }));
+        steps.add(new Step("blade-fp-predict-golpe_2", 2, (mc, p) -> {
+            mc.thePlayer.swingItem();
+            check("swing in golpe_1's window predicts golpe_2", "golpe_2", state(mc));
+            long start = RodModels.INSTANCE.timeline(mc.thePlayer)
+                .start();
+            mc.thePlayer.swingItem();
+            check("a swing before golpe_2's window does nothing", "golpe_2", state(mc));
+            RodModels.INSTANCE
+                .onPayload(com.akashic.kunftig.rodmodel.RodWire.state(mc.thePlayer.getEntityId(), "golpe_2", 1, 0));
+            check(
+                "the server confirming golpe_2 does not restart it",
+                start,
+                RodModels.INSTANCE.timeline(mc.thePlayer)
+                    .start());
+            RodModels.INSTANCE
+                .onPayload(com.akashic.kunftig.rodmodel.RodWire.state(mc.thePlayer.getEntityId(), "golpe_1", 0, 0));
+            check("the server correcting to golpe_1 wins", "golpe_1", state(mc));
+        }));
+        String[][] moves = { { "golpe_1", "4" }, { "golpe_2", "4" }, { "golpe_3", "5" }, { "golpe_4", "6" },
+            { "estocada", "6" }, { "lancamento", "5" }, { "aereo_3", "5" }, { "queda", "4" }, { "iaido", "3" },
+            { "corte_dimensional", "9" }, { "onda", "9" }, { "corte_circular", "9" } };
+        for (String[] m : moves) {
+            steps.add(
+                new Step(
+                    "blade-fp-" + m[0],
+                    Integer.parseInt(m[1]),
+                    (mc, p) -> RodModels.INSTANCE.forceLocalState(m[0], 0)));
+        }
+        steps.add(new Step("blade-tp-front-idle", 25, (mc, p) -> {
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            view(mc, 2);
+        }));
+        for (String[] m : new String[][] { { "golpe_1", "4" }, { "golpe_3", "5" }, { "golpe_4", "6" }, { "iaido", "3" },
+            { "estocada", "6" } }) {
+            steps.add(
+                new Step(
+                    "blade-tp-front-" + m[0],
+                    Integer.parseInt(m[1]),
+                    (mc, p) -> RodModels.INSTANCE.forceLocalState(m[0], 0)));
+        }
+        steps.add(new Step("blade-tp-back-golpe_2", 4, (mc, p) -> {
+            view(mc, 1);
+            RodModels.INSTANCE.forceLocalState("golpe_2", 0);
+        }));
+        // displays: a dimension cut, a wave flying with a roll, a summoned sword tipped down
+        steps.add(new Step("blade-displays", 12, (mc, p) -> {
+            view(mc, 0);
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            place(p, 180, 5);
+            com.akashic.kunftig.client.display.DisplayClient d = com.akashic.kunftig.client.display.DisplayClient.INSTANCE;
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire.show(
+                    9001,
+                    -1.5,
+                    5.2,
+                    -4.5,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    "overkill:corte_dimensional",
+                    "",
+                    "cortar",
+                    0,
+                    null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9002, 1.5, 4.8, -2.5, 180, 0, 30, 0, 0, -0.08, "overkill:onda", "", "voar", 0, null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9003, 0.5, 5.6, -3, 180, 25, 0, 0, 0, 0, "overkill:espada_invocada", "", "voar", 0, null));
+            d.onPayload(
+                com.akashic.kunftig.display.DisplayWire
+                    .show(9004, 0.5, 4, -6, 0, 0, 0, 0, 0, 0, "overkill:corte_circular", "", "girar", 0, null));
+        }));
+        steps.add(new Step("blade-displays-later", 6, (mc, p) -> {
+            check("4 displays shown", 4, com.akashic.kunftig.client.display.DisplayClient.INSTANCE.count());
+            com.akashic.kunftig.client.display.DisplayClient.INSTANCE
+                .onPayload(com.akashic.kunftig.display.DisplayWire.move(9003, 2.5, 5, -3, 270, 6, -30, 0));
+        }));
+        // the screen HUD
+        steps.add(new Step("blade-hud", 4, (mc, p) -> {
+            com.akashic.kunftig.client.screen.HudClient h = com.akashic.kunftig.client.screen.HudClient.INSTANCE;
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:rank",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.RIGHT,
+                        -16,
+                        -34,
+                        3,
+                        "\u00a76\u00a7lS",
+                        -1,
+                        0,
+                        0,
+                        0,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:rank_titulo",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.RIGHT,
+                        -16,
+                        0,
+                        1,
+                        "\u00a7e\u00a7lSelvagem\n\u00a7712 golpes",
+                        0.6F,
+                        64,
+                        0xFFFFFF55,
+                        0x80000000,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            h.onPayload(
+                com.akashic.kunftig.screen.HudWire.set(
+                    "overkill:carga",
+                    new com.akashic.kunftig.screen.HudWire.Element(
+                        com.akashic.kunftig.screen.HudWire.CENTER,
+                        0,
+                        22,
+                        1,
+                        "\u00a7d\u00a7lCorte Dimensional",
+                        1,
+                        60,
+                        0xFFC77DFF,
+                        0x80000000,
+                        "",
+                        0,
+                        0,
+                        0,
+                        0)));
+            check("3 HUD elements", 3, h.count());
+        }));
+        // the lock-on: a player off to the right; the camera turns to him and marks him
+        steps.add(new Step("blade-lockon-setup", 10, (mc, p) -> {
+            com.akashic.kunftig.client.display.DisplayClient.INSTANCE.clear();
+            place(p, 180, 0);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Alvo"));
+            side.setPositionAndRotation(5.5, 4 + side.yOffset, -4.5, 90, 0);
+            side.inventory.setInventorySlotContents(0, blade(k));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4243, side);
+        }));
+        steps.add(
+            new Step(
+                "blade-lockon",
+                25,
+                (mc, p) -> com.akashic.kunftig.client.screen.CameraClient.INSTANCE
+                    .onPayload(com.akashic.kunftig.screen.CameraWire.lock(side.getEntityId(), 0.3F, 24, true))));
+        steps.add(new Step("blade-lockon-side-golpe_3", 5, (mc, p) -> {
+            float[] want = com.akashic.kunftig.screen.CameraWire.look(
+                mc.thePlayer.posX,
+                mc.thePlayer.posY,
+                mc.thePlayer.posZ,
+                side.posX,
+                side.posY + side.height * 0.6 - side.yOffset,
+                side.posZ);
+            float off = Math.abs(com.akashic.kunftig.screen.CameraWire.wrap(want[0] - mc.thePlayer.rotationYaw));
+            check("the camera turned to the target (yaw within 3 degrees)", true, off < 3);
+            check("still locked", true, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("golpe_3", RodModels.INSTANCE.clock());
+            }
+        }));
+        steps.add(new Step("blade-unlocked", 3, (mc, p) -> {
+            com.akashic.kunftig.client.screen.CameraClient.INSTANCE
+                .onPayload(com.akashic.kunftig.screen.CameraWire.unlock());
+            check("unlocked", false, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
+        }));
+    }
+
+    /** A SlashBlade combo state chain: (start, end) frame pairs, each lasting its frames at speed 1. */
+    private static java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> chain(int... frames) {
+        java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> out = new ArrayList<>();
+        for (int i = 0; i < frames.length; i += 2) {
+            out.add(
+                new com.akashic.kunftig.blade.BladeTimeline.Segment(
+                    frames[i],
+                    frames[i + 1],
+                    false,
+                    com.akashic.kunftig.blade.BladeTimeline.Segment.duration(frames[i], frames[i + 1], 1, 0)));
+        }
+        return out;
+    }
+
+    /**
+     * SlashBlade-style blades with a pack declaring {@code sbref:yamato} (SlashBlade's own files, local only): the
+     * blade at rest and through combo_a1, combo_a2 and aerial_rave_a1 (blade rig and body motion), from behind, from
+     * the front and in first person, at the ticks the reference captures use.
+     */
+    /**
+     * Long stretches of the blade motion with their body clips, from behind, every 3 ticks, the hotbar holding only the
+     * blade: to compare where the blade is against the hand with SlashBlade's own captures (A3, A4, aerial B3).
+     */
+    private void planSlashBladeSequences(String k) {
+        com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
+        steps.add(new Step("sbseq-setup", SETTLE_TICKS, (mc, p) -> {
+            for (int i = 0; i < p.inventory.mainInventory.length; i++) {
+                p.inventory.mainInventory[i] = null;
+                mc.thePlayer.inventory.mainInventory[i] = null;
+            }
+            p.inventory.currentItem = 0;
+            mc.thePlayer.inventory.currentItem = 0;
+            place(p, 180, 0);
+            view(mc, 1);
+            hold(p, blade(k));
+        }));
+        Object[][] seqs = { { "a3", 200, 306, Boolean.TRUE }, { "a4", 500, 608, Boolean.TRUE },
+            { "airb3", 1400, 1443, Boolean.FALSE } };
+        for (Object[] q : seqs) {
+            String name = (String) q[0];
+            int start = (Integer) q[1];
+            int end = (Integer) q[2];
+            boolean blend = (Boolean) q[3];
+            int ticks = (int) Math.ceil((end - start) * 2 / 3.0);
+            for (int t = 0; t <= ticks; t += 3) {
+                final boolean first = t == 0;
+                steps.add(new Step(String.format("sbseq-%s-t%02d", name, t), first ? 1 : 3, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        c.play(
+                            mc.thePlayer,
+                            chain(start, end),
+                            new com.akashic.kunftig.blade.BladeWire.Body(start, end, blend));
+                    }
+                }));
+            }
+            steps.add(new Step("sbseq-" + name + "-rest", 30, (mc, p) -> {}));
+        }
+    }
+
+    private void planSlashBlade(String k) {
+        com.akashic.kunftig.client.blade.BladeClient c = com.akashic.kunftig.client.blade.BladeClient.INSTANCE;
+        steps.add(new Step("sb-tp-back-idle", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 0);
+            view(mc, 1);
+            hold(p, blade(k));
+            report(
+                "sb blades active=" + c.active()
+                    + " blades="
+                    + c.index()
+                        .blades()
+                        .keySet()
+                    + " errors="
+                    + c.index()
+                        .errors());
+        }));
+        Object[][] combos = { { "a1", chain(1, 10, 10, 21, 21, 41), new int[] { 1, 41 }, Boolean.TRUE },
+            { "a2", chain(100, 115, 115, 132, 132, 151), new int[] { 100, 151 }, Boolean.TRUE },
+            { "air1", chain(1100, 1122), new int[] { 1100, 1132 }, Boolean.FALSE },
+            // frames 204+: the sheath bone leaves the blade bone (A1 and A2 are sheathed strikes)
+            { "b1", chain(200, 242), new int[] { 200, 242 }, Boolean.TRUE } };
+        int[] views = { 1, 2, 0 };
+        String[] viewNames = { "back", "front", "fp" };
+        for (int v = 0; v < views.length; v++) {
+            final int view = views[v];
+            final String vn = viewNames[v];
+            for (Object[] combo : combos) {
+                @SuppressWarnings("unchecked")
+                java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> segs = (java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment>) combo[1];
+                int[] body = (int[]) combo[2];
+                boolean blend = (Boolean) combo[3];
+                String name = (String) combo[0];
+                int previous = 0;
+                for (int tick : new int[] { 2, 4, 6, 8, 12, 18 }) {
+                    final boolean first = previous == 0;
+                    steps.add(
+                        new Step(
+                            "sb-" + vn + "-" + name + "-t" + String.format("%02d", tick),
+                            tick - previous,
+                            (mc, p) -> {
+                                if (first) {
+                                    view(mc, view);
+                                    c.play(
+                                        mc.thePlayer,
+                                        segs,
+                                        new com.akashic.kunftig.blade.BladeWire.Body(body[0], body[1], blend));
+                                }
+                            }));
+                    previous = tick;
+                }
+                steps.add(new Step("sb-" + vn + "-" + name + "-rest", 30, (mc, p) -> {}));
+            }
+        }
+        // slash arcs (SlashBlade's doSlash at the click) at three ranks: none (grey), B (white outside), SSS (all)
+        float[][] ranks = { { 0 }, { 3 }, { 5.5F } };
+        for (float[] rank : ranks) {
+            int previous = 0;
+            for (int tick : new int[] { 1, 3, 5, 7 }) {
+                final boolean first = previous == 0;
+                steps.add(new Step(String.format("sb-slash-r%.1f-t%02d", rank[0], tick), tick - previous, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        place(p, 180, 0);
+                        c.play(
+                            mc.thePlayer,
+                            chain(1, 10, 10, 21, 21, 41),
+                            new com.akashic.kunftig.blade.BladeWire.Body(1, 41, true));
+                        slash(p, -10, rank[0]);
+                    }
+                }));
+                previous = tick;
+            }
+            steps.add(new Step(String.format("sb-slash-r%.1f-rest", rank[0]), 25, (mc, p) -> {}));
+        }
+        steps.add(new Step("sb-slash-a2-sss-t03", 3, (mc, p) -> {
+            c.play(
+                mc.thePlayer,
+                chain(100, 115, 115, 132, 132, 151),
+                new com.akashic.kunftig.blade.BladeWire.Body(100, 151, true));
+            slash(p, 170, 5.5F);
+        }));
+        steps.add(new Step("sb-slash-a2-sss-t06", 3, (mc, p) -> {}));
+        steps.add(new Step("sb-slash-front-sss-t03", 25, (mc, p) -> {}));
+        steps.add(new Step("sb-slash-front-sss-t03b", 3, (mc, p) -> {
+            view(mc, 2);
+            c.play(
+                mc.thePlayer,
+                chain(1, 10, 10, 21, 21, 41),
+                new com.akashic.kunftig.blade.BladeWire.Body(1, 41, true));
+            slash(p, -10, 5.5F);
+        }));
+        steps.add(new Step("sb-tp-back-standby-slot0", SETTLE_TICKS, (mc, p) -> {
+            view(mc, 1);
+            p.inventory.setInventorySlotContents(0, blade(k));
+            p.inventory.currentItem = 1;
+            mc.thePlayer.inventory.setInventorySlotContents(0, blade(k));
+            mc.thePlayer.inventory.currentItem = 1;
+            hold(p, null);
+        }));
+        steps.add(new Step("sb-front-standby-slot0", 10, (mc, p) -> view(mc, 2)));
+    }
+
+    private net.minecraft.entity.monster.EntityZombie target;
+    private String fxNs = "sbref";
+    private String fxBlade = "sbref:yamato";
+
+    /** The Judgement Cut, drives, summoned swords, the lock-on and the rank HUD, with SlashBlade's own models. */
+    private void planSlashBladeEffects() {
+        String k = fxBlade;
+        com.akashic.kunftig.client.blade.BladeEffects fx = com.akashic.kunftig.client.blade.BladeEffects.INSTANCE;
+        com.akashic.kunftig.client.blade.BladeHud hud = com.akashic.kunftig.client.blade.BladeHud.INSTANCE;
+        int color = 0x3333FF;
+        steps.add(new Step("sbfx-setup", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 0);
+            view(mc, 0);
+            hold(p, blade(k));
+            target = new net.minecraft.entity.monster.EntityZombie(p.worldObj);
+            target.setLocationAndAngles(0.5, 4, -5.5, 0, 0);
+            target.addPotionEffect(
+                new net.minecraft.potion.PotionEffect(net.minecraft.potion.Potion.moveSlowdown.id, 100000, 20));
+            target.setHealth(10);
+            target.setCurrentItemOrArmor(4, new ItemStack(Items.leather_helmet)); // no burning in the sun
+            p.worldObj.spawnEntityInWorld(target);
+            report("sbfx effects=" + fx.count());
+        }));
+        // slash arcs at ranks none, B and SSS, seen from behind
+        for (float rank : new float[] { 0, 3, 5.5F }) {
+            int prev = 0;
+            for (int tick : new int[] { 1, 3, 5, 7 }) {
+                final boolean first = prev == 0;
+                steps.add(new Step(String.format("sbfx-slash-r%.1f-t%02d", rank, tick), tick - prev, (mc, p) -> {
+                    if (first) {
+                        view(mc, 1);
+                        place(p, 180, 0);
+                        slash(p, -10, rank);
+                    }
+                }));
+                prev = tick;
+            }
+            steps.add(new Step(String.format("sbfx-slash-r%.1f-rest", rank), 12, (mc, p) -> {}));
+        }
+        // Judgement Cut on the zombie's eyes, critical: three sub-slashes 120 degrees apart (ticks 1, 2, 3)
+        int[] jcTicks = { 1, 2, 3, 5, 7, 9 };
+        int previous = 0;
+        for (int tick : jcTicks) {
+            final boolean first = previous == 0;
+            steps.add(new Step(String.format("sbfx-jc-t%02d", tick), tick - previous, (mc, p) -> {
+                if (first) {
+                    view(mc, 0);
+                    double ey = target.posY + target.getEyeHeight();
+                    fx.add(
+                        new com.akashic.kunftig.blade.EffectWire.JudgementCut(
+                            fxNs,
+                            target.posX,
+                            ey,
+                            target.posZ,
+                            0,
+                            0,
+                            color,
+                            10));
+                    int[] n = { 0 };
+                    int seed = 37;
+                    everyTick = () -> {
+                        if (++n[0] <= 3) {
+                            fx.add(
+                                new com.akashic.kunftig.blade.EffectWire.Slash(
+                                    fxNs,
+                                    target.posX,
+                                    ey,
+                                    target.posZ,
+                                    120F * n[0] + seed,
+                                    0,
+                                    30,
+                                    0,
+                                    color,
+                                    5.5F,
+                                    0.5F,
+                                    10));
+                        }
+                    };
+                }
+            }));
+            previous = tick;
+        }
+        steps.add(new Step("sbfx-jc-red-t04", 20, (mc, p) -> everyTick = null));
+        steps.add(new Step("sbfx-jc-red-t04b", 4, (mc, p) -> {
+            fx.add(
+                new com.akashic.kunftig.blade.EffectWire.JudgementCut(
+                    fxNs,
+                    target.posX,
+                    target.posY + target.getEyeHeight(),
+                    target.posZ,
+                    0,
+                    0,
+                    0xFF3333,
+                    10));
+        }));
+        // drives: horizontal (speed 0.5 to see it), vertical, and wave edge (5 vertical, 0.2..1.0)
+        steps.add(new Step("sbfx-drive-h-t03", 20, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("sbfx-drive-h-t03b", 3, (mc, p) -> drive(fx, p, 1, 0, 0.5, color, 10)));
+        steps.add(new Step("sbfx-drive-v-t03", 3, (mc, p) -> drive(fx, p, 2, -90, 0.5, color, 10)));
+        steps.add(new Step("sbfx-wave-t04", 15, (mc, p) -> {
+            for (int i = 0; i < 5; i++) {
+                drive(fx, p, 10 + i, 90, 0.2 + i * 0.2, color, 20);
+            }
+        }));
+        steps.add(new Step("sbfx-wave-t10", 6, (mc, p) -> {}));
+        // summoned swords: one basic sword flying into the zombie and sticking, then a spiral ring and heavy rain
+        steps.add(new Step("sbfx-sword-t01", 25, (mc, p) -> {
+            view(mc, 0);
+            double sx = p.posX - 1;
+            double sy = p.posY + 1.62;
+            double sz = p.posZ;
+            double dx = target.posX - sx;
+            double dy = target.posY + target.getEyeHeight() * 0.5 - sy;
+            double dz = target.posZ - sz;
+            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double vx = dx / len * 3;
+            double vy = dy / len * 3;
+            double vz = dz / len * 3;
+            fx.add(
+                new com.akashic.kunftig.blade.EffectWire.Projectile(
+                    fxNs,
+                    "espada",
+                    20,
+                    com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                    sx,
+                    sy,
+                    sz,
+                    vx,
+                    vy,
+                    vz,
+                    (float) Math.toDegrees(Math.atan2(vx, vz)),
+                    (float) Math.toDegrees(Math.atan2(vy, Math.sqrt(vx * vx + vz * vz))),
+                    75,
+                    color,
+                    0));
+            int[] n = { 0 };
+            everyTick = () -> {
+                if (++n[0] == 2) {
+                    com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(20);
+                    if (sw != null) {
+                        sw.stick(new com.akashic.kunftig.blade.EffectWire.Stick(20, target.getEntityId(), 40));
+                    }
+                }
+            };
+        }));
+        steps.add(new Step("sbfx-sword-stuck", 10, (mc, p) -> {}));
+        steps.add(new Step("sbfx-sword-stuck-back", 10, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("sbfx-spiral", 12, (mc, p) -> {
+            view(mc, 1);
+            fx.remove(20, true);
+            for (int i = 0; i < 8; i++) {
+                fx.add(
+                    new com.akashic.kunftig.blade.EffectWire.Projectile(
+                        fxNs,
+                        "espada",
+                        30 + i,
+                        com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                        p.posX,
+                        p.posY + 0.81,
+                        p.posZ,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        color,
+                        0));
+            }
+            everyTick = () -> {
+                long time = mc.theWorld.getTotalWorldTime();
+                for (int i = 0; i < 8; i++) {
+                    float deg = ((time % 30) * 12 + 360F / 8 * i) % 360;
+                    double r = Math.toRadians(deg);
+                    com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(30 + i);
+                    if (sw != null) {
+                        sw.move(
+                            new com.akashic.kunftig.blade.EffectWire.Move(
+                                30 + i,
+                                mc.thePlayer.posX - Math.sin(r) * 2,
+                                mc.thePlayer.boundingBox.minY + 0.81,
+                                mc.thePlayer.posZ + Math.cos(r) * 2,
+                                0,
+                                0,
+                                0,
+                                -deg,
+                                0));
+                    }
+                }
+            };
+        }));
+        steps.add(new Step("sbfx-heavy-rain", 6, (mc, p) -> {
+            everyTick = null;
+            view(mc, 0);
+            place(p, 180, -35);
+            for (int i = 0; i < 8; i++) {
+                fx.remove(30 + i, false);
+            }
+            java.util.Random rnd = new java.util.Random(5);
+            for (int i = 0; i < 19; i++) {
+                double ox = i == 0 ? 0 : rnd.nextDouble() * 5 - 2.5;
+                double oz = i == 0 ? 0 : rnd.nextDouble() * 5 - 2.5;
+                fx.add(
+                    new com.akashic.kunftig.blade.EffectWire.Projectile(
+                        fxNs,
+                        "espada",
+                        40 + i,
+                        com.akashic.kunftig.blade.EffectWire.KIND_SWORD,
+                        target.posX + ox,
+                        target.posY + 7,
+                        target.posZ + oz,
+                        0,
+                        0,
+                        0,
+                        0,
+                        -90,
+                        0,
+                        color,
+                        0));
+            }
+        }));
+        steps.add(new Step("sbfx-heavy-rain-fall", 3, (mc, p) -> {
+            for (int i = 0; i < 19; i++) {
+                com.akashic.kunftig.blade.EffectProjectile sw = fx.projectile(40 + i);
+                if (sw != null) {
+                    sw.move(
+                        new com.akashic.kunftig.blade.EffectWire.Move(
+                            40 + i,
+                            sw.pos[0],
+                            sw.pos[1],
+                            sw.pos[2],
+                            0,
+                            -4,
+                            0,
+                            0,
+                            -90));
+                }
+            }
+        }));
+        // lock-on: Sneak held with a target; the view turns toward it from 50 degrees away
+        steps.add(new Step("sbfx-lock-t01", 30, (mc, p) -> {
+            for (int i = 0; i < 19; i++) {
+                fx.remove(40 + i, false);
+            }
+            place(p, 180 + 50, 0);
+            view(mc, 0);
+            mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = 230;
+            hud.lock(new com.akashic.kunftig.blade.EffectWire.Lock(fxNs, target.getEntityId(), color));
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), true);
+        }));
+        steps.add(new Step("sbfx-lock-t10", 9, (mc, p) -> report("lock yaw=" + mc.thePlayer.rotationYaw)));
+        steps.add(new Step("sbfx-lock-t40", 30, (mc, p) -> report("lock yaw=" + mc.thePlayer.rotationYaw)));
+        steps.add(new Step("sbfx-lock-back", 5, (mc, p) -> {
+            report("lock yaw=" + mc.thePlayer.rotationYaw);
+            view(mc, 1);
+        }));
+        steps.add(new Step("sbfx-lock-hurt", 5, (mc, p) -> {
+            target.setHealth(3);
+            view(mc, 0);
+        }));
+        // the rank HUD: a rise to D (text variant), then SSS, then SSS after the text second
+        steps.add(new Step("sbfx-rank-d-rise", 3, (mc, p) -> {
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), false);
+            hud.unlock();
+            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank(fxNs, 450));
+            hud.hits(new com.akashic.kunftig.blade.EffectWire.Hits(fxNs, 12));
+        }));
+        steps.add(new Step("sbfx-rank-d", 25, (mc, p) -> {}));
+        steps.add(new Step("sbfx-rank-sss-rise", 3, (mc, p) -> {
+            hud.rank(new com.akashic.kunftig.blade.EffectWire.Rank(fxNs, 1700));
+            hud.hits(new com.akashic.kunftig.blade.EffectWire.Hits(fxNs, 57));
+        }));
+        steps.add(new Step("sbfx-rank-sss", 25, (mc, p) -> {}));
+        steps.add(new Step("sbfx-rank-gone", 100, (mc, p) -> {}));
+    }
+
+    /** SlashBlade's Drive.doSlash for the harness: at the feet + eyes*0.75 + look*0.3, along the look. */
+    private void drive(com.akashic.kunftig.client.blade.BladeEffects fx, EntityPlayerMP p, int id, float roll,
+        double speed, int color, float lifetime) {
+        double yaw = Math.toRadians(p.rotationYaw);
+        double lx = -Math.sin(yaw);
+        double lz = Math.cos(yaw);
+        double vx = lx * speed;
+        double vz = lz * speed;
+        fx.add(
+            new com.akashic.kunftig.blade.EffectWire.Projectile(
+                fxNs,
+                "onda",
+                id,
+                com.akashic.kunftig.blade.EffectWire.KIND_DRIVE,
+                p.posX + lx * 0.3,
+                p.posY + 1.62 * 0.75,
+                p.posZ + lz * 0.3,
+                vx,
+                0,
+                vz,
+                (float) Math.toDegrees(Math.atan2(vx, vz)),
+                0,
+                roll,
+                color,
+                lifetime));
+    }
+
+    /** SlashBlade's doSlash for the harness: at the feet + eyes*0.75 + look*0.3, the player's yaw, pitch 0, blue. */
+    private void slash(EntityPlayerMP p, float roll, float rank) {
+        double yaw = Math.toRadians(p.rotationYaw);
+        double pitch = Math.toRadians(p.rotationPitch);
+        double lx = -Math.sin(yaw) * Math.cos(pitch);
+        double ly = -Math.sin(pitch);
+        double lz = Math.cos(yaw) * Math.cos(pitch);
+        com.akashic.kunftig.client.blade.BladeEffects.INSTANCE.add(
+            new com.akashic.kunftig.blade.EffectWire.Slash(
+                fxNs,
+                p.posX + lx * 0.3,
+                p.posY + 1.62 * 0.75 + ly * 0.3,
+                p.posZ + lz * 0.3,
+                p.rotationYaw,
+                0,
+                roll,
+                0,
+                0x3333FF,
+                rank,
+                1,
+                10));
     }
 
     private void plan() {

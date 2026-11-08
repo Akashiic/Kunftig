@@ -61,6 +61,20 @@ acompanhando cada estado. O plugin informa o que só o servidor sabe (mordida, b
 `KunftigRods` (API 7). Sem GeckoLib, sem o pack ou com `-Dkunftig.rodModels.disable=true`, fica o ícone 2D. Veja
 [docs/rodmodels/README.md](docs/rodmodels/README.md) e [docs/API.md](docs/API.md), seção 12.
 
+## Recurso 7: exibições 3D animadas no mundo (cliente + servidor)
+
+Plugins põem um modelo GeckoLib num ponto do mundo por `KunftigDisplays` (API 8): estado, variante de textura e até
+8 itens nos ossos. Na API 9 elas deslizam (`moveTo`), voam sozinhas (`setMotion`) e giram nos três eixos
+(`setRotation`), para projéteis e efeitos. Veja [docs/API.md](docs/API.md), seção 13.
+
+## Recurso 8: teclas, HUD, trava de câmera e previsão de golpe (API 9)
+
+Para combate de ação no 1.7.10 (o plugin Overkill): **`KunftigInput`** dá ao cliente teclas próprias em Controles
+(especial, habilidade, esquiva, travar alvo) que chegam aos plugins como `KunftigInputEvent`, validadas e com limite;
+**`KunftigHud`** desenha texto, barras e imagens na tela de um jogador; **`KunftigCamera`** trava a visão num alvo; e
+um modelo 3D na mão pode começar o próximo golpe de um combo no clique (`ao_atacar`), confirmado pelo servidor sem
+recomeçar. Veja [docs/API.md](docs/API.md), seções 14 a 17.
+
 **Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
 [docs/API.md](docs/API.md).
 
@@ -105,7 +119,8 @@ reportar: [docs/upstream/playercontainerfix-early-bukkit-load.md](docs/upstream/
 ## Kill-switches do cliente
 
 `-Dkunftig.nametag.disable=true`, `-Dkunftig.nametag.visibility.disable=true`, `-Dkunftig.particles.disable=true`,
-`-Dkunftig.itemModels.disable=true`, `-Dkunftig.rodModels.disable=true` (varas 3D); configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
+`-Dkunftig.itemModels.disable=true`, `-Dkunftig.rodModels.disable=true` (varas 3D), `-Dkunftig.input.disable=true`
+(teclas Kunftig), `-Dkunftig.screen.disable=true` (HUD e trava de câmera); configuração em `config/kunftig.cfg` (`colorMode=AUTO|RGB|LEGACY`).
 `/kunftigclient` (no cliente) diz se o protocolo de nametags está ativo no servidor; `/kunftigclient rods` mostra o
 estado das varas 3D e ajuda a ajustá-las no jogo.
 
