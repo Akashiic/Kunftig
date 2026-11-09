@@ -138,6 +138,16 @@ public final class RodRenderHarness {
                 Kunftig.LOG.warn("Kunftig DEV ROD HARNESS (sbfx) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length <= 2 && mode[0].equals("models")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planModels(mode.length == 2 ? mode[1] : "kfttest:katana");
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (models) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("blades")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planBlades();
@@ -601,6 +611,184 @@ public final class RodRenderHarness {
                 .onPayload(com.akashic.kunftig.screen.CameraWire.unlock());
             check("unlocked", false, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
         }));
+    }
+
+    /**
+     * Players drawn with 3D Futura Engine's models (futura3d on the client's classpath, development only): a 3D rod of
+     * the AkashicFishing pack and the vanilla rod at the model's hand with the line out, from the front, from behind
+     * and from the side, and a SlashBlade-style blade ({@code bladeModel}, from any blade pack) sheathed and drawn, on
+     * futura3d's {@code default} model and on {@code wine_fox/13_matured} (which has the blade locators).
+     */
+    private void planModels(String bladeModel) {
+        steps.add(new Step("models-rod-front", SETTLE_TICKS, (mc, p) -> {
+            place(p, 180, 10);
+            view(mc, 2);
+            hold(p, rod("akashicfishing:vara/vara-solar"));
+        }));
+        steps.add(new Step("models-rod-line-out", 40, (mc, p) -> {
+            report(
+                "futura3d present=" + com.akashic.kunftig.client.compat.FuturaModels.present()
+                    + " modelled(third person)="
+                    + com.akashic.kunftig.client.compat.FuturaModels.isModelled(mc.thePlayer)
+                    + " hand="
+                    + futuraLocator(mc.thePlayer, "RightHandLocator"));
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+        }));
+        steps.add(new Step("models-rod-line-out-back", 15, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("models-rod-fight", 25, (mc, p) -> {
+            view(mc, 2);
+            RodModels.INSTANCE.forceLocalState("briga", 0.9F);
+        }));
+        steps.add(new Step("models-vanilla-rod-cast", 40, (mc, p) -> {
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            RodModels.INSTANCE.forceLocalState("parada", 0);
+            hold(p, rod(null));
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+        }));
+        steps.add(new Step("models-vanilla-rod-side", SETTLE_TICKS, (mc, p) -> {
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            hold(p, null);
+            view(mc, 0);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Lateral"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod(null));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("models-rod-side", SETTLE_TICKS, (mc, p) -> {
+            report(
+                "modelled(first person, local)="
+                    + com.akashic.kunftig.client.compat.FuturaModels.isModelled(mc.thePlayer)
+                    + " modelled(side)="
+                    + com.akashic.kunftig.client.compat.FuturaModels.isModelled(side));
+            side.inventory.setInventorySlotContents(0, rod("akashicfishing:vara/vara-solar"));
+        }));
+        steps.add(new Step("models-rod-side-fight", 25, (mc, p) -> {
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("briga", RodModels.INSTANCE.clock());
+                RodModels.INSTANCE.timeline(side)
+                    .setTension(0.8F);
+            }
+        }));
+        steps.add(new Step("models-blade-side-idle", SETTLE_TICKS, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(-4243);
+            side.fishEntity = null;
+            side.inventory.setInventorySlotContents(0, blade(bladeModel));
+        }));
+        steps.add(
+            new Step(
+                "models-blade-side-combo",
+                10,
+                (mc, p) -> com.akashic.kunftig.client.blade.BladeClient.INSTANCE.play(side, longChain(), null)));
+        steps.add(new Step("models-blade-front-idle", SETTLE_TICKS, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(side.getEntityId());
+            place(p, 180, 10);
+            view(mc, 2);
+            hold(p, blade(bladeModel));
+        }));
+        steps.add(
+            new Step(
+                "models-blade-front-combo",
+                10,
+                (mc, p) -> com.akashic.kunftig.client.blade.BladeClient.INSTANCE
+                    .play(mc.thePlayer, longChain(), null)));
+        steps.add(new Step("models-blade-back-combo", 10, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("models-wine-blade-idle", SETTLE_TICKS, (mc, p) -> {
+            report("futura3d model wine_fox/13_matured: " + useFuturaModel("wine_fox/13_matured"));
+            com.akashic.kunftig.client.blade.BladeClient.INSTANCE
+                .play(mc.thePlayer, java.util.Collections.emptyList(), null);
+            view(mc, 2);
+        }));
+        steps.add(new Step("models-wine-blade-combo", 10, (mc, p) -> {
+            report(
+                "blade locators: blade="
+                    + com.akashic.kunftig.client.compat.FuturaModels.hasLocator(mc.thePlayer, "BladeLocator")
+                    + " sheath="
+                    + com.akashic.kunftig.client.compat.FuturaModels.hasLocator(mc.thePlayer, "SheathLocator")
+                    + " waist="
+                    + com.akashic.kunftig.client.compat.FuturaModels.hasLocator(mc.thePlayer, "LeftWaistLocator"));
+            com.akashic.kunftig.client.blade.BladeClient.INSTANCE.play(mc.thePlayer, longChain(), null);
+        }));
+        steps.add(new Step("models-wine-blade-back-combo", 10, (mc, p) -> view(mc, 1)));
+        steps.add(new Step("models-wine-blade-side-idle", SETTLE_TICKS, (mc, p) -> {
+            hold(p, null);
+            view(mc, 0);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Lateral"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, blade(bladeModel));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4244, side);
+        }));
+        steps.add(
+            new Step(
+                "models-wine-blade-side-combo",
+                10,
+                (mc, p) -> com.akashic.kunftig.client.blade.BladeClient.INSTANCE.play(side, longChain(), null)));
+        steps.add(new Step("models-wine-rod-line-out", 40, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(side.getEntityId());
+            place(p, 180, 10);
+            view(mc, 2);
+            hold(p, rod("akashicfishing:vara/vara-solar"));
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+        }));
+        steps.add(new Step("models-wine-vanilla-rod-cast", 40, (mc, p) -> {
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            hold(p, rod(null));
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+        }));
+        steps.add(new Step("models-wine-vanilla-rod-side", SETTLE_TICKS, (mc, p) -> {
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            hold(p, null);
+            view(mc, 0);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Lateral"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod(null));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4245, side);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4246, hook);
+        }));
+    }
+
+    /** A combo that plays for 20 s: the blade stays out. */
+    private static java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> longChain() {
+        return java.util.Collections
+            .singletonList(new com.akashic.kunftig.blade.BladeTimeline.Segment(0, 60, true, 20000));
+    }
+
+    /** futura3d's locator, by reflection on its API (development check), as a short text. */
+    private static String futuraLocator(EntityPlayer player, String name) {
+        try {
+            float[] m = (float[]) Class.forName("com.akashic.futura.api.FuturaModels")
+                .getMethod("locator", EntityPlayer.class, String.class)
+                .invoke(null, player, name);
+            return m == null ? "null" : String.format(java.util.Locale.ROOT, "(%.2f, %.2f, %.2f)", m[12], m[13], m[14]);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return "unavailable";
+        }
+    }
+
+    /** Switches futura3d to a built-in model (development check, by reflection on its client class). */
+    private static String useFuturaModel(String builtin) {
+        try {
+            Class<?> c = Class.forName("com.akashic.futura.client.PlayerModels");
+            Object models = c.getField("INSTANCE")
+                .get(null);
+            return String.valueOf(
+                c.getMethod("use", String.class)
+                    .invoke(models, builtin));
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return "unavailable";
+        }
     }
 
     /** A SlashBlade combo state chain: (start, end) frame pairs, each lasting its frames at speed 1. */

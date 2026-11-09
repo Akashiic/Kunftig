@@ -268,6 +268,20 @@ public final class BladeClient implements IResourceManagerReloadListener {
         return t.frame(ms, motion.maxFrame());
     }
 
+    /**
+     * Whether the entity's blade is out: a state the server sent is still playing (a combo, a draw); false once its
+     * chain is over and the idle motion (SlashBlade's standby, the blade in its sheath) plays, or without a state.
+     */
+    public boolean drawn(Entity e, float partial) {
+        State s = state(e);
+        if (s == null || s.timeline.chain()
+            .isEmpty()) {
+            return false;
+        }
+        double ms = (clock - s.chainStart + partial) * 50.0;
+        return s.timeline.segment(ms) != s.timeline.idle();
+    }
+
     public boolean charged(Entity e) {
         State s = state(e);
         return s != null && s.charged;

@@ -352,3 +352,60 @@ Esse mesmo pacote roda no YSM moderno, então os nossos modelos servem nos dois 
   `client/controller/collections/PlayerControllerCollection.java`, `client/animation/physics/SecondOrder.java`,
   `expression/**` (Molang), `format/parser/GeoBuilder.java`, `RawModelAssembler.java`.
 * YSM-Model: `ysm/ds_神秘小骑士` (exemplo spec 2) e `bbmodel/` (projetos Blockbench de 365 a 1600 cubos).
+
+## 10. Jogadores com modelo do 3D Futura Engine: varas, linha e lâminas
+
+O Kunftig fala com o 3D Futura Engine (`futura3d`) só por reflexão, pela API estável dele
+(`com.akashic.futura.api.FuturaModels`), em `client/compat/FuturaModels` (procura uma vez, guarda os method handles,
+falha em silêncio). Sem o futura3d, com outra API ou com `-Dkunftig.futura3d.disable=true`, nada muda: o bíped como
+sempre. Nenhum mixin novo.
+
+![Varas e lâminas em jogadores com modelo (harness `models`)](modelos-futura3d.png)
+
+De cima para baixo, da esquerda para a direita: vara 3D com a linha fora (modelo `default`), a mesma num outro jogador
+visto de lado durante a briga, a vara no modelo `wine_fox/13_matured`; a lâmina fora da bainha (combo), a lâmina na
+bainha (parada) e fora (combo) no `wine_fox/13_matured`. A lâmina das fotos é um substituto feito para o harness (uma
+caixa com as medidas da lâmina do SlashBlade), não a arte do SlashBlade.
+
+**Varas.** O futura3d desenha o item da mão no `RightHandLocator` pelo `ItemRenderer` da 1.7.10, então o
+`RodItemRenderer` (`EQUIPPED`) roda lá, com as mesmas transformações por item do bíped, e a vara 3D sai na mão do
+modelo. O `captureTip` de terceira pessoa continua valendo: a matriz de `RenderPlayerEvent.Pre` é a da câmera nos dois
+casos. Com a linha fora o futura3d trocaria a vara por um graveto (como o vanilla e o `RenderPlayerCastRodMixin`, que
+não roda para quem tem modelo, porque o `renderEquippedItems` não roda): o Kunftig registra
+`FuturaModels.setKeepsItemWhileFishing(keepsRodWhileCast)` e a vara fica. A linha: o `RenderFishLineMixin` do Kunftig
+cancela o desenho no `startDrawing` quando há ponta capturada; o mixin do futura3d só mexe nos `addVertex` da linha
+vanilla (saindo do graveto na mão do modelo), então os dois compõem. `BladePose`, `RenderPlayerBladeMixin`,
+`ModelBipedRodArmMixin` e `ModelBipedBladePoseMixin` não se aplicam a quem tem modelo (o `rotateCorpse` e o
+`setRotationAngles` do bíped não rodam): a pose é a do modelo.
+
+**Lâminas** (`BladeRenderer.onRenderPlayerPost`). `RenderPlayerEvent.Specials` não dispara para jogador com modelo;
+a lâmina vai em `RenderPlayerEvent.Post`, depois do modelo, nos locators do desenho que acabou
+(`locatorInLastDraw`, que vale também no inventário), nos quadros do `SlashBladeRender` do YSM upstream (1/100 de bloco
+por unidade do OBJ):
+
+| Modelo | Parada (sem combo) | Durante um combo |
+|---|---|---|
+| com `BladeLocator`, `SheathLocator` e `LeftWaistLocator` (convenção do YSM 2.x; todos os modelos embutidos do futura3d) | lâmina e bainha no `LeftWaistLocator` | lâmina no `BladeLocator`, bainha no `SheathLocator`; escondidos (os modelos os escondem num `pre_parallel` fora das animações `slashblade:*`), no `RightHandLocator` e no `LeftWaistLocator` |
+| sem eles | lâmina e bainha no `LeftWaistLocator`; sem ele, a lâmina no `RightHandLocator` | lâmina no `RightHandLocator`, bainha no `LeftWaistLocator` ou em lugar nenhum |
+
+A lâmina que não está em uso (slot 0 ou a mão do Backhand) vai embainhada no `RightWaistLocator`, ou em lugar nenhum.
+"Combo" é o estado do servidor ainda tocando (`BladeClient.drawn`); quando a corrente acaba e volta o `standby`, a
+lâmina volta para a bainha. Um locator escondido (escala 0) esconde o que iria nele.
+
+Verificado no harness (`kunftig-rod-harness` = `models`, com o jar de dev do futura3d em `run/client/mods`, o pack do
+AkashicFishing e um pack de lâmina substituto em `run/client/resourcepacks`): vara 3D na mão, vara 3D com a linha
+fora (a linha dourada sai da ponta), briga visto de lado, vara vanilla lançada com a linha saindo do graveto na mão,
+lâmina na bainha e fora dela nos modelos `default` e `wine_fox/13_matured`, `isModelled` falso em primeira pessoa.
+
+**A checar**:
+
+* Com a arte de verdade do SlashBlade (`sbref`): a orientação da lâmina e da bainha nos locators (segue os números do
+  upstream, mas o OBJ do harness é uma caixa) e o tamanho (o upstream usa 1/100 de bloco por unidade, a lâmina sai
+  com uns 2,9 blocos; o Kunftig no bíped usa 1/128).
+* Na parada, o `LeftWaistLocator` dos modelos embutidos fica na mão esquerda; é a animação `slashblade:idle` que leva
+  a mão à cintura. Sem essa animação a lâmina embainhada fica na mão esquerda, apontando para a frente.
+* Seguimento: tocar as animações `slashblade:*` do modelo a partir dos estados de combo do Kunftig (o mapa de nomes do
+  upstream está em `SlashBladeResharped`); aí a visibilidade dos locators passa a vir do modelo, e a escolha por
+  estado acima deve ser revista.
+* A cor da linha da vara 3D vista de lado saiu preta numa das fotos (a do jogador lateral); a da frente, dourada.
+* Num servidor de verdade, com outros jogadores e a boia desenhada antes do pescador.

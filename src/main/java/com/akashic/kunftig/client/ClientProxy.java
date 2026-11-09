@@ -102,6 +102,12 @@ public final class ClientProxy extends CommonProxy {
     public void postInit(FMLPostInitializationEvent event) {
         installRodModels();
         installDisplays();
+        if (!RodModels.disabled() && com.akashic.kunftig.client.compat.FuturaModels.present()) {
+            // 3D Futura Engine draws a stick in a modelled player's hand while the line is out, as vanilla does: a 3D
+            // rod stays (RenderPlayerCastRodMixin's rule), and hides its own hanging line.
+            com.akashic.kunftig.client.compat.FuturaModels
+                .keepItemWhileFishing(p -> RodModels.INSTANCE.keepsRodWhileCast(p));
+        }
         if (!com.akashic.kunftig.client.blade.BladeClient.disabled()) {
             com.akashic.kunftig.client.blade.BladeClient.INSTANCE.installRenderers();
         }
