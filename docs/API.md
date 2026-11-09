@@ -693,6 +693,11 @@ O cliente com Kunftig desenha lâminas como o SlashBlade: o modelo OBJ da lâmin
 SlashBlade portados do código (MIT) do SlashBlade: Resharped, passada por passada. O resource pack declara tudo em
 `assets/<namespace>/kunftig/blades.json`:
 
+**Sem os VMD** (o pack não tem `movimento_lamina` ou ele não abre), a lâmina não some: o cliente avisa no log
+("cannot read motion") e desenha a lâmina na mão direita como uma espada, acompanhando o braço, com a bainha na cintura
+pelo porte e, em primeira pessoa, a lâmina no canto da tela com um corte simples a cada golpe. Os combos continuam
+funcionando, só sem a animação da armação e do corpo. Sem o `movimento_jogador`, o corpo fica com a pose comum.
+
 ```json
 {
   "_formato": 1,
