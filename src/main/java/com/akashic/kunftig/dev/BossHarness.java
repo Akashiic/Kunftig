@@ -371,7 +371,7 @@ public final class BossHarness {
     }
 
     /** The lights in the lair pose (tools/boss3d trilhas, "espreitar" first frame): blocks at size 1, yaw 0. */
-    private static final double[][] LURK_LIGHTS = { { -0.77, 5.07, 8.56 }, { 0.77, 5.07, 8.56 },
+    private static final double[][] LURK_LIGHTS = { { -1.30, 5.43, 8.78 }, { 1.30, 5.43, 8.78 },
         { -2.81, 8.05, -18.83 } };
 
     private DisplayClient.Entry leviathan() {
