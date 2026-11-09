@@ -188,6 +188,10 @@ public final class BossHarness {
             fight();
             return;
         }
+        if (only.equals("atencao")) {
+            attention();
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
@@ -215,6 +219,101 @@ public final class BossHarness {
         // flight without the lock (the boss is gone): it should work
         steps.add(flight("sem-trava", false));
         fight();
+    }
+
+    /**
+     * The attention (the boss turns to whoever it watches), the boss bars (one on screen per fight, none after) and the
+     * flight after the fight (free again).
+     */
+    private void attention() {
+        // survival (the boss ignores creative players: staff watching), with resistance V so its attacks do not kill
+        commands("/gamemode 0 Developer", "/effect Developer 11 3600 4", "/effect Developer 23 3600 4");
+        steps.add((mc, t) -> {
+            look(mc, 0, -14);
+            if (t == 0) {
+                sawBoss = false;
+                say("/af boss invocar");
+                report("bars before: " + bossBars());
+            }
+            return t >= 160;
+        });
+        report("attention: four places around the lake");
+        double ring = radius + 4.5;
+        for (double a : new double[] { 270, 0, 90, 180, 270 }) {
+            final double angle = a;
+            final String name = "boss-atencao-" + (int) a;
+            steps.add((mc, t) -> {
+                double x = 0.5 + Math.cos(Math.toRadians(angle)) * ring;
+                double z = 0.5 + Math.sin(Math.toRadians(angle)) * ring;
+                if (t == 0) {
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f 5 %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            x,
+                            z));
+                }
+                // look at the lake's centre
+                look(mc, (float) Math.toDegrees(Math.atan2(-(0.5 - x), 0.5 - z)), -12);
+                if (t % 20 == 0) {
+                    DisplayClient.Entry boss = null;
+                    for (DisplayClient.Entry e : entries()) {
+                        if (LEVIATHAN.equals(e.model)) {
+                            boss = e;
+                        }
+                    }
+                    if (boss != null) {
+                        double want = angle - 90;
+                        double got = boss.motion.yaw(1f);
+                        double off = ((got - want) % 360 + 540) % 360 - 180;
+                        report(
+                            String.format(
+                                java.util.Locale.ROOT,
+                                "attention at %.0f° t=%d: boss yaw %.1f, facing me at %.1f (off by %.1f°), state %s",
+                                angle,
+                                t,
+                                got,
+                                want,
+                                off,
+                                boss.state));
+                    }
+                }
+                shotAt(t, 150, name);
+                return t >= 160;
+            });
+        }
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                report("bars during the fight: " + bossBars());
+                say("/af boss encerrar");
+            }
+            if (t == 60) {
+                report("bars after /af boss encerrar: " + bossBars());
+                say("/af boss invocar");
+            }
+            if (t == 140) {
+                report("bars in the second fight: " + bossBars());
+                say("/af boss encerrar");
+            }
+            if (t == 200) {
+                report("bars after the second /af boss encerrar: " + bossBars());
+            }
+            return t >= 220;
+        });
+        steps.add(flight("depois-da-luta", false));
+    }
+
+    /** How many NecroTempus boss bars this client has on screen (-1: no NecroTempus). */
+    private static int bossBars() {
+        try {
+            Class<?> c = Class
+                .forName("io.github.cruciblemc.necrotempus.modules.features.bossbar.client.ClientBossBarManager");
+            return (Integer) c.getMethod("size")
+                .invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return -1;
+        }
     }
 
     private void fight() {
