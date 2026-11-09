@@ -201,6 +201,10 @@ public final class BossHarness {
             lair(true);
             return;
         }
+        if (only.equals("toca-luzes")) {
+            lair(true);
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
