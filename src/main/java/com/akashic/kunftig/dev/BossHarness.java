@@ -192,6 +192,10 @@ public final class BossHarness {
             attention();
             return;
         }
+        if (only.equals("mordida")) {
+            bite();
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
@@ -302,6 +306,59 @@ public final class BossHarness {
             return t >= 220;
         });
         steps.add(flight("depois-da-luta", false));
+    }
+
+    /**
+     * Effects cleared when coming into a fight, then the bite that catches, holds in the mouth and swallows (seen from
+     * behind, third person, to see the player between the jaws).
+     */
+    private void bite() {
+        commands("/gamemode 0 Developer", "/effect Developer 1 600 1", "/effect Developer 5 600 1");
+        steps.add((mc, t) -> {
+            look(mc, 0, -14);
+            if (t == 0) {
+                report(
+                    "effects before the fight: " + mc.thePlayer.getActivePotionEffects()
+                        .size());
+                say("/af boss invocar");
+            }
+            if (t == 60) {
+                report(
+                    "effects after coming into the fight: " + mc.thePlayer.getActivePotionEffects()
+                        .size() + ", health " + mc.thePlayer.getHealth());
+                say("/af boss encerrar");
+            }
+            return t >= 100;
+        });
+        steps.add((mc, t) -> {
+            look(mc, 0, -10);
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 1;
+                say("/af boss simular mordida 2 dano");
+            }
+            if (t % 5 == 0 && t > 40 && t < 200) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "bite t=%d: me at %.1f %.1f %.1f, health %.1f, dead %s",
+                        t,
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ,
+                        mc.thePlayer.getHealth(),
+                        mc.thePlayer.isDead || mc.thePlayer.getHealth() <= 0));
+            }
+            for (int at : new int[] { 48, 62, 76, 95, 108, 118, 124 }) {
+                shotAt(t, at, "boss-mordida-" + at);
+            }
+            if (t == 130 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 170) {
+                mc.gameSettings.thirdPersonView = 0;
+            }
+            return t >= 220;
+        });
     }
 
     /** How many NecroTempus boss bars this client has on screen (-1: no NecroTempus). */
