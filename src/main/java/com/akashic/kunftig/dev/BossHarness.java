@@ -388,6 +388,7 @@ public final class BossHarness {
     }
 
     private int lightIndex;
+    private int lairIssued = -1;
     private int punches;
     private int dodgedAt = -1;
     private double waterY = Double.NaN;
@@ -403,6 +404,7 @@ public final class BossHarness {
                 mc.gameSettings.thirdPersonView = fight ? 0 : 1;
                 say("/gamemode 0 Developer");
                 lightIndex = 0;
+                lairIssued = -1;
                 punches = 0;
                 dodgedAt = -1;
                 waterY = Double.NaN;
@@ -410,12 +412,17 @@ public final class BossHarness {
             if (t == 20) {
                 say("/effect Developer 13 3600 0");
             }
-            if (t == 40) {
-                say("/af boss simular toca 2 dano");
-            }
             DisplayClient.Entry b = leviathan();
+            if (lairIssued < 0) {
+                // the last simulation must be gone first (a new one is refused while the boss is in the lake)
+                if (t >= 40 && b == null && t % 20 == 0) {
+                    say("/af boss simular toca 2 dano");
+                    lairIssued = t;
+                }
+                return t > 2400;
+            }
             if (b == null) {
-                return t > 400;
+                return t > lairIssued + 400;
             }
             if (Double.isNaN(waterY) && "ocioso".equals(b.state)
                 || Double.isNaN(waterY) && "afundar".equals(b.state) && t < 60) {
