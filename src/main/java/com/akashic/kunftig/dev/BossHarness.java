@@ -551,11 +551,18 @@ public final class BossHarness {
                 say("/af boss invocar");
             }
             double out = radius + 10 + 6 + 8; // past the band and the margin
-            if (t == 150) {
-                mc.thePlayer.setPosition(0.5, 6.6, -out);
-                report("barrier: walked out to z=" + (-out));
+            // walking out: hold forward towards the border (the server rejects a jump of position, so really walk)
+            if (t >= 150 && t < 260) {
+                look(mc, 180, 0);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), true);
+                if (t % 10 == 0) {
+                    report(String.format(java.util.Locale.ROOT, "barrier walking t=%d: z=%.1f", t, mc.thePlayer.posZ));
+                }
             }
-            if (t == 170 || t == 190) {
+            if (t == 260) {
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
+            }
+            if (t == 262) {
                 report(
                     String.format(
                         java.util.Locale.ROOT,
@@ -565,11 +572,11 @@ public final class BossHarness {
                         mc.thePlayer.posY,
                         mc.thePlayer.posZ));
             }
-            shotAt(t, 165, "boss-barreira");
-            if (t == 220) {
+            shotAt(t, 200, "boss-barreira");
+            if (t == 280) {
                 say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
             }
-            if (t == 260) {
+            if (t == 320) {
                 report(
                     String.format(
                         java.util.Locale.ROOT,
@@ -579,10 +586,10 @@ public final class BossHarness {
                         mc.thePlayer.posZ));
                 say("/af boss encerrar");
             }
-            if (t == 300) {
+            if (t == 360) {
                 say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
             }
-            if (t == 340) {
+            if (t == 400) {
                 report(
                     String.format(
                         java.util.Locale.ROOT,
@@ -591,7 +598,7 @@ public final class BossHarness {
                         mc.thePlayer.posY,
                         mc.thePlayer.posZ));
             }
-            return t >= 360;
+            return t >= 420;
         });
     }
 
