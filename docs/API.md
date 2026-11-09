@@ -540,9 +540,16 @@ if (KunftigApi.apiVersion() >= 9 && KunftigApi.isPlayersAvailable()) {
   a armadura do Avaritia, o voo do Ars Magica, os arreios do Thaumcraft, o morcego da Witchery...
 * **No cliente (Kunftig):** o mesmo, mais um corte no empuxo. A velocidade para cima só pode cair como a gravidade faz
   cair, depois de sair do chão (pulo, pulo melhorado) ou de um empurrão de fora (golpe, explosão, `setVelocity` do
-  plugin). Isso corta jetpacks, planadores e feitiços de subida. Na água, na lava, na escada e montado, nada é cortado.
-* **Soltar** não devolve o voo: os mods ligam de novo sozinhos; o plugin que tirou o `allowFlight` do Bukkit devolve.
-  A trava continua depois de o jogador sair do servidor, até ser solta.
+  plugin). Isso corta jetpacks e feitiços de subida. O corte só tira subida, até zero: **nunca empurra para baixo**
+  (até a versão de 2026-11-09 ele cortava até a curva da queda, negativa depois do topo, e onde a água não era
+  reconhecida o jogador era arrastado para baixo cada vez mais rápido, até o void). Um planador desce no ritmo dele;
+  ficar parado no ar é com o plugin. Na água ou na lava (qualquer líquido ou teia que encoste na caixa do jogador,
+  também a caixa baixa de nado de outros mods, que o `isInWater` do vanilla não vê), na escada e montado, nada é
+  cortado.
+* **Soltar** devolve o voo que o jogador tinha quando a trava veio (um `/fly` de uma vez); os mods que ligam o voo a
+  cada tick ligam de novo sozinhos. **Sair do servidor solta a trava** (ela era só da memória e ficava até o servidor
+  reiniciar: quem saía no meio da luta não voava mais em lugar nenhum); se o jogador voltar para a luta, o plugin trava
+  de novo.
 * **Não é anticheat:** um cliente sem Kunftig, ou modificado, ainda sobe. Para "ninguém voa aqui", o plugin confere
   também se o jogador fica no ar.
 * Thread principal. Canal `kunftig:flight` (servidor para cliente, 1 byte).
