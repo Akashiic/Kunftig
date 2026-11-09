@@ -74,9 +74,16 @@ public final class BossHarness {
         this.port = port;
         this.only = only;
         this.big = only.equals("grande");
-        this.radius = big ? 40 : 30;
+        this.deep = only.equals("cacada");
+        this.radius = big || deep ? 40 : 30;
         this.BAND_Z = -(radius + 4.5);
+        this.top = deep ? 40 : 4;
     }
+
+    /** "cacada": a deep lake (water from y 1 to 40) for the hunt (the boss swims free in it). */
+    private final boolean deep;
+    /** The water's top: the band stands one block over it. */
+    private final int top;
 
     /** "grande": a lake of radius 40 and the size on auto (the biggest boss the lake and the rods allow). */
     private final boolean big;
@@ -104,12 +111,12 @@ public final class BossHarness {
             "/gamerule doDaylightCycle false",
             "/gamerule keepInventory false",
             "/effect " + me + " 16 3600 0",
-            "/lago " + radius + " " + (radius + 40),
-            "/tp " + me + " 0.5 4 0.5",
+            "/lago " + radius + " " + (radius + 40) + " " + top,
+            "/tp " + me + " 0.5 " + top + " 0.5",
             "/af boss local definir",
             "/af boss local raio " + radius,
             "/af boss local margem 10",
-            "/tp " + me + " 0.5 5 " + BAND_Z,
+            "/tp " + me + " 0.5 " + (top + 1) + " " + BAND_Z,
             "/af boss local virar aqui",
             "/af boss tamanho " + (big ? "auto" : "1"),
             "/af boss checar",
@@ -207,6 +214,22 @@ public final class BossHarness {
         }
         if (only.equals("barreira")) {
             barrier();
+            return;
+        }
+        if (only.equals("linha")) {
+            line();
+            return;
+        }
+        if (only.equals("emergir")) {
+            rise();
+            return;
+        }
+        if (only.equals("boca")) {
+            mouth();
+            return;
+        }
+        if (only.equals("cacada")) {
+            hunt();
             return;
         }
         // the preview: from the band, then from farther away
@@ -372,6 +395,230 @@ public final class BossHarness {
             }
             return t >= 220;
         });
+    }
+
+    // ---- 1.12.0: the line bite, the rise that snaps, the mouth's zone, the hunt ------------------------------------
+
+    private String bossLine() {
+        DisplayClient.Entry b = leviathan();
+        if (b == null) {
+            return "no boss";
+        }
+        return String.format(
+            java.util.Locale.ROOT,
+            "boss %s at %.1f %.1f %.1f yaw %.0f pitch %.0f roll %.0f",
+            b.state,
+            b.motion.x(1f),
+            b.motion.y(1f),
+            b.motion.z(1f),
+            b.motion.yaw(1f),
+            b.motion.pitch(1f),
+            b.motion.roll(1f));
+    }
+
+    private String me(Minecraft mc) {
+        return String.format(
+            java.util.Locale.ROOT,
+            "me %.1f %.1f %.1f health %.1f%s",
+            mc.thePlayer.posX,
+            mc.thePlayer.posY,
+            mc.thePlayer.posZ,
+            mc.thePlayer.getHealth(),
+            mc.thePlayer.isDead || mc.thePlayer.getHealth() <= 0 ? " DEAD" : "");
+    }
+
+    private int countMobs(Minecraft mc) {
+        int n = 0;
+        for (Object o : mc.theWorld.loadedEntityList) {
+            if (o instanceof net.minecraft.entity.monster.EntityMob) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * The Mordida in a line: a pig and a cow on the band next to the player; the corridor, the lunge to the barrier,
+     * the catch (the player and the animals) and the swallow (a simulation with damage: the player dies).
+     */
+    private void line() {
+        steps.add((mc, t) -> {
+            look(mc, 0, -12);
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t == 10) {
+                // zombies: the test server has spawn-animals=false (it removes animals as they appear)
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie 3.5 5 %.1f {Silent:1}", BAND_Z + 1));
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie -3.5 5 %.1f", BAND_Z - 1));
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie 20.5 5 %.1f", BAND_Z + 10));
+            }
+            if (t == 30) {
+                report("line: mobs before " + countMobs(mc));
+                say("/af boss simular mordida 2 dano");
+            }
+            if (t > 30 && t % 4 == 0 && t < 260) {
+                report("line t=" + (t - 30) + ": " + me(mc) + "; " + bossLine() + "; mobs " + countMobs(mc));
+            }
+            for (int at : new int[] { 50, 62, 70, 76, 80, 90, 110, 130 }) {
+                shotAt(t, at, "boss-linha-" + (at - 30));
+            }
+            if (t == 180 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 200) {
+                report("line: mobs after " + countMobs(mc));
+            }
+            return t >= 260;
+        });
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 0;
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z);
+            }
+            return t >= 40;
+        });
+    }
+
+    /** The rise: the player swims where its mouth comes up; it snaps them up and swallows them. */
+    private void rise() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                mc.gameSettings.thirdPersonView = 1;
+                // in the water, in front of the centre, where the head breaks the surface (the boss faces the band)
+                say("/tp " + n + " 0.5 4 -7.5");
+            }
+            look(mc, 180, -20);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            if (t > 20 && t % 4 == 0 && t < 300) {
+                report("rise t=" + (t - 20) + ": " + me(mc) + "; " + bossLine());
+            }
+            for (int at : new int[] { 40, 60, 80, 96, 104, 120, 150, 175, 190 }) {
+                shotAt(t, at, "boss-emergir-" + (at - 20));
+            }
+            if (t == 240 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 300;
+        });
+        commands("/af boss encerrar");
+    }
+
+    /** The mouth's zone: after the rise, the player swims under its head; it growls, snaps and swallows. */
+    private void mouth() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 5 " + BAND_Z);
+            }
+            look(mc, 0, -12);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            return t >= 230; // the rise is over, it rests
+        });
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 1;
+                say("/tp " + n + " 0.5 4 -6.5"); // under the head
+            }
+            look(mc, 0, -40);
+            if (t % 3 == 0 && t < 140) {
+                report("mouth t=" + t + ": " + me(mc) + "; " + bossLine());
+            }
+            for (int at : new int[] { 4, 10, 14, 20, 30, 50, 66, 80 }) {
+                shotAt(t, at, "boss-boca-" + at);
+            }
+            if (t == 120 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 160;
+        });
+        commands("/af boss encerrar");
+    }
+
+    /**
+     * The hunt in a deep lake (water from y 1 to 40): a fight, the hunt forced, the player dives with water breathing,
+     * follows the boss with the eyes, casts at its body; the boss swims, stalks, bites or sucks; screenshots under the
+     * water; the boss's path and rotation in the report.
+     */
+    private void hunt() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 41 " + BAND_Z);
+            }
+            look(mc, 0, -12);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            if (t == 230) {
+                say("/effect " + n + " 13 3600 0");
+                say("/effect " + n + " 16 3600 0");
+                say("/effect " + n + " 11 3600 2");
+                say("/af boss forcar cacada");
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t > 230 && t % 10 == 0) {
+                report("hunt-dive t=" + (t - 230) + ": " + bossLine());
+            }
+            shotAt(t, 250, "boss-cacada-mergulho-1");
+            shotAt(t, 275, "boss-cacada-mergulho-2");
+            return t >= 300;
+        });
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 0;
+                say("/tp " + n + " 12.5 24 -12.5"); // in the water, 16 blocks deep
+                for (int i = 0; i < 9; i++) {
+                    net.minecraft.item.ItemStack st = mc.thePlayer.inventory.mainInventory[i];
+                    if (st != null && st.getItem() == net.minecraft.init.Items.fishing_rod) {
+                        mc.thePlayer.inventory.currentItem = i; // the rod, not whatever else is on the bar
+                    }
+                }
+            }
+            DisplayClient.Entry b = leviathan();
+            if (b != null) {
+                // follow it with the eyes (its middle, the model's seg_2 in the swim pose: 5.2 up, 8.8 back)
+                double x = b.motion.x(1f);
+                double y = b.motion.y(1f) + 4;
+                double z = b.motion.z(1f);
+                double dx = x - mc.thePlayer.posX;
+                double dy = y - mc.thePlayer.posY;
+                double dz = z - mc.thePlayer.posZ;
+                look(
+                    mc,
+                    (float) Math.toDegrees(Math.atan2(-dx, dz)),
+                    (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+                double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (t % 50 == 25 && d < 24 && mc.thePlayer.fishEntity == null && mc.thePlayer.getHeldItem() != null) {
+                    mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+                    report(String.format(java.util.Locale.ROOT, "hunt cast at %.1f blocks", d));
+                }
+            }
+            if (t % 10 == 0) {
+                report("hunt t=" + t + ": " + me(mc) + "; " + bossLine());
+            }
+            if (t % 40 == 20 && t < 1200) {
+                shot = String.format("boss-cacada-%04d", t);
+            }
+            if (mc.thePlayer.getHealth() <= 0 && t % 20 == 0) {
+                report("hunt: dead at t=" + t);
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 1500;
+        });
+        commands("/af boss status", "/af boss encerrar");
     }
 
     /** The lights in the lair pose (tools/boss3d trilhas, "espreitar" first frame): blocks at size 1, yaw 0. */
