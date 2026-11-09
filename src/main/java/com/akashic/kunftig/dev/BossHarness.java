@@ -205,6 +205,10 @@ public final class BossHarness {
             lair(true);
             return;
         }
+        if (only.equals("barreira")) {
+            barrier();
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
@@ -535,6 +539,59 @@ public final class BossHarness {
                 }
             }
             return t > 2400;
+        });
+    }
+
+    /** The barrier: walking out of the fight brings you back in; a teleport out is cancelled. */
+    private void barrier() {
+        commands("/gamemode 0 Developer", "/effect Developer 11 3600 4");
+        steps.add((mc, t) -> {
+            look(mc, 180, -10);
+            if (t == 0) {
+                say("/af boss invocar");
+            }
+            double out = radius + 10 + 6 + 8; // past the band and the margin
+            if (t == 150) {
+                mc.thePlayer.setPosition(0.5, 6.6, -out);
+                report("barrier: walked out to z=" + (-out));
+            }
+            if (t == 170 || t == 190) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier t=%d: me at %.1f %.1f %.1f",
+                        t,
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+            }
+            shotAt(t, 165, "boss-barreira");
+            if (t == 220) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
+            }
+            if (t == 260) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier: after /tp out, me at %.1f %.1f %.1f",
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+                say("/af boss encerrar");
+            }
+            if (t == 300) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
+            }
+            if (t == 340) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier: after the fight, /tp out: me at %.1f %.1f %.1f",
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+            }
+            return t >= 360;
         });
     }
 
