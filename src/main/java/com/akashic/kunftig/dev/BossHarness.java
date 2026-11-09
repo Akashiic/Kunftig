@@ -196,6 +196,11 @@ public final class BossHarness {
             bite();
             return;
         }
+        if (only.equals("toca")) {
+            lair(false);
+            lair(true);
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
@@ -359,6 +364,174 @@ public final class BossHarness {
             }
             return t >= 220;
         });
+    }
+
+    /** The lights in the lair pose (tools/boss3d trilhas, "espreitar" first frame): blocks at size 1, yaw 0. */
+    private static final double[][] LURK_LIGHTS = { { -0.77, 5.07, 8.56 }, { 0.77, 5.07, 8.56 },
+        { -2.81, 8.05, -18.83 } };
+
+    private DisplayClient.Entry leviathan() {
+        for (DisplayClient.Entry e : entries()) {
+            if (LEVIATHAN.equals(e.model)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    /** A point of the model (local blocks at size 1) in the world, as the plugin's BossTracks.toWorld. */
+    private static double[] world(DisplayClient.Entry b, double px, double py, double pz) {
+        double s = b.scale[0];
+        double r = Math.toRadians(-b.motion.yaw(1f));
+        return new double[] { b.motion.x(1f) + px * s * Math.cos(r) + pz * s * Math.sin(r), b.motion.y(1f) + py * s,
+            b.motion.z(1f) - px * s * Math.sin(r) + pz * s * Math.cos(r) };
+    }
+
+    private int lightIndex;
+    private int punches;
+    private int dodgedAt = -1;
+    private double waterY = Double.NaN;
+
+    /**
+     * The lair: either staying in front of the mouth (sucked in and, when it rises, swallowed), or punching the lights
+     * out (dodging the suction behind it) until it opens its mouth and rises stunned.
+     */
+    private void lair(boolean fight) {
+        String name = fight ? "luzes" : "parado";
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = fight ? 0 : 1;
+                say("/gamemode 0 Developer");
+                lightIndex = 0;
+                punches = 0;
+                dodgedAt = -1;
+                waterY = Double.NaN;
+            }
+            if (t == 20) {
+                say("/effect Developer 13 3600 0");
+            }
+            if (t == 40) {
+                say("/af boss simular toca 2 dano");
+            }
+            DisplayClient.Entry b = leviathan();
+            if (b == null) {
+                return t > 400;
+            }
+            if (Double.isNaN(waterY) && "ocioso".equals(b.state)
+                || Double.isNaN(waterY) && "afundar".equals(b.state) && t < 60) {
+                waterY = b.motion.y(1f);
+            }
+            if (t % 10 == 0) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "toca-%s t=%d state %s boss y %.1f | me %.1f %.1f %.1f hp %.1f",
+                        name,
+                        t,
+                        b.state,
+                        b.motion.y(1f),
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ,
+                        mc.thePlayer.getHealth()));
+            }
+            if (mc.thePlayer.getHealth() <= 0) {
+                shotAt(t, t, "boss-toca-" + name + "-morto");
+                mc.thePlayer.respawnPlayer();
+                report("toca-" + name + ": died at t=" + t);
+                return true;
+            }
+            if (!"espreitar".equals(b.state) && !"sugar".equals(b.state)) {
+                if (fight && ("atordoado".equals(b.state) || "subir_atordoado".equals(b.state))) {
+                    shotAt(t, t, "boss-toca-luzes-atordoado");
+                    report("toca-luzes: the boss rose stunned at t=" + t);
+                    return true;
+                }
+                if (!fight && "engolir".equals(b.state)) {
+                    shot = shot == null && t % 15 == 0 ? "boss-toca-parado-engolir-" + t : shot;
+                }
+                return t > 2400;
+            }
+            if (!fight) {
+                // in front of the mouth, a few blocks under the water, looking at it
+                if (t % 40 == 0) {
+                    double[] at = world(b, 0, 0, 16);
+                    double[] mouth = world(b, 0, 6.38, 10.6);
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f %.1f %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            at[0],
+                            waterY - 2.5,
+                            at[2]));
+                    lookAt(mc, mouth);
+                }
+                if (t % 30 == 0) {
+                    shot = "boss-toca-parado-" + t;
+                }
+                return t > 2400;
+            }
+            // punching: dodge behind it while it sucks
+            if ("sugar".equals(b.state)) {
+                if (dodgedAt < 0) {
+                    dodgedAt = t;
+                    double[] away = world(b, 0, 0, -34);
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f %.1f %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            away[0],
+                            waterY + 0.5,
+                            away[2]));
+                    report("toca-luzes: dodging the suction at t=" + t);
+                    shot = "boss-toca-luzes-sugar";
+                }
+                return false;
+            }
+            dodgedAt = -1;
+            if (lightIndex >= LURK_LIGHTS.length) {
+                return t > 2400;
+            }
+            double[] l = LURK_LIGHTS[lightIndex];
+            double[] light = world(b, l[0], l[1], l[2]);
+            double[] spot = world(b, l[0], l[1], l[2] + (lightIndex < 2 ? -2.2 : 2.2));
+            if (t % 6 == 0) {
+                say(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "/tp %s %.1f %.1f %.1f",
+                        mc.thePlayer.getCommandSenderName(),
+                        spot[0],
+                        Math.min(spot[1] - 1.6, waterY - 1.0),
+                        spot[2]));
+            }
+            lookAt(mc, light);
+            if (t % 6 == 3) {
+                mc.thePlayer.swingItem();
+                punches++;
+                if (punches == 2) {
+                    shot = "boss-toca-luzes-soco-" + lightIndex;
+                }
+                if (punches >= 9) {
+                    report("toca-luzes: done with light " + lightIndex + " at t=" + t);
+                    lightIndex++;
+                    punches = 0;
+                }
+            }
+            return t > 2400;
+        });
+    }
+
+    private static void lookAt(Minecraft mc, double[] at) {
+        double dx = at[0] - mc.thePlayer.posX;
+        double dy = at[1] - mc.thePlayer.posY;
+        double dz = at[2] - mc.thePlayer.posZ;
+        look(
+            mc,
+            (float) Math.toDegrees(Math.atan2(-dx, dz)),
+            (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
     }
 
     /** How many NecroTempus boss bars this client has on screen (-1: no NecroTempus). */
