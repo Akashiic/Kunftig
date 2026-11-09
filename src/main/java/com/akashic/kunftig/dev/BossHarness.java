@@ -412,10 +412,13 @@ public final class BossHarness {
             if (t == 20) {
                 say("/effect Developer 13 3600 0");
             }
+            if (t == 30) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z); // back from the respawn
+            }
             DisplayClient.Entry b = leviathan();
             if (lairIssued < 0) {
                 // the last simulation must be gone first (a new one is refused while the boss is in the lake)
-                if (t >= 40 && b == null && t % 20 == 0) {
+                if (t >= 60 && b == null && t % 20 == 0) {
                     say("/af boss simular toca 2 dano");
                     lairIssued = t;
                 }
