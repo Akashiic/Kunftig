@@ -26,7 +26,8 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   their additions "API 9"; they were merged as 9 and 11, with one display wire (see `DisplayWire`). A client or server
   from either branch alone must be updated together.
 
-  The player-model (YSM-style) study is in `docs/playermodel/ESTUDO-YSM.md`.
+  The player-model (YSM-style) study is in `docs/playermodel/ESTUDO-YSM.md`; the port itself is the separate mod
+  3D Futura Engine (`futura3d`), on branch `main` of [Akashiic/YesSteveModel](https://github.com/Akashiic/YesSteveModel).
 
   The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14, the hook range in
   15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20). Raise the version and update the version

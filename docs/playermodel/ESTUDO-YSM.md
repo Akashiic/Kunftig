@@ -6,6 +6,13 @@ texturas 512², dezenas de animações, física de cabelo/saia) e para fazermos 
 
 Nada aqui foi implementado ainda. Tudo o que depende de teste em jogo está marcado como **a checar**.
 
+**Onde a porta acontece:** num mod próprio, o **3D Futura Engine** (`modid` `futura3d`), bifurcação do YSM em
+[Akashiic/YesSteveModel](https://github.com/Akashiic/YesSteveModel): a branch `main` é a porta 1.7.10 e a `dev/1.20`
+guarda o upstream intacto. Decisões tomadas depois deste estudo: cliente em Java 8 e servidor em Java 21 (um jar em
+bytecode Java 8); só modelos abertos (os embutidos CC0 e CC BY-NC-SA e os nossos), nenhum modelo de terceiros
+comprado entra em repositório; o Molang do upstream depende do Semaweave (binário Java 17) e é reescrito. O plano
+vivo está em `docs/PORTING.md` do fork; a seção 5 abaixo (pacotes dentro do Kunftig) ficou como alternativa.
+
 ## 1. Escopo e limites (o que fazemos e o que não fazemos)
 
 **Fazemos:** um motor próprio que lê o formato **aberto** de autoria (pasta ou zip com `ysm.json`, geometria Bedrock,
