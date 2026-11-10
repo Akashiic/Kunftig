@@ -220,6 +220,11 @@ public final class BossHarness {
             line();
             return;
         }
+        if (only.equals("pulo")) {
+            jumpBite(false);
+            jumpBite(true);
+            return;
+        }
         if (only.equals("emergir")) {
             rise();
             return;
@@ -479,6 +484,57 @@ public final class BossHarness {
                 say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z);
             }
             return t >= 40;
+        });
+    }
+
+    /**
+     * The Mordida in a line against a player who jumps the whole time (jumping must not save anyone in the band): in
+     * place, or ({@code strafe}) sprint-jumping sideways once the band locks, as someone trying to get out at the end.
+     * Resistance, so only the bite decides; the server's debug log says why anyone escaped.
+     */
+    private void jumpBite(boolean strafe) {
+        steps.add((mc, t) -> {
+            look(mc, 0, -12);
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 5 " + BAND_Z);
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t == 6) {
+                say("/effect " + n + " 11 60 4");
+            }
+            if (t == 20) {
+                say("/af boss simular mordida 2 dano");
+            }
+            // jump from the warning to well past the snap (the bite: lock at 14, lunge at 22, snap at 30)
+            boolean jumping = t > 20 && t < 80 && mc.thePlayer.getHealth() > 0;
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), jumping);
+            boolean side = strafe && t > 20 + 15 && t < 20 + 31;
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), side);
+            mc.thePlayer.setSprinting(side);
+            if (t > 20 && t % 2 == 0 && t < 120) {
+                report(
+                    "pulo" + (strafe ? " de lado" : "")
+                        + " t="
+                        + (t - 20)
+                        + ": "
+                        + me(mc)
+                        + " chao="
+                        + mc.thePlayer.onGround
+                        + "; "
+                        + bossLine());
+            }
+            shotAt(t, 20 + 28, "boss-pulo" + (strafe ? "-lado" : "") + "-28");
+            shotAt(t, 20 + 31, "boss-pulo" + (strafe ? "-lado" : "") + "-31");
+            if (t >= 200 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 239) {
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
+            }
+            return t >= 240;
         });
     }
 
