@@ -46,6 +46,8 @@ public final class FuturaModels {
     private static MethodHandle playingAnimation;
     // API 4 (optional): the models fish with the rod
     private static MethodHandle fishingPhase;
+    // API 5 (optional): arm poses for held 3D models
+    private static MethodHandle setArmPose;
     private static boolean failedOnce;
 
     private FuturaModels() {}
@@ -97,6 +99,14 @@ public final class FuturaModels {
                     } catch (NoSuchMethodException e) {
                         fishingPhase = null;
                     }
+                    try {
+                        setArmPose = l.findStatic(
+                            api,
+                            "setArmPose",
+                            MethodType.methodType(boolean.class, EntityPlayer.class, float[].class, float[].class));
+                    } catch (NoSuchMethodException e) {
+                        setArmPose = null;
+                    }
                     Kunftig.LOG.info(
                         "Kunftig: 3D Futura Engine found; rods and blades follow its player models{}",
                         setExternalState == null ? ""
@@ -117,6 +127,7 @@ public final class FuturaModels {
         drewModel = isModelled = hasLocator = locatorInLastDraw = setKeepsItemWhileFishing = null;
         setExternalState = externalState = hasAnimation = playingAnimation = null;
         fishingPhase = null;
+        setArmPose = null;
     }
 
     /** Whether futura3d is installed with the API Kunftig knows. */
@@ -233,6 +244,31 @@ public final class FuturaModels {
     public static boolean playsFishing() {
         lookUp();
         return fishingPhase != null && setExternalState != null;
+    }
+
+    /**
+     * Whether futura3d takes arm poses (its API 5): a held 3D model can pose the model's arms as it poses the biped's.
+     */
+    public static boolean takesArmPose() {
+        lookUp();
+        return setArmPose != null;
+    }
+
+    /**
+     * Poses the player's model arms for this frame (API 5; radians from hanging, as {@code ModelBiped}'s arms; null
+     * leaves an arm to the animation). A pose not set again lapses by itself.
+     */
+    public static void setArmPose(EntityPlayer player, float[] right, float[] left) {
+        lookUp();
+        MethodHandle h = setArmPose;
+        if (h == null) {
+            return;
+        }
+        try {
+            boolean ignored = (boolean) h.invokeExact(player, right, left);
+        } catch (Throwable e) {
+            fail(e);
+        }
     }
 
     /** What the player's model does with the rod ({@code wait}, {@code fight}...), or null (API 4). */

@@ -850,6 +850,27 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         readMatrix(GL11.GL_MODELVIEW_MATRIX, playerView);
         playerViewEntity = event.entityPlayer.getEntityId();
+        poseModelArms(event.entityPlayer);
+    }
+
+    /**
+     * A held 3D model that is not a rod (AkashicFishing's fish) poses the arms ({@code braco}, by size band: the arm
+     * forward, both hands, above the head), and its {@code display} is placed for that arm. On a player drawn with 3D
+     * Futura Engine's model the biped mixin does not run, so the same pose goes to the model's arms (futura3d API 5);
+     * without it the fish would hang from an arm at rest, inside the body or toward the ground. Rods are left to the
+     * model's own fishing clips. Every frame: futura3d lets a pose not set again lapse.
+     */
+    private void poseModelArms(EntityPlayer player) {
+        ItemStack held = player.getHeldItem();
+        if (held == null || held.getItem() == net.minecraft.init.Items.fishing_rod || !FuturaModels.takesArmPose()) {
+            return;
+        }
+        float[] right = armRotation(player);
+        if (right == null) {
+            return;
+        }
+        float[] left = offhandBusy(player) ? null : armRotation(player, LEFT_ARM_BONE);
+        FuturaModels.setArmPose(player, right, left);
     }
 
     /**
