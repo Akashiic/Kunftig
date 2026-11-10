@@ -3,9 +3,10 @@ package com.akashic.kunftig.flight;
 /**
  * The client side of the flight lock, as pure arithmetic: tick by tick, the upward speed a player may have without
  * flying. Leaving the ground with any speed (a jump, a jump boost) is fine, and so is a sudden push from outside (a
- * hit, an explosion, a launch by a plugin): from there the speed may only fall as vanilla gravity makes it fall. A
- * jetpack's thrust, a glider's slow descent or a spell's lift go over that curve and are cut back to it. In water, in
- * lava, on a ladder or riding something nothing is cut. No Minecraft classes.
+ * hit, an explosion, a launch by a plugin): from there the upward speed may only fall as vanilla gravity makes it
+ * fall. A jetpack's thrust or a spell's lift go over that curve and are cut back to it, never below zero: the
+ * envelope takes away climbing, it never pushes anyone down (a glider still glides down; staying up is the plugin's
+ * business). In water, in lava, on a ladder or riding something nothing is cut. No Minecraft classes.
  * <p>
  * Call {@link #next} at the start of each movement tick (after the items' ticks added their thrust, before the move).
  */
@@ -45,7 +46,12 @@ public final class FlightEnvelope {
         } else {
             allowed = (allowed - GRAVITY) * DRAG;
         }
-        double out = motionY > allowed ? allowed : motionY;
+        // only upward speed is ever cut, down to zero at most: the envelope never pushes a player down. Cutting to the
+        // curve itself (negative after the apex) forced a fall faster than the game's wherever the "exempt" check
+        // missed (a swimming hitbox too short for vanilla's water test, cobwebs, mods' liquids): players were dragged
+        // down through the water into the void. Hovering at a steady height is left to the plugin's rule.
+        double ceiling = Math.max(allowed, 0);
+        double out = motionY > ceiling ? ceiling : motionY;
         wasOnGround = false;
         last = out;
         lastRaw = motionY;

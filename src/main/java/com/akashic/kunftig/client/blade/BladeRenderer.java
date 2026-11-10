@@ -4,6 +4,7 @@ import java.nio.FloatBuffer;
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.EntityLivingBase;
@@ -45,6 +46,10 @@ public final class BladeRenderer {
     private static final ResourceLocation CHARGE_TEXTURE = new ResourceLocation(
         "textures/entity/creeper/creeper_armor.png");
     private static final int MAX_LOGGED_ERRORS = 20;
+    /** Without the motion: the point of the hilt (OBJ units, along the blade's X) the hand closes on. */
+    private static final float GRIP_X = 14F;
+    /** Without the motion: how far the blade points up from the fist (degrees), in third and first person. */
+    private static final float HOLD_PITCH = 35F;
 
     private final FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
     private int loggedErrors;
@@ -67,7 +72,11 @@ public final class BladeRenderer {
             ItemStack held = player.getHeldItem();
             BladeIndex.Blade blade = c.resolve(held);
             if (blade != null) {
-                renderMain(player, held, blade, event.partialRenderTick);
+                if (c.motion(blade.bladeMotion) != null) {
+                    renderMain(player, held, blade, event.partialRenderTick);
+                } else {
+                    renderHeldWithoutMotion(event.renderer.modelBipedMain, held, blade);
+                }
             }
         } catch (RuntimeException e) {
             if (loggedErrors++ < MAX_LOGGED_ERRORS) {
@@ -174,42 +183,9 @@ public final class BladeRenderer {
         }
         GL11.glPushMatrix();
         try {
-            GL11.glTranslatef(0, 1.5F, 0);
-            switch (blade.carry) {
-                case PSO2:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(1F, -1.125F, 0.20F);
-                    rotateZYX(-0.122173F, 0, 0);
-                    break;
-                case KATANA:
-                    GL11.glTranslatef(0.25F, -0.875F, -0.55F);
-                    rotateZYX(3.1415927F, 1.570796F, 0.261799F);
-                    break;
-                case DEFAULT:
-                    GL11.glTranslatef(0.25F, -0.875F, -0.55F);
-                    rotateZYX(0F, 1.570796F, 0.261799F);
-                    break;
-                case NINJA:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(-0.5F, -2F, 0.20F);
-                    rotateZYX(-2.094395F, 0F, 3.1415927F);
-                    break;
-                case RNINJA:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(0.5F, -2F, 0.20F);
-                    rotateZYX(-1.047198F, 0, 0);
-                    break;
-                default:
-                    return;
+            if (!carry(blade.carry, ownFirstPerson)) {
+                return;
             }
-            GL11.glScalef(MOTION_SCALE, MOTION_SCALE, MOTION_SCALE);
-            GL11.glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
             ResourceLocation texture = c.location(blade.texture);
             String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
             drawNormal(model, part, texture);
@@ -219,6 +195,92 @@ public final class BladeRenderer {
         } finally {
             GL11.glPopMatrix();
         }
+    }
+
+    /**
+     * Moves to where a blade of this carry type rests at the hip, in OBJ units, or returns false when that carry is
+     * not drawn here (SlashBlade's {@code renderStandbyBlade} transforms).
+     */
+    private static boolean carry(BladeIndex.Carry carry, boolean ownFirstPerson) {
+        GL11.glTranslatef(0, 1.5F, 0);
+        switch (carry) {
+            case PSO2:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(1F, -1.125F, 0.20F);
+                rotateZYX(-0.122173F, 0, 0);
+                break;
+            case KATANA:
+                GL11.glTranslatef(0.25F, -0.875F, -0.55F);
+                rotateZYX(3.1415927F, 1.570796F, 0.261799F);
+                break;
+            case DEFAULT:
+                GL11.glTranslatef(0.25F, -0.875F, -0.55F);
+                rotateZYX(0F, 1.570796F, 0.261799F);
+                break;
+            case NINJA:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(-0.5F, -2F, 0.20F);
+                rotateZYX(-2.094395F, 0F, 3.1415927F);
+                break;
+            case RNINJA:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(0.5F, -2F, 0.20F);
+                rotateZYX(-1.047198F, 0, 0);
+                break;
+            default:
+                return false;
+        }
+        GL11.glScalef(MOTION_SCALE, MOTION_SCALE, MOTION_SCALE);
+        GL11.glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+        return true;
+    }
+
+    /**
+     * The held blade when the pack has no blade motion (the VMD): instead of nothing, the blade in the right hand like
+     * a sword, following the arm, and the sheath at the hip by its carry type. The combos then play without the blade
+     * rig; this keeps the blade visible.
+     */
+    private void renderHeldWithoutMotion(ModelBiped biped, ItemStack stack, BladeIndex.Blade blade) {
+        BladeClient c = BladeClient.INSTANCE;
+        ObjModel model = c.model(blade.obj);
+        if (model == null || biped == null) {
+            return;
+        }
+        ResourceLocation texture = c.location(blade.texture);
+        String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
+        GL11.glPushMatrix();
+        try {
+            biped.bipedRightArm.postRender(0.0625F);
+            GL11.glTranslatef(-0.0625F, 0.5625F, -0.0625F); // the closed hand
+            GL11.glRotatef(-HOLD_PITCH, 1, 0, 0); // the point up
+            GL11.glRotatef(-90, 0, 1, 0); // the point (-X) forward, the edge (+Y) down
+            drawObj(model, part, texture);
+        } finally {
+            GL11.glPopMatrix();
+        }
+        GL11.glPushMatrix();
+        try {
+            if (carry(blade.carry == BladeIndex.Carry.PSO2 ? BladeIndex.Carry.KATANA : blade.carry, false)) {
+                drawNormal(model, "sheath", texture);
+                drawLuminous(model, "sheath_luminous", texture);
+            }
+        } finally {
+            GL11.glPopMatrix();
+        }
+    }
+
+    /** A blade part in OBJ units from the grip: 1/128 block per unit, the grip at the origin. */
+    private static void drawObj(ObjModel model, String part, ResourceLocation texture) {
+        GL11.glScalef(MOTION_SCALE * MODEL_SCALE, MOTION_SCALE * MODEL_SCALE, MOTION_SCALE * MODEL_SCALE);
+        GL11.glTranslatef(-GRIP_X, 0, 0);
+        drawNormal(model, part, texture);
+        drawLuminous(model, part + "_luminous", texture);
     }
 
     /** JOML's {@code rotateZYX(z, y, x)} = Rz·Ry·Rx (radians). */
@@ -458,6 +520,10 @@ public final class BladeRenderer {
      */
     void renderFirstPerson(EntityPlayer player, ItemStack stack, BladeIndex.Blade blade) {
         float partial = BladeClient.INSTANCE.partialTicks();
+        if (BladeClient.INSTANCE.motion(blade.bladeMotion) == null) {
+            renderFirstPersonWithoutMotion(player, stack, blade, partial);
+            return;
+        }
         GL11.glPushMatrix();
         boolean normalize = GL11.glIsEnabled(GL11.GL_NORMALIZE);
         try {
@@ -474,6 +540,33 @@ public final class BladeRenderer {
             if (!normalize) {
                 GL11.glDisable(GL11.GL_NORMALIZE);
             }
+            GL11.glPopMatrix();
+        }
+    }
+
+    /**
+     * First person without the blade motion: the blade in the lower right of the view, the point forward and up, and a
+     * plain downward cut on each swing (the arm is not drawn, as with the motion).
+     */
+    private void renderFirstPersonWithoutMotion(EntityPlayer player, ItemStack stack, BladeIndex.Blade blade,
+        float partial) {
+        ObjModel model = BladeClient.INSTANCE.model(blade.obj);
+        if (model == null) {
+            return;
+        }
+        ResourceLocation texture = BladeClient.INSTANCE.location(blade.texture);
+        String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
+        float swing = player.getSwingProgress(partial);
+        float cut = (float) Math.sin(Math.sqrt(swing) * Math.PI);
+        GL11.glPushMatrix();
+        try {
+            GL11.glLoadIdentity();
+            GL11.glTranslatef(0.42F, -0.42F - 0.1F * cut, -0.75F);
+            GL11.glRotatef(12 + 25 * cut, 0, 1, 0); // the point a little to the centre, more during the cut
+            GL11.glRotatef(HOLD_PITCH - 95 * cut, 1, 0, 0); // up at rest, down through the cut
+            GL11.glRotatef(180, 1, 0, 1); // the point (-X) forward (-Z), the edge (+Y) down
+            drawObj(model, part, texture);
+        } finally {
             GL11.glPopMatrix();
         }
     }
