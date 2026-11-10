@@ -64,6 +64,8 @@ public final class BladeClient implements IResourceManagerReloadListener {
         BladeWire.Body body;
         long bodyStart;
         boolean charged;
+        /** Changes with every chain the server (or the harness) starts. */
+        int serial;
     }
 
     private volatile BladeIndex index = new BladeIndex();
@@ -268,6 +270,42 @@ public final class BladeClient implements IResourceManagerReloadListener {
         return t.frame(ms, motion.maxFrame());
     }
 
+    /**
+     * Whether the entity's blade is out: a state the server sent is still playing (a combo, a draw); false once its
+     * chain is over and the idle motion (SlashBlade's standby, the blade in its sheath) plays, or without a state.
+     */
+    public boolean drawn(Entity e, float partial) {
+        State s = state(e);
+        if (s == null || s.timeline.chain()
+            .isEmpty()) {
+            return false;
+        }
+        double ms = (clock - s.chainStart + partial) * 50.0;
+        return s.timeline.segment(ms) != s.timeline.idle();
+    }
+
+    /**
+     * The SlashBlade combo state the entity's chain started with while the chain plays ({@code combo_a1}...), named
+     * by its first frame ({@link BladeIndex#comboName}); null when no chain plays or its first frame has no name.
+     */
+    public String comboName(Entity e, BladeIndex.Blade blade, float partial) {
+        State s = state(e);
+        if (s == null || !drawn(e, partial)) {
+            return null;
+        }
+        return index.comboName(
+            blade,
+            s.timeline.chain()
+                .get(0).start,
+            e.onGround);
+    }
+
+    /** Changes with every chain started for the entity (0 without a state): a combo started again is new. */
+    public int chainSerial(Entity e) {
+        State s = state(e);
+        return s == null ? 0 : s.serial;
+    }
+
     public boolean charged(Entity e) {
         State s = state(e);
         return s != null && s.charged;
@@ -321,6 +359,7 @@ public final class BladeClient implements IResourceManagerReloadListener {
             return;
         }
         s.timeline = new BladeTimeline(m.chain, m.idle);
+        s.serial++;
         s.chainStart = clock - m.elapsedTicks;
         s.body = m.body;
         s.bodyStart = clock - m.bodyElapsedTicks;
@@ -331,6 +370,7 @@ public final class BladeClient implements IResourceManagerReloadListener {
     public void play(Entity e, List<BladeTimeline.Segment> chain, BladeWire.Body body) {
         State s = states.computeIfAbsent(e.getEntityId(), k -> new State());
         s.timeline = new BladeTimeline(chain, STANDBY);
+        s.serial++;
         s.chainStart = clock;
         s.body = body;
         s.bodyStart = clock;

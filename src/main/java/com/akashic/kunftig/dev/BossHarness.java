@@ -74,9 +74,16 @@ public final class BossHarness {
         this.port = port;
         this.only = only;
         this.big = only.equals("grande");
-        this.radius = big ? 40 : 30;
+        this.deep = only.equals("cacada");
+        this.radius = big || deep ? 40 : 30;
         this.BAND_Z = -(radius + 4.5);
+        this.top = deep ? 40 : 4;
     }
+
+    /** "cacada": a deep lake (water from y 1 to 40) for the hunt (the boss swims free in it). */
+    private final boolean deep;
+    /** The water's top: the band stands one block over it. */
+    private final int top;
 
     /** "grande": a lake of radius 40 and the size on auto (the biggest boss the lake and the rods allow). */
     private final boolean big;
@@ -104,12 +111,12 @@ public final class BossHarness {
             "/gamerule doDaylightCycle false",
             "/gamerule keepInventory false",
             "/effect " + me + " 16 3600 0",
-            "/lago " + radius + " " + (radius + 40),
-            "/tp " + me + " 0.5 4 0.5",
+            "/lago " + radius + " " + (radius + 40) + " " + top,
+            "/tp " + me + " 0.5 " + top + " 0.5",
             "/af boss local definir",
             "/af boss local raio " + radius,
             "/af boss local margem 10",
-            "/tp " + me + " 0.5 5 " + BAND_Z,
+            "/tp " + me + " 0.5 " + (top + 1) + " " + BAND_Z,
             "/af boss local virar aqui",
             "/af boss tamanho " + (big ? "auto" : "1"),
             "/af boss checar",
@@ -188,6 +195,48 @@ public final class BossHarness {
             fight();
             return;
         }
+        if (only.equals("atencao")) {
+            attention();
+            return;
+        }
+        if (only.equals("mordida")) {
+            bite();
+            return;
+        }
+        if (only.equals("toca")) {
+            lair(false);
+            lair(true);
+            return;
+        }
+        if (only.equals("toca-luzes")) {
+            lair(true);
+            return;
+        }
+        if (only.equals("barreira")) {
+            barrier();
+            return;
+        }
+        if (only.equals("linha")) {
+            line();
+            return;
+        }
+        if (only.equals("pulo")) {
+            jumpBite(false);
+            jumpBite(true);
+            return;
+        }
+        if (only.equals("emergir")) {
+            rise();
+            return;
+        }
+        if (only.equals("boca")) {
+            mouth();
+            return;
+        }
+        if (only.equals("cacada")) {
+            hunt();
+            return;
+        }
         // the preview: from the band, then from farther away
         steps.add((mc, t) -> {
             look(mc, 0, -18);
@@ -215,6 +264,667 @@ public final class BossHarness {
         // flight without the lock (the boss is gone): it should work
         steps.add(flight("sem-trava", false));
         fight();
+    }
+
+    /**
+     * The attention (the boss turns to whoever it watches), the boss bars (one on screen per fight, none after) and the
+     * flight after the fight (free again).
+     */
+    private void attention() {
+        // survival (the boss ignores creative players: staff watching), with resistance V so its attacks do not kill
+        commands("/gamemode 0 Developer", "/effect Developer 11 3600 4", "/effect Developer 23 3600 4");
+        steps.add((mc, t) -> {
+            look(mc, 0, -14);
+            if (t == 0) {
+                sawBoss = false;
+                say("/af boss invocar");
+                report("bars before: " + bossBars());
+            }
+            return t >= 160;
+        });
+        report("attention: four places around the lake");
+        double ring = radius + 4.5;
+        for (double a : new double[] { 270, 0, 90, 180, 270 }) {
+            final double angle = a;
+            final String name = "boss-atencao-" + (int) a;
+            steps.add((mc, t) -> {
+                double x = 0.5 + Math.cos(Math.toRadians(angle)) * ring;
+                double z = 0.5 + Math.sin(Math.toRadians(angle)) * ring;
+                if (t == 0) {
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f 5 %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            x,
+                            z));
+                }
+                // look at the lake's centre
+                look(mc, (float) Math.toDegrees(Math.atan2(-(0.5 - x), 0.5 - z)), -12);
+                if (t % 20 == 0) {
+                    DisplayClient.Entry boss = null;
+                    for (DisplayClient.Entry e : entries()) {
+                        if (LEVIATHAN.equals(e.model)) {
+                            boss = e;
+                        }
+                    }
+                    if (boss != null) {
+                        double want = angle - 90;
+                        double got = boss.motion.yaw(1f);
+                        double off = ((got - want) % 360 + 540) % 360 - 180;
+                        report(
+                            String.format(
+                                java.util.Locale.ROOT,
+                                "attention at %.0f° t=%d: boss yaw %.1f, facing me at %.1f (off by %.1f°), state %s",
+                                angle,
+                                t,
+                                got,
+                                want,
+                                off,
+                                boss.state));
+                    }
+                }
+                shotAt(t, 150, name);
+                return t >= 160;
+            });
+        }
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                report("bars during the fight: " + bossBars());
+                say("/af boss encerrar");
+            }
+            if (t == 60) {
+                report("bars after /af boss encerrar: " + bossBars());
+                say("/af boss invocar");
+            }
+            if (t == 140) {
+                report("bars in the second fight: " + bossBars());
+                say("/af boss encerrar");
+            }
+            if (t == 200) {
+                report("bars after the second /af boss encerrar: " + bossBars());
+            }
+            return t >= 220;
+        });
+        steps.add(flight("depois-da-luta", false));
+    }
+
+    /**
+     * Effects cleared when coming into a fight, then the bite that catches, holds in the mouth and swallows (seen from
+     * behind, third person, to see the player between the jaws).
+     */
+    private void bite() {
+        commands("/gamemode 0 Developer", "/effect Developer 1 600 1", "/effect Developer 5 600 1");
+        steps.add((mc, t) -> {
+            look(mc, 0, -14);
+            if (t == 0) {
+                report(
+                    "effects before the fight: " + mc.thePlayer.getActivePotionEffects()
+                        .size());
+                say("/af boss invocar");
+            }
+            if (t == 60) {
+                report(
+                    "effects after coming into the fight: " + mc.thePlayer.getActivePotionEffects()
+                        .size() + ", health " + mc.thePlayer.getHealth());
+                say("/af boss encerrar");
+            }
+            return t >= 100;
+        });
+        steps.add((mc, t) -> {
+            look(mc, 0, -10);
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 1;
+                say("/af boss simular mordida 2 dano");
+            }
+            if (t % 5 == 0 && t > 40 && t < 200) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "bite t=%d: me at %.1f %.1f %.1f, health %.1f, dead %s",
+                        t,
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ,
+                        mc.thePlayer.getHealth(),
+                        mc.thePlayer.isDead || mc.thePlayer.getHealth() <= 0));
+            }
+            for (int at : new int[] { 48, 62, 76, 95, 108, 118, 124 }) {
+                shotAt(t, at, "boss-mordida-" + at);
+            }
+            if (t == 130 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 170) {
+                mc.gameSettings.thirdPersonView = 0;
+            }
+            return t >= 220;
+        });
+    }
+
+    // ---- 1.12.0: the line bite, the rise that snaps, the mouth's zone, the hunt ------------------------------------
+
+    private String bossLine() {
+        DisplayClient.Entry b = leviathan();
+        if (b == null) {
+            return "no boss";
+        }
+        return String.format(
+            java.util.Locale.ROOT,
+            "boss %s at %.1f %.1f %.1f yaw %.0f pitch %.0f roll %.0f",
+            b.state,
+            b.motion.x(1f),
+            b.motion.y(1f),
+            b.motion.z(1f),
+            b.motion.yaw(1f),
+            b.motion.pitch(1f),
+            b.motion.roll(1f));
+    }
+
+    private String me(Minecraft mc) {
+        return String.format(
+            java.util.Locale.ROOT,
+            "me %.1f %.1f %.1f health %.1f%s",
+            mc.thePlayer.posX,
+            mc.thePlayer.posY,
+            mc.thePlayer.posZ,
+            mc.thePlayer.getHealth(),
+            mc.thePlayer.isDead || mc.thePlayer.getHealth() <= 0 ? " DEAD" : "");
+    }
+
+    private int countMobs(Minecraft mc) {
+        int n = 0;
+        for (Object o : mc.theWorld.loadedEntityList) {
+            if (o instanceof net.minecraft.entity.monster.EntityMob) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * The Mordida in a line: a pig and a cow on the band next to the player; the corridor, the lunge to the barrier,
+     * the catch (the player and the animals) and the swallow (a simulation with damage: the player dies).
+     */
+    private void line() {
+        steps.add((mc, t) -> {
+            look(mc, 0, -12);
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t == 10) {
+                // zombies: the test server has spawn-animals=false (it removes animals as they appear)
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie 3.5 5 %.1f {Silent:1}", BAND_Z + 1));
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie -3.5 5 %.1f", BAND_Z - 1));
+                say(String.format(java.util.Locale.ROOT, "/summon Zombie 20.5 5 %.1f", BAND_Z + 10));
+            }
+            if (t == 30) {
+                report("line: mobs before " + countMobs(mc));
+                say("/af boss simular mordida 2 dano");
+            }
+            if (t > 30 && t % 4 == 0 && t < 260) {
+                report("line t=" + (t - 30) + ": " + me(mc) + "; " + bossLine() + "; mobs " + countMobs(mc));
+            }
+            for (int at : new int[] { 50, 62, 70, 76, 80, 90, 110, 130 }) {
+                shotAt(t, at, "boss-linha-" + (at - 30));
+            }
+            if (t == 180 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 200) {
+                report("line: mobs after " + countMobs(mc));
+            }
+            return t >= 260;
+        });
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 0;
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z);
+            }
+            return t >= 40;
+        });
+    }
+
+    /**
+     * The Mordida in a line against a player who jumps the whole time (jumping must not save anyone in the band): in
+     * place, or ({@code strafe}) sprint-jumping sideways once the band locks, as someone trying to get out at the end.
+     * Resistance, so only the bite decides; the server's debug log says why anyone escaped.
+     */
+    private void jumpBite(boolean strafe) {
+        steps.add((mc, t) -> {
+            look(mc, 0, -12);
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 5 " + BAND_Z);
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t == 6) {
+                say("/effect " + n + " 11 60 4");
+            }
+            if (t == 20) {
+                say("/af boss simular mordida 2 dano");
+            }
+            // jump from the warning to well past the snap (the bite: lock at 14, lunge at 22, snap at 30)
+            boolean jumping = t > 20 && t < 80 && mc.thePlayer.getHealth() > 0;
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), jumping);
+            boolean side = strafe && t > 20 + 15 && t < 20 + 31;
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), side);
+            mc.thePlayer.setSprinting(side);
+            if (t > 20 && t % 2 == 0 && t < 120) {
+                report(
+                    "pulo" + (strafe ? " de lado" : "")
+                        + " t="
+                        + (t - 20)
+                        + ": "
+                        + me(mc)
+                        + " chao="
+                        + mc.thePlayer.onGround
+                        + "; "
+                        + bossLine());
+            }
+            shotAt(t, 20 + 28, "boss-pulo" + (strafe ? "-lado" : "") + "-28");
+            shotAt(t, 20 + 31, "boss-pulo" + (strafe ? "-lado" : "") + "-31");
+            if (t >= 200 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            if (t == 239) {
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
+            }
+            return t >= 240;
+        });
+    }
+
+    /** The rise: the player swims where its mouth comes up; it snaps them up and swallows them. */
+    private void rise() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                mc.gameSettings.thirdPersonView = 1;
+                // in the water, in front of the centre, where the head breaks the surface (the boss faces the band)
+                say("/tp " + n + " 0.5 4 -7.5");
+            }
+            look(mc, 180, -20);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            if (t > 20 && t % 4 == 0 && t < 300) {
+                report("rise t=" + (t - 20) + ": " + me(mc) + "; " + bossLine());
+            }
+            for (int at : new int[] { 40, 60, 80, 96, 104, 120, 150, 175, 190 }) {
+                shotAt(t, at, "boss-emergir-" + (at - 20));
+            }
+            if (t == 240 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 300;
+        });
+        commands("/af boss encerrar");
+    }
+
+    /** The mouth's zone: after the rise, the player swims under its head; it growls, snaps and swallows. */
+    private void mouth() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 5 " + BAND_Z);
+            }
+            look(mc, 0, -12);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            return t >= 230; // the rise is over, it rests
+        });
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 1;
+                say("/tp " + n + " 0.5 4 -6.5"); // under the head
+            }
+            look(mc, 0, -40);
+            if (t % 3 == 0 && t < 140) {
+                report("mouth t=" + t + ": " + me(mc) + "; " + bossLine());
+            }
+            for (int at : new int[] { 4, 10, 14, 20, 30, 50, 66, 80 }) {
+                shotAt(t, at, "boss-boca-" + at);
+            }
+            if (t == 120 && mc.thePlayer.getHealth() <= 0) {
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 160;
+        });
+        commands("/af boss encerrar");
+    }
+
+    /**
+     * The hunt in a deep lake (water from y 1 to 40): a fight, the hunt forced, the player dives with water breathing,
+     * follows the boss with the eyes, casts at its body; the boss swims, stalks, bites or sucks; screenshots under the
+     * water; the boss's path and rotation in the report.
+     */
+    private void hunt() {
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                say("/gamemode 0 " + n);
+                say("/tp " + n + " 0.5 41 " + BAND_Z);
+            }
+            look(mc, 0, -12);
+            if (t == 20) {
+                say("/af boss invocar");
+            }
+            if (t == 230) {
+                say("/effect " + n + " 13 3600 0");
+                say("/effect " + n + " 16 3600 0");
+                say("/effect " + n + " 11 3600 2");
+                say("/af boss forcar cacada");
+                mc.gameSettings.thirdPersonView = 1;
+            }
+            if (t > 230 && t % 10 == 0) {
+                report("hunt-dive t=" + (t - 230) + ": " + bossLine());
+            }
+            shotAt(t, 250, "boss-cacada-mergulho-1");
+            shotAt(t, 275, "boss-cacada-mergulho-2");
+            return t >= 300;
+        });
+        steps.add((mc, t) -> {
+            String n = mc.thePlayer.getCommandSenderName();
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = 0;
+                say("/tp " + n + " 12.5 24 -12.5"); // in the water, 16 blocks deep
+                for (int i = 0; i < 9; i++) {
+                    net.minecraft.item.ItemStack st = mc.thePlayer.inventory.mainInventory[i];
+                    if (st != null && st.getItem() == net.minecraft.init.Items.fishing_rod) {
+                        mc.thePlayer.inventory.currentItem = i; // the rod, not whatever else is on the bar
+                    }
+                }
+            }
+            DisplayClient.Entry b = leviathan();
+            if (b != null) {
+                // follow it with the eyes (its middle, the model's seg_2 in the swim pose: 5.2 up, 8.8 back)
+                double x = b.motion.x(1f);
+                double y = b.motion.y(1f) + 4;
+                double z = b.motion.z(1f);
+                double dx = x - mc.thePlayer.posX;
+                double dy = y - mc.thePlayer.posY;
+                double dz = z - mc.thePlayer.posZ;
+                look(
+                    mc,
+                    (float) Math.toDegrees(Math.atan2(-dx, dz)),
+                    (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+                double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (t % 50 == 25 && d < 24 && mc.thePlayer.fishEntity == null && mc.thePlayer.getHeldItem() != null) {
+                    mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+                    report(String.format(java.util.Locale.ROOT, "hunt cast at %.1f blocks", d));
+                }
+            }
+            if (t % 10 == 0) {
+                report("hunt t=" + t + ": " + me(mc) + "; " + bossLine());
+            }
+            if (t % 40 == 20 && t < 1200) {
+                shot = String.format("boss-cacada-%04d", t);
+            }
+            if (mc.thePlayer.getHealth() <= 0 && t % 20 == 0) {
+                report("hunt: dead at t=" + t);
+                mc.thePlayer.respawnPlayer();
+            }
+            return t >= 1500;
+        });
+        commands("/af boss status", "/af boss encerrar");
+    }
+
+    /** The lights in the lair pose (tools/boss3d trilhas, "espreitar" first frame): blocks at size 1, yaw 0. */
+    private static final double[][] LURK_LIGHTS = { { -1.30, 5.43, 8.78 }, { 1.30, 5.43, 8.78 },
+        { -2.81, 8.05, -18.83 } };
+
+    private DisplayClient.Entry leviathan() {
+        for (DisplayClient.Entry e : entries()) {
+            if (LEVIATHAN.equals(e.model)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    /** A point of the model (local blocks at size 1) in the world, as the plugin's BossTracks.toWorld. */
+    private static double[] world(DisplayClient.Entry b, double px, double py, double pz) {
+        double s = b.scale[0];
+        double r = Math.toRadians(-b.motion.yaw(1f));
+        return new double[] { b.motion.x(1f) + px * s * Math.cos(r) + pz * s * Math.sin(r), b.motion.y(1f) + py * s,
+            b.motion.z(1f) - px * s * Math.sin(r) + pz * s * Math.cos(r) };
+    }
+
+    private int lightIndex;
+    private int lairIssued = -1;
+    private int punches;
+    private int dodgedAt = -1;
+    private double waterY = Double.NaN;
+
+    /**
+     * The lair: either staying in front of the mouth (sucked in and, when it rises, swallowed), or punching the lights
+     * out (dodging the suction behind it) until it opens its mouth and rises stunned.
+     */
+    private void lair(boolean fight) {
+        String name = fight ? "luzes" : "parado";
+        steps.add((mc, t) -> {
+            if (t == 0) {
+                mc.gameSettings.thirdPersonView = fight ? 0 : 1;
+                say("/gamemode 0 Developer");
+                lightIndex = 0;
+                lairIssued = -1;
+                punches = 0;
+                dodgedAt = -1;
+                waterY = Double.NaN;
+            }
+            if (t == 20) {
+                say("/effect Developer 13 3600 0");
+            }
+            if (t == 30) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 5 " + BAND_Z); // back from the respawn
+            }
+            DisplayClient.Entry b = leviathan();
+            if (lairIssued < 0) {
+                // the last simulation must be gone first (a new one is refused while the boss is in the lake)
+                if (t >= 60 && b == null && t % 20 == 0) {
+                    say("/af boss simular toca 2 dano");
+                    lairIssued = t;
+                }
+                return t > 2400;
+            }
+            if (b == null) {
+                return t > lairIssued + 400;
+            }
+            if (Double.isNaN(waterY) && "ocioso".equals(b.state)
+                || Double.isNaN(waterY) && "afundar".equals(b.state) && t < 60) {
+                waterY = b.motion.y(1f);
+            }
+            if (t % 10 == 0) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "toca-%s t=%d state %s boss y %.1f | me %.1f %.1f %.1f hp %.1f",
+                        name,
+                        t,
+                        b.state,
+                        b.motion.y(1f),
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ,
+                        mc.thePlayer.getHealth()));
+            }
+            if (mc.thePlayer.getHealth() <= 0) {
+                shotAt(t, t, "boss-toca-" + name + "-morto");
+                mc.thePlayer.respawnPlayer();
+                report("toca-" + name + ": died at t=" + t);
+                return true;
+            }
+            if (!"espreitar".equals(b.state) && !"sugar".equals(b.state)) {
+                if (fight && ("atordoado".equals(b.state) || "subir_atordoado".equals(b.state))) {
+                    shotAt(t, t, "boss-toca-luzes-atordoado");
+                    report("toca-luzes: the boss rose stunned at t=" + t);
+                    return true;
+                }
+                if (!fight && "engolir".equals(b.state)) {
+                    shot = shot == null && t % 15 == 0 ? "boss-toca-parado-engolir-" + t : shot;
+                }
+                return t > 2400;
+            }
+            if (!fight) {
+                // in front of the mouth, a few blocks under the water, looking at it
+                if (t % 40 == 0) {
+                    double[] at = world(b, 0, 0, 16);
+                    double[] mouth = world(b, 0, 6.38, 10.6);
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f %.1f %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            at[0],
+                            waterY - 2.5,
+                            at[2]));
+                    lookAt(mc, mouth);
+                }
+                if (t % 30 == 0) {
+                    shot = "boss-toca-parado-" + t;
+                }
+                return t > 2400;
+            }
+            // punching: dodge behind it while it sucks
+            if ("sugar".equals(b.state)) {
+                if (dodgedAt < 0) {
+                    dodgedAt = t;
+                    double[] away = world(b, 0, 0, -34);
+                    say(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "/tp %s %.1f %.1f %.1f",
+                            mc.thePlayer.getCommandSenderName(),
+                            away[0],
+                            waterY + 0.5,
+                            away[2]));
+                    report("toca-luzes: dodging the suction at t=" + t);
+                    shot = "boss-toca-luzes-sugar";
+                }
+                return false;
+            }
+            dodgedAt = -1;
+            if (lightIndex >= LURK_LIGHTS.length) {
+                return t > 2400;
+            }
+            double[] l = LURK_LIGHTS[lightIndex];
+            double[] light = world(b, l[0], l[1], l[2]);
+            double[] spot = world(b, l[0], l[1], l[2] + (lightIndex < 2 ? -2.2 : 2.2));
+            if (t % 6 == 0) {
+                say(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "/tp %s %.1f %.1f %.1f",
+                        mc.thePlayer.getCommandSenderName(),
+                        spot[0],
+                        Math.min(spot[1] - 1.6, waterY - 1.0),
+                        spot[2]));
+            }
+            lookAt(mc, light);
+            if (t % 6 == 3) {
+                mc.thePlayer.swingItem();
+                punches++;
+                if (punches == 2) {
+                    shot = "boss-toca-luzes-soco-" + lightIndex;
+                }
+                if (punches >= 9) {
+                    report("toca-luzes: done with light " + lightIndex + " at t=" + t);
+                    lightIndex++;
+                    punches = 0;
+                }
+            }
+            return t > 2400;
+        });
+    }
+
+    /** The barrier: walking out of the fight brings you back in; a teleport out is cancelled. */
+    private void barrier() {
+        commands("/gamemode 0 Developer", "/effect Developer 11 3600 4");
+        steps.add((mc, t) -> {
+            look(mc, 180, -10);
+            if (t == 0) {
+                say("/af boss invocar");
+            }
+            double out = radius + 10 + 6 + 8; // past the band and the margin
+            // walking out: hold forward towards the border (the server rejects a jump of position, so really walk)
+            if (t >= 150 && t < 260) {
+                look(mc, 180, 0);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), true);
+                if (t % 10 == 0) {
+                    report(String.format(java.util.Locale.ROOT, "barrier walking t=%d: z=%.1f", t, mc.thePlayer.posZ));
+                }
+            }
+            if (t == 260) {
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
+            }
+            if (t == 262) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier t=%d: me at %.1f %.1f %.1f",
+                        t,
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+            }
+            shotAt(t, 200, "boss-barreira");
+            if (t == 280) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
+            }
+            if (t == 320) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier: after /tp out, me at %.1f %.1f %.1f",
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+                say("/af boss encerrar");
+            }
+            if (t == 360) {
+                say("/tp " + mc.thePlayer.getCommandSenderName() + " 0.5 6 -200");
+            }
+            if (t == 400) {
+                report(
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "barrier: after the fight, /tp out: me at %.1f %.1f %.1f",
+                        mc.thePlayer.posX,
+                        mc.thePlayer.posY,
+                        mc.thePlayer.posZ));
+            }
+            return t >= 420;
+        });
+    }
+
+    private static void lookAt(Minecraft mc, double[] at) {
+        double dx = at[0] - mc.thePlayer.posX;
+        double dy = at[1] - mc.thePlayer.posY;
+        double dz = at[2] - mc.thePlayer.posZ;
+        look(
+            mc,
+            (float) Math.toDegrees(Math.atan2(-dx, dz)),
+            (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+    }
+
+    /** How many NecroTempus boss bars this client has on screen (-1: no NecroTempus). */
+    private static int bossBars() {
+        try {
+            Class<?> c = Class
+                .forName("io.github.cruciblemc.necrotempus.modules.features.bossbar.client.ClientBossBarManager");
+            return (Integer) c.getMethod("size")
+                .invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return -1;
+        }
     }
 
     private void fight() {

@@ -38,22 +38,28 @@ class FlightEnvelopeTest {
             double thrusted = (v - FlightEnvelope.GRAVITY) * FlightEnvelope.DRAG + 0.15; // a jetpack's push
             v = e.next(false, thrusted, false);
             assertTrue(v < thrusted, "cortado no tick " + i);
-            if (i < arc.length) {
-                assertEquals(arc[i], v, 1e-9, "segue a curva do pulo");
+            if (i < arc.length && arc[i] > 0) {
+                assertEquals(arc[i], v, 1e-9, "segue a curva do pulo na subida");
+            } else {
+                assertTrue(v <= 0, "depois do topo, não sobe mais: " + v);
             }
         }
-        assertTrue(v < -1, "cai como sem jetpack");
     }
 
     @Test
-    void aGlideFallsLikeAnythingElse() {
+    void neverPushesDown() {
+        // a glider holding the fall, or a swimmer whose water the client did not see: never dragged down
         FlightEnvelope e = new FlightEnvelope();
-        e.next(true, -0.08, false); // walks off a ledge
-        double v = -0.08;
-        for (int i = 0; i < 20; i++) {
-            v = e.next(false, -0.05, false); // a glider holds the fall at -0.05
+        e.next(true, -0.08, false);
+        for (int i = 0; i < 200; i++) {
+            assertEquals(-0.02, e.next(false, -0.02, false), 1e-9, "tick " + i);
         }
-        assertTrue(v < -0.8, "o planador não segura a queda: " + v);
+        FlightEnvelope g = new FlightEnvelope();
+        g.next(true, 0.42, false);
+        for (int i = 0; i < 60; i++) {
+            double v = g.next(false, -0.05, false);
+            assertEquals(-0.05, v, 1e-9, "o planador desce no ritmo dele, sem ser puxado");
+        }
     }
 
     @Test

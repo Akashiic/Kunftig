@@ -4,6 +4,7 @@ import java.nio.FloatBuffer;
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.EntityLivingBase;
@@ -23,6 +24,7 @@ import com.akashic.kunftig.blade.BodyPose;
 import com.akashic.kunftig.blade.Mmd;
 import com.akashic.kunftig.blade.ObjModel;
 import com.akashic.kunftig.blade.Vmd;
+import com.akashic.kunftig.client.compat.FuturaModels;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
@@ -44,6 +46,10 @@ public final class BladeRenderer {
     private static final ResourceLocation CHARGE_TEXTURE = new ResourceLocation(
         "textures/entity/creeper/creeper_armor.png");
     private static final int MAX_LOGGED_ERRORS = 20;
+    /** Without the motion: the point of the hilt (OBJ units, along the blade's X) the hand closes on. */
+    private static final float GRIP_X = 14F;
+    /** Without the motion: how far the blade points up from the fist (degrees), in third and first person. */
+    private static final float HOLD_PITCH = 35F;
 
     private final FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
     private int loggedErrors;
@@ -66,7 +72,11 @@ public final class BladeRenderer {
             ItemStack held = player.getHeldItem();
             BladeIndex.Blade blade = c.resolve(held);
             if (blade != null) {
-                renderMain(player, held, blade, event.partialRenderTick);
+                if (c.motion(blade.bladeMotion) != null) {
+                    renderMain(player, held, blade, event.partialRenderTick);
+                } else {
+                    renderHeldWithoutMotion(event.renderer.modelBipedMain, held, blade);
+                }
             }
         } catch (RuntimeException e) {
             if (loggedErrors++ < MAX_LOGGED_ERRORS) {
@@ -147,16 +157,22 @@ public final class BladeRenderer {
         GL11.glScalef(-1, 1, 1);
     }
 
-    /** The blade not in use, at the hip by its carry type (SlashBlade's {@code renderStandbyBlade}). */
-    void renderStandby(EntityPlayer player, boolean ownFirstPerson) {
-        BladeClient c = BladeClient.INSTANCE;
+    /** The blade not in use: Backhand's off hand, or hotbar slot 0 while another slot is selected; null if none. */
+    private static ItemStack standbyStack(EntityPlayer player) {
         ItemStack stack = offhandBlade(player);
         if (stack == null && player.inventory.currentItem != 0) {
             ItemStack slot0 = player.inventory.getStackInSlot(0);
-            if (c.resolve(slot0) != null) {
+            if (BladeClient.INSTANCE.resolve(slot0) != null) {
                 stack = slot0;
             }
         }
+        return stack;
+    }
+
+    /** The blade not in use, at the hip by its carry type (SlashBlade's {@code renderStandbyBlade}). */
+    void renderStandby(EntityPlayer player, boolean ownFirstPerson) {
+        BladeClient c = BladeClient.INSTANCE;
+        ItemStack stack = standbyStack(player);
         BladeIndex.Blade blade = c.resolve(stack);
         if (blade == null) {
             return;
@@ -167,42 +183,9 @@ public final class BladeRenderer {
         }
         GL11.glPushMatrix();
         try {
-            GL11.glTranslatef(0, 1.5F, 0);
-            switch (blade.carry) {
-                case PSO2:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(1F, -1.125F, 0.20F);
-                    rotateZYX(-0.122173F, 0, 0);
-                    break;
-                case KATANA:
-                    GL11.glTranslatef(0.25F, -0.875F, -0.55F);
-                    rotateZYX(3.1415927F, 1.570796F, 0.261799F);
-                    break;
-                case DEFAULT:
-                    GL11.glTranslatef(0.25F, -0.875F, -0.55F);
-                    rotateZYX(0F, 1.570796F, 0.261799F);
-                    break;
-                case NINJA:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(-0.5F, -2F, 0.20F);
-                    rotateZYX(-2.094395F, 0F, 3.1415927F);
-                    break;
-                case RNINJA:
-                    if (ownFirstPerson) {
-                        return;
-                    }
-                    GL11.glTranslatef(0.5F, -2F, 0.20F);
-                    rotateZYX(-1.047198F, 0, 0);
-                    break;
-                default:
-                    return;
+            if (!carry(blade.carry, ownFirstPerson)) {
+                return;
             }
-            GL11.glScalef(MOTION_SCALE, MOTION_SCALE, MOTION_SCALE);
-            GL11.glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
             ResourceLocation texture = c.location(blade.texture);
             String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
             drawNormal(model, part, texture);
@@ -212,6 +195,92 @@ public final class BladeRenderer {
         } finally {
             GL11.glPopMatrix();
         }
+    }
+
+    /**
+     * Moves to where a blade of this carry type rests at the hip, in OBJ units, or returns false when that carry is
+     * not drawn here (SlashBlade's {@code renderStandbyBlade} transforms).
+     */
+    private static boolean carry(BladeIndex.Carry carry, boolean ownFirstPerson) {
+        GL11.glTranslatef(0, 1.5F, 0);
+        switch (carry) {
+            case PSO2:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(1F, -1.125F, 0.20F);
+                rotateZYX(-0.122173F, 0, 0);
+                break;
+            case KATANA:
+                GL11.glTranslatef(0.25F, -0.875F, -0.55F);
+                rotateZYX(3.1415927F, 1.570796F, 0.261799F);
+                break;
+            case DEFAULT:
+                GL11.glTranslatef(0.25F, -0.875F, -0.55F);
+                rotateZYX(0F, 1.570796F, 0.261799F);
+                break;
+            case NINJA:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(-0.5F, -2F, 0.20F);
+                rotateZYX(-2.094395F, 0F, 3.1415927F);
+                break;
+            case RNINJA:
+                if (ownFirstPerson) {
+                    return false;
+                }
+                GL11.glTranslatef(0.5F, -2F, 0.20F);
+                rotateZYX(-1.047198F, 0, 0);
+                break;
+            default:
+                return false;
+        }
+        GL11.glScalef(MOTION_SCALE, MOTION_SCALE, MOTION_SCALE);
+        GL11.glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+        return true;
+    }
+
+    /**
+     * The held blade when the pack has no blade motion (the VMD): instead of nothing, the blade in the right hand like
+     * a sword, following the arm, and the sheath at the hip by its carry type. The combos then play without the blade
+     * rig; this keeps the blade visible.
+     */
+    private void renderHeldWithoutMotion(ModelBiped biped, ItemStack stack, BladeIndex.Blade blade) {
+        BladeClient c = BladeClient.INSTANCE;
+        ObjModel model = c.model(blade.obj);
+        if (model == null || biped == null) {
+            return;
+        }
+        ResourceLocation texture = c.location(blade.texture);
+        String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
+        GL11.glPushMatrix();
+        try {
+            biped.bipedRightArm.postRender(0.0625F);
+            GL11.glTranslatef(-0.0625F, 0.5625F, -0.0625F); // the closed hand
+            GL11.glRotatef(-HOLD_PITCH, 1, 0, 0); // the point up
+            GL11.glRotatef(-90, 0, 1, 0); // the point (-X) forward, the edge (+Y) down
+            drawObj(model, part, texture);
+        } finally {
+            GL11.glPopMatrix();
+        }
+        GL11.glPushMatrix();
+        try {
+            if (carry(blade.carry == BladeIndex.Carry.PSO2 ? BladeIndex.Carry.KATANA : blade.carry, false)) {
+                drawNormal(model, "sheath", texture);
+                drawLuminous(model, "sheath_luminous", texture);
+            }
+        } finally {
+            GL11.glPopMatrix();
+        }
+    }
+
+    /** A blade part in OBJ units from the grip: 1/128 block per unit, the grip at the origin. */
+    private static void drawObj(ObjModel model, String part, ResourceLocation texture) {
+        GL11.glScalef(MOTION_SCALE * MODEL_SCALE, MOTION_SCALE * MODEL_SCALE, MOTION_SCALE * MODEL_SCALE);
+        GL11.glTranslatef(-GRIP_X, 0, 0);
+        drawNormal(model, part, texture);
+        drawLuminous(model, part + "_luminous", texture);
     }
 
     /** JOML's {@code rotateZYX(z, y, x)} = Rz·Ry·Rx (radians). */
@@ -254,6 +323,194 @@ public final class BladeRenderer {
         }
     }
 
+    // ---- player models (3D Futura Engine) ----------------------------------------------------------------------
+
+    /** Upstream YSM's {@code BladeLocator}: the locator at the middle of the hilt, the blade forward. */
+    private static final int AT_HILT = 0;
+    /**
+     * Upstream YSM's {@code SheathLocator} and, with the blade locators, {@code LeftWaistLocator}: the sheath's end.
+     */
+    private static final int AT_SHEATH_END = 1;
+    /** Upstream YSM's waist locators for models without blade locators (the "old" SlashBlade layout). */
+    private static final int AT_WAIST = 2;
+
+    private final com.akashic.kunftig.blade.ModelStateFeed feed = new com.akashic.kunftig.blade.ModelStateFeed();
+
+    /**
+     * Before a player is drawn: with a 3D Futura Engine that takes external states (its API 3), tells it whether he
+     * holds a blade and which combo state plays, so his model plays upstream YSM's SlashBlade animations
+     * ({@code slashblade:idle}, {@code slashblade:combo_a1}...). The combo is named by the first frame of the chain
+     * ({@link com.akashic.kunftig.blade.SlashBladeCombos}).
+     */
+    @SubscribeEvent
+    public void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
+        BladeClient c = BladeClient.INSTANCE;
+        if (!c.active() || !FuturaModels.hasExternalStates()) {
+            return;
+        }
+        EntityPlayer player = event.entityPlayer;
+        try {
+            BladeIndex.Blade blade = c.resolve(player.getHeldItem());
+            String combo = blade == null ? null : c.comboName(player, blade, event.partialRenderTick);
+            feed.update(
+                player,
+                blade != null,
+                combo,
+                c.chainSerial(player),
+                (key, value) -> FuturaModels.setExternalState(player, key, value));
+        } catch (RuntimeException e) {
+            if (loggedErrors++ < MAX_LOGGED_ERRORS) {
+                Kunftig.LOG.error("Kunftig blades: cannot tell 3D Futura Engine the blade state", e);
+            }
+        }
+    }
+
+    /**
+     * A player drawn with a 3D Futura Engine model: {@code RenderPlayerEvent.Specials} does not fire (the biped's
+     * {@code renderEquippedItems} does not run) and the blade rig's hardpoints are in the biped's space, so the blade
+     * goes on the model's locators, after the model is drawn, as upstream YSM's SlashBlade compatibility places it
+     * ({@code SlashBladeRender}). The body poses of the blade ({@link BladePose}) are the biped's and do not apply.
+     */
+    @SubscribeEvent
+    public void onRenderPlayerPost(RenderPlayerEvent.Post event) {
+        BladeClient c = BladeClient.INSTANCE;
+        EntityPlayer player = event.entityPlayer;
+        if (!c.active() || player.isInvisible() || !FuturaModels.drewModel(player)) {
+            return;
+        }
+        try {
+            renderOnModel(player, event.partialRenderTick);
+        } catch (RuntimeException e) {
+            if (loggedErrors++ < MAX_LOGGED_ERRORS) {
+                Kunftig.LOG.error("Kunftig blades: cannot draw a blade on a player model", e);
+            }
+        }
+    }
+
+    /**
+     * The held blade and its sheath on the model's locators. When the model plays the SlashBlade animations (a
+     * futura3d with external states, {@link FuturaModels#playsBladeAnimations}) and has {@code BladeLocator},
+     * {@code SheathLocator} and {@code LeftWaistLocator}, as upstream YSM's {@code newMainhandSlashBlade}: the
+     * sheathed blade at {@code LeftWaistLocator}, the bare blade at {@code BladeLocator}, the sheath at
+     * {@code SheathLocator}, every one of them always, and the model's clips hide the ones not in use (a sheathed
+     * strike such as {@code combo_a1} keeps the blade at the waist; {@code combo_a3} draws it). Otherwise (an older
+     * futura3d): a model with those three locators (YSM 2.x's convention): while a combo plays, the blade at
+     * {@code BladeLocator} and
+     * the sheath at {@code SheathLocator}; otherwise the sheathed blade at {@code LeftWaistLocator}. Upstream lets the
+     * model's {@code slashblade:*} animations hide the locators that are not in use; Kunftig does not play those
+     * animations yet, so its combo state chooses, and since models keep {@code BladeLocator} and {@code SheathLocator}
+     * hidden outside those animations (the built-in ones in a {@code pre_parallel}), a hidden one is replaced by
+     * {@code RightHandLocator} (where the built-in models put {@code BladeLocator}) and {@code LeftWaistLocator}
+     * (where they put {@code SheathLocator}). A model without them: the blade at {@code RightHandLocator} (where
+     * the built-in models put {@code BladeLocator}) while a combo plays, sheathed at {@code LeftWaistLocator} when
+     * idle, the sheath at {@code LeftWaistLocator} during a combo; without a waist locator the blade stays in the hand
+     * and the sheath is not drawn. The blade not in use goes, sheathed, to {@code RightWaistLocator} (upstream's off
+     * hand), or nowhere. A locator the pose hides (scale 0) hides what is drawn there.
+     */
+    void renderOnModel(EntityPlayer player, float partial) {
+        BladeClient c = BladeClient.INSTANCE;
+        ItemStack standby = standbyStack(player);
+        BladeIndex.Blade standbyBlade = c.resolve(standby);
+        if (standbyBlade != null) {
+            onLocator(player, FuturaModels.RIGHT_WAIST, AT_WAIST, standby, standbyBlade, true, true, false, partial);
+        }
+        ItemStack held = player.getHeldItem();
+        BladeIndex.Blade blade = c.resolve(held);
+        if (blade == null) {
+            return;
+        }
+        boolean drawn = c.drawn(player, partial);
+        boolean bladeLocators = FuturaModels.hasLocator(player, FuturaModels.BLADE)
+            && FuturaModels.hasLocator(player, FuturaModels.SHEATH)
+            && FuturaModels.hasLocator(player, FuturaModels.LEFT_WAIST);
+        if (bladeLocators && FuturaModels.playsBladeAnimations(player)) {
+            // upstream YSM: all three, the model's slashblade:* clips show and hide them
+            onLocator(player, FuturaModels.LEFT_WAIST, AT_SHEATH_END, held, blade, true, true, true, partial);
+            onLocator(player, FuturaModels.BLADE, AT_HILT, held, blade, true, false, false, partial);
+            onLocator(player, FuturaModels.SHEATH, AT_SHEATH_END, held, blade, false, true, true, partial);
+            return;
+        }
+        if (bladeLocators) {
+            if (drawn) {
+                // Models hide these two until a slashblade:* animation shows them (the built-in ones in a
+                // pre_parallel): without those animations, the hand and the waist stand in.
+                if (!onLocator(player, FuturaModels.BLADE, AT_HILT, held, blade, true, false, false, partial)) {
+                    onLocator(player, FuturaModels.RIGHT_HAND, AT_HILT, held, blade, true, false, false, partial);
+                }
+                if (!onLocator(player, FuturaModels.SHEATH, AT_SHEATH_END, held, blade, false, true, true, partial)) {
+                    onLocator(player, FuturaModels.LEFT_WAIST, AT_SHEATH_END, held, blade, false, true, true, partial);
+                }
+            } else {
+                onLocator(player, FuturaModels.LEFT_WAIST, AT_SHEATH_END, held, blade, true, true, true, partial);
+            }
+        } else if (drawn
+            || !onLocator(player, FuturaModels.LEFT_WAIST, AT_WAIST, held, blade, true, true, true, partial)) {
+                onLocator(player, FuturaModels.RIGHT_HAND, AT_HILT, held, blade, true, false, false, partial);
+                if (drawn) {
+                    onLocator(player, FuturaModels.LEFT_WAIST, AT_WAIST, held, blade, false, true, true, partial);
+                }
+            }
+    }
+
+    /**
+     * Draws parts of a blade at a locator of the model draw that just ended, in upstream YSM's frame for that locator
+     * ({@code SlashBladeRender}: 1/100 block per OBJ unit, turned from the OBJ's axes).
+     *
+     * @return false when the locator is missing or hidden (nothing drawn)
+     */
+    private boolean onLocator(EntityPlayer player, String locator, int frame, ItemStack stack, BladeIndex.Blade blade,
+        boolean bladePart, boolean sheath, boolean charge, float partial) {
+        BladeClient c = BladeClient.INSTANCE;
+        ObjModel model = c.model(blade.obj);
+        float[] at = model == null ? null : FuturaModels.locatorInLastDraw(player, locator);
+        if (at == null) {
+            return false;
+        }
+        GL11.glPushMatrix();
+        try {
+            matrix.clear();
+            matrix.put(at);
+            matrix.flip();
+            GL11.glMultMatrix(matrix);
+            switch (frame) {
+                case AT_HILT:
+                    GL11.glTranslatef(0, 0.035F, 0);
+                    GL11.glScalef(0.01F, 0.01F, 0.01F);
+                    GL11.glRotatef(-90, 0, 1, 0);
+                    GL11.glRotatef(180, 1, 0, 0);
+                    break;
+                case AT_SHEATH_END:
+                    GL11.glTranslatef(0, 0.025F, -0.6F);
+                    GL11.glScalef(0.01F, 0.01F, 0.01F);
+                    GL11.glRotatef(-90, 0, 1, 0);
+                    GL11.glRotatef(180, 0, 0, 1);
+                    break;
+                default:
+                    GL11.glTranslatef(0, 0, -0.7F);
+                    GL11.glScalef(0.01F, 0.01F, 0.01F);
+                    GL11.glRotatef(-90, 0, 1, 0);
+                    GL11.glRotatef(180, 0, 0, 1);
+                    break;
+            }
+            ResourceLocation texture = c.location(blade.texture);
+            if (bladePart) {
+                String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
+                drawNormal(model, part, texture);
+                drawLuminous(model, part + "_luminous", texture);
+            }
+            if (sheath) {
+                drawNormal(model, "sheath", texture);
+                drawLuminous(model, "sheath_luminous", texture);
+                if (charge && c.charged(player)) {
+                    drawCharge(model, "effect", player.ticksExisted + partial);
+                }
+            }
+        } finally {
+            GL11.glPopMatrix();
+        }
+        return true;
+    }
+
     // ---- first person ----------------------------------------------------------------------------------------------
 
     /**
@@ -263,6 +520,10 @@ public final class BladeRenderer {
      */
     void renderFirstPerson(EntityPlayer player, ItemStack stack, BladeIndex.Blade blade) {
         float partial = BladeClient.INSTANCE.partialTicks();
+        if (BladeClient.INSTANCE.motion(blade.bladeMotion) == null) {
+            renderFirstPersonWithoutMotion(player, stack, blade, partial);
+            return;
+        }
         GL11.glPushMatrix();
         boolean normalize = GL11.glIsEnabled(GL11.GL_NORMALIZE);
         try {
@@ -279,6 +540,33 @@ public final class BladeRenderer {
             if (!normalize) {
                 GL11.glDisable(GL11.GL_NORMALIZE);
             }
+            GL11.glPopMatrix();
+        }
+    }
+
+    /**
+     * First person without the blade motion: the blade in the lower right of the view, the point forward and up, and a
+     * plain downward cut on each swing (the arm is not drawn, as with the motion).
+     */
+    private void renderFirstPersonWithoutMotion(EntityPlayer player, ItemStack stack, BladeIndex.Blade blade,
+        float partial) {
+        ObjModel model = BladeClient.INSTANCE.model(blade.obj);
+        if (model == null) {
+            return;
+        }
+        ResourceLocation texture = BladeClient.INSTANCE.location(blade.texture);
+        String part = BladeClient.broken(stack, blade) ? "blade_damaged" : "blade";
+        float swing = player.getSwingProgress(partial);
+        float cut = (float) Math.sin(Math.sqrt(swing) * Math.PI);
+        GL11.glPushMatrix();
+        try {
+            GL11.glLoadIdentity();
+            GL11.glTranslatef(0.42F, -0.42F - 0.1F * cut, -0.75F);
+            GL11.glRotatef(12 + 25 * cut, 0, 1, 0); // the point a little to the centre, more during the cut
+            GL11.glRotatef(HOLD_PITCH - 95 * cut, 1, 0, 0); // up at rest, down through the cut
+            GL11.glRotatef(180, 1, 0, 1); // the point (-X) forward (-Z), the edge (+Y) down
+            drawObj(model, part, texture);
+        } finally {
             GL11.glPopMatrix();
         }
     }

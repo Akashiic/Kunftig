@@ -32,6 +32,8 @@ public final class FlightLock {
     public static final String CHANNEL = "kunftig:flight";
 
     private final Set<UUID> locked = ConcurrentHashMap.newKeySet();
+    /** Who could fly when the lock came (a one-time grant, like a /fly): given back when it goes. */
+    private final Set<UUID> hadFlight = ConcurrentHashMap.newKeySet();
 
     private FlightLock() {}
 
@@ -41,13 +43,32 @@ public final class FlightLock {
 
     /** Locks or frees the player, and tells their client. */
     public void set(EntityPlayerMP player, boolean lock) {
-        boolean changed = lock ? locked.add(player.getUniqueID()) : locked.remove(player.getUniqueID());
+        UUID id = player.getUniqueID();
+        boolean changed = lock ? locked.add(id) : locked.remove(id);
         if (changed) {
             if (lock) {
+                if (player.capabilities.allowFlying && !player.capabilities.isCreativeMode) {
+                    hadFlight.add(id);
+                }
                 enforce(player);
+            } else if (hadFlight.remove(id) && !player.capabilities.isCreativeMode) {
+                player.capabilities.allowFlying = true;
+                player.sendPlayerAbilities();
             }
             tell(player, lock);
         }
+    }
+
+    /**
+     * Leaving the server drops the lock: it lived only in memory, and a player who quit in the middle of a fight stayed
+     * locked on every later login until the server restarted (the plugin locks them again if they come back into the
+     * fight).
+     */
+    @SubscribeEvent
+    public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        UUID id = event.player.getUniqueID();
+        locked.remove(id);
+        hadFlight.remove(id);
     }
 
     private static void tell(EntityPlayerMP player, boolean lock) {

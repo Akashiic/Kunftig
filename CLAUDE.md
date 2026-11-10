@@ -26,6 +26,9 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   their additions "API 9"; they were merged as 9 and 11, with one display wire (see `DisplayWire`). A client or server
   from either branch alone must be updated together.
 
+  The player-model (YSM-style) study is in `docs/playermodel/ESTUDO-YSM.md`; the port itself is the separate mod
+  3D Futura Engine (`futura3d`), on branch `main` of [Akashiic/YesSteveModel](https://github.com/Akashiic/YesSteveModel).
+
   The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14, the hook range in
   15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20). Raise the version and update the version
   asserts in the API tests when adding to it.
@@ -48,7 +51,8 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   ```
   It is then pinned in AkashicFishing's `libs/`.
 * **Dev harness** (`com.akashic.kunftig.dev`, enabled with `-Dkunftig.devHarness=true` and a `kunftig-rod-harness`
-  file in the client's run directory: `caixa`, `skins`, `boss`, `overkill`, `blades`, `sb`, `server`, `observer`, `fish`, `cells`, `edge`, `perf`):
+  file in the client's run directory: `caixa`, `skins`, `boss`, `overkill`, `blades`, `sb`, `models`, `modelcombos`,
+  `server`, `observer`, `fish`, `cells`, `edge`, `perf`):
   * it is **never in the release jar**: `shadowJar` excludes it;
   * for a test jar, comment out that exclude, build, then `git checkout build.gradle.kts`.
 * Work on the branch named in the session; no force-push; a merged PR is not reused (merge `main` into the branch and
