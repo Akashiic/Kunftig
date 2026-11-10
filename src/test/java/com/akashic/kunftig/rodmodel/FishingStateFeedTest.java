@@ -72,6 +72,7 @@ class FishingStateFeedTest {
         feed.update(fresh, "captura", 195, 0, 200, sink);
         assertEquals("fishing.state=captura", told.get(0));
         assertTrue(FishingStateFeed.loops("recolher"));
+        assertTrue(FishingStateFeed.loops("briga_erro"), "AkashicFishing's miss reaction is part of the fight");
         assertFalse(FishingStateFeed.loops("mordida"));
     }
 }

@@ -407,9 +407,11 @@ if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
   pular, e volta com um pequeno balanço. `-Dkunftig.rodSway.disable=true` no cliente desliga só isso.
 * **Modelos de jogador do 3D Futura Engine** (futura3d com API 4): os mesmos estados fazem o pescador acompanhar a
   vara, com qualquer vara na mão (a vanilla também): o tranco da `mordida`, a `briga` inclinado para trás (a tensão
-  inclina mais e faz tremer), o `recolher` com a manivela, a `captura` com o puxão por cima da cabeça. Para a fuga,
-  mande `escapou`: a vara 3D, que não declara esse estado, volta à `parada`, e o modelo murcha os ombros. Nada a mais
-  para chamar; o Kunftig no cliente repassa (ver `docs/playermodel/ESTUDO-YSM.md`, seção 10).
+  inclina mais e faz tremer), o `recolher` com a manivela, a `captura` com o puxão por cima da cabeça. Também os
+  nomes do `RodMotion` do AkashicFishing (`briga_erro` segue a briga, `captura_rara`/`captura_mitica` são a captura,
+  `fuga` ou `escapou` a fuga). `parada` no meio da briga com a linha ainda fora também é a fuga: o modelo murcha os
+  ombros (uma vara 3D sem o estado volta à `parada`). Nada a mais para chamar; o Kunftig no cliente repassa (ver
+  `docs/playermodel/ESTUDO-YSM.md`, seção 10).
 
 ## 13. Exibições: modelos 3D animados no mundo (API 8, 9 e 11)
 

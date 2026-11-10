@@ -42,7 +42,10 @@ public final class FishingStateFeed {
 
     /** Whether the model's fishing clip of this state loops (a fight goes on however long ago it started). */
     public static boolean loops(String state) {
-        return "briga".equals(state) || "recolher".equals(state) || "fight".equals(state) || "reel".equals(state);
+        return "briga".equals(state) || "briga_erro".equals(state)
+            || "recolher".equals(state)
+            || "fight".equals(state)
+            || "reel".equals(state);
     }
 
     /**
