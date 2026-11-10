@@ -33,9 +33,11 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import com.akashic.kunftig.Kunftig;
+import com.akashic.kunftig.client.compat.FuturaModels;
 import com.akashic.kunftig.client.itemmodel.ItemModels;
 import com.akashic.kunftig.itemmodel.ItemModelIndex;
 import com.akashic.kunftig.rodmodel.BedrockAnimations;
+import com.akashic.kunftig.rodmodel.FishingStateFeed;
 import com.akashic.kunftig.rodmodel.RodMatrix;
 import com.akashic.kunftig.rodmodel.RodModelDef;
 import com.akashic.kunftig.rodmodel.RodModelIndex;
@@ -101,6 +103,23 @@ public final class RodModels implements IResourceManagerReloadListener {
     private long clock;
     private long frame;
     private float partialTicks;
+
+    /**
+     * The rod states the server sent, by entity id, whatever the player holds (a vanilla rod too): what 3D Futura
+     * Engine's models are told ({@link FishingStateFeed}), apart from the 3D rods' timelines.
+     */
+    private final Map<Integer, ServerRod> serverRods = new HashMap<>();
+    private final FishingStateFeed fishingFeed = new FishingStateFeed();
+    /** Client ticks, paused or not, with or without 3D rods (the feed's clock). */
+    private long feedClock;
+
+    private static final class ServerRod {
+
+        String state;
+        long start;
+        float tension;
+        long seen;
+    }
 
     /** A captured line tip: eye space and the hand's projection (first person), or an offset from the player. */
     private static final class Tip {
@@ -428,7 +447,11 @@ public final class RodModels implements IResourceManagerReloadListener {
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || !active()) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        feedModels();
+        if (!active()) {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
@@ -528,6 +551,8 @@ public final class RodModels implements IResourceManagerReloadListener {
 
     private void forgetAll() {
         timelines.clear();
+        serverRods.clear();
+        fishingFeed.clear();
         for (Integer id : keys.keySet()
             .toArray(new Integer[0])) {
             forgetKey(id);
@@ -597,7 +622,11 @@ public final class RodModels implements IResourceManagerReloadListener {
     /** A message on {@link RodWire#CHANNEL}. */
     public void onPayload(byte[] data) {
         RodWire.Message m = RodWire.read(data);
-        if (m == null || !active()) {
+        if (m == null) {
+            return;
+        }
+        rememberServerState(m);
+        if (!active()) {
             return;
         }
         RodTimeline t = timelines.computeIfAbsent(m.entityId, k -> new RodTimeline());
@@ -606,6 +635,58 @@ public final class RodModels implements IResourceManagerReloadListener {
             t.fromServer(m.state, clock - m.elapsedTicks, clock);
         }
         t.setTension(m.tension);
+    }
+
+    private void rememberServerState(RodWire.Message m) {
+        ServerRod r = serverRods.computeIfAbsent(m.entityId, k -> new ServerRod());
+        r.seen = feedClock; // the player may spawn on this client right after
+        if (m.op == RodWire.STATE) {
+            r.state = m.state;
+            r.start = feedClock - m.elapsedTicks;
+        }
+        r.tension = m.tension;
+    }
+
+    /**
+     * Tells 3D Futura Engine (API 4) the server's rod state of every player in the world, for his model to fish with
+     * the rod: the bite, the fight with its tension, the catch, the escape. Only changes; nothing without futura3d.
+     */
+    private void feedModels() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld == null) {
+            if (!serverRods.isEmpty()) {
+                serverRods.clear();
+                fishingFeed.clear();
+            }
+            return;
+        }
+        if (mc.isGamePaused()) {
+            return;
+        }
+        feedClock++;
+        if (!FuturaModels.playsFishing()) {
+            return;
+        }
+        for (Object o : mc.theWorld.playerEntities) {
+            final EntityPlayer p = (EntityPlayer) o;
+            ServerRod r = serverRods.get(p.getEntityId());
+            if (r != null) {
+                r.seen = feedClock;
+            }
+            fishingFeed.update(
+                p,
+                r == null ? null : r.state,
+                r == null ? 0 : r.start,
+                r == null ? 0 : r.tension,
+                feedClock,
+                (key, value) -> FuturaModels.setExternalState(p, key, value));
+        }
+        for (Iterator<ServerRod> it = serverRods.values()
+            .iterator(); it.hasNext();) {
+            if (feedClock - it.next().seen > FORGET_AFTER) {
+                it.remove();
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -769,6 +850,27 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         readMatrix(GL11.GL_MODELVIEW_MATRIX, playerView);
         playerViewEntity = event.entityPlayer.getEntityId();
+        poseModelArms(event.entityPlayer);
+    }
+
+    /**
+     * A held 3D model that is not a rod (AkashicFishing's fish) poses the arms ({@code braco}, by size band: the arm
+     * forward, both hands, above the head), and its {@code display} is placed for that arm. On a player drawn with 3D
+     * Futura Engine's model the biped mixin does not run, so the same pose goes to the model's arms (futura3d API 5);
+     * without it the fish would hang from an arm at rest, inside the body or toward the ground. Rods are left to the
+     * model's own fishing clips. Every frame: futura3d lets a pose not set again lapse.
+     */
+    private void poseModelArms(EntityPlayer player) {
+        ItemStack held = player.getHeldItem();
+        if (held == null || held.getItem() == net.minecraft.init.Items.fishing_rod || !FuturaModels.takesArmPose()) {
+            return;
+        }
+        float[] right = armRotation(player);
+        if (right == null) {
+            return;
+        }
+        float[] left = offhandBusy(player) ? null : armRotation(player, LEFT_ARM_BONE);
+        FuturaModels.setArmPose(player, right, left);
     }
 
     /**

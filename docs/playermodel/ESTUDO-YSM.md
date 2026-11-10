@@ -378,6 +378,33 @@ vanilla (saindo do graveto na mão do modelo), então os dois compõem. `BladePo
 `ModelBipedRodArmMixin` e `ModelBipedBladePoseMixin` não se aplicam a quem tem modelo (o `rotateCorpse` e o
 `setRotationAngles` do bíped não rodam): a pose é a do modelo.
 
+**Pesca nos modelos** (futura3d com API 4). O corpo do modelo acompanha a vara: o futura3d toca `fishing:<fase>` num
+controlador próprio (`player.fishing`; ver o futura3d, `docs/PORTING.md`, seção "Pesca") e infere sozinho o que o
+cliente vê (sacar, lançar, esperar, recolher a linha vazia). O que só o servidor sabe o Kunftig repassa
+(`rodmodel/FishingStateFeed`, puro e testado, chamado de `RodModels.feedModels` a cada tick do cliente): o último
+estado que o servidor mandou pelo `kunftig:rod` para cada jogador (`mordida`, `briga`, `recolher`, `captura`,
+`parada`, `escapou`...), **qualquer que seja a vara na mão** (a vanilla também; os estados do servidor ficam num mapa
+à parte das linhas do tempo das varas 3D), e a tensão, como os estados externos `fishing.state` e `fishing.tension`.
+Só mudanças; o mesmo estado começado de novo (uma segunda mordida) é limpo e posto, e o clipe recomeça; um estado que
+toca uma vez e já tem mais de 20 ticks quando chega (quem se aproxima depois de uma captura) vai como `parada`. Os
+estados que o próprio cliente infere para a vara 3D (`sacar`, `lancar`, a `parada` de fim de clipe) não vão: o
+futura3d tem as regras dele para esses momentos. Precisa do canal registrado, ou seja, do GeckoLib no cliente (como
+no TEOF); **a checar**: num servidor com o AkashicFishing e dois clientes.
+
+**Peixes 3D nos modelos** (futura3d com API 5). As faixas de tamanho dos peixes do AkashicFishing posam o braço do
+bíped (`braco`/`braco_esquerdo`) e o `display` do peixe é posto para esse braço; num jogador com modelo o mixin do
+bíped não roda, e o peixe ficava num braço parado (dentro do corpo, ou o gigante virado para o chão). Agora
+`RodModels.poseModelArms` (em `RenderPlayerEvent.Pre`, antes de o modelo ser desenhado) manda a mesma rotação para os
+braços do modelo (`FuturaModels.setArmPose`), só para modelos segurados que não são vara: as varas ficam com os
+clipes de pesca do próprio modelo. Conferido no harness `modelrods` (abaixo): as 16 varas 3D do pack com a textura
+certa no modelo, e o tucunaré, o peixe-akasha, o peixe-palhaço e o pirarucu como no bíped (foto no futura3d,
+`docs/img/varas-peixes-kunftig.png`).
+
+Harness `modelrods` (`kunftig-rod-harness` = `modelrods`, o jar de dev do futura3d em `run/client/mods`, o pack do
+AkashicFishing selecionado): cada vara 3D do pack, uma vara mutada dourada e quatro peixes 3D na mão do jogador local
+com o modelo `default` do futura3d, cada um ao lado do mesmo item no bíped (futura3d desligado), e a vara com a linha
+fora.
+
 **Lâminas** (`BladeRenderer.onRenderPlayerPost`). `RenderPlayerEvent.Specials` não dispara para jogador com modelo;
 a lâmina vai em `RenderPlayerEvent.Post`, depois do modelo, nos locators do desenho que acabou
 (`locatorInLastDraw`, que vale também no inventário), nos quadros do `SlashBladeRender` do YSM upstream (1/100 de bloco

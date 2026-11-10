@@ -148,6 +148,16 @@ public final class RodRenderHarness {
                     .warn("Kunftig DEV ROD HARNESS (modelcombos) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("modelrods")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planModelRods();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (modelrods) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length <= 2 && mode[0].equals("models")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planModels(mode.length == 2 ? mode[1] : "kfttest:katana");
@@ -621,6 +631,65 @@ public final class RodRenderHarness {
                 .onPayload(com.akashic.kunftig.screen.CameraWire.unlock());
             check("unlocked", false, com.akashic.kunftig.client.screen.CameraClient.INSTANCE.locked());
         }));
+    }
+
+    /** The 3D rods of the AkashicFishing pack (its {@code item_models_3d.json}), for {@link #planModelRods}. */
+    private static final String[] PACK_RODS = { "vara", "vara-de-osso", "vara-de-coral", "vara-de-ametista",
+        "vara-de-prata-elfica", "vara-solar", "vara-estrela-cadente", "vara-akashica", "vara-hello-kitty",
+        "vara-cinnamoroll", "vara-kuromi", "vara-cumulus", "vara-do-trovao", "vara-do-furacao", "vara-da-serpente",
+        "vara-glacial" };
+
+    /**
+     * Every 3D rod of the AkashicFishing pack, and four 3D fish, in the hand of the local player drawn with 3D Futura
+     * Engine's {@code default} model (third person, from the front), each next to the same item on the vanilla biped
+     * (futura3d turned off), to compare the textures; then one rod at a mutation stage with animated texture frames
+     * and in gold quality, with the line out. Needs the futura3d dev jar in run/client/mods and the pack selected.
+     */
+    private void planModelRods() {
+        java.util.List<Object[]> items = new java.util.ArrayList<>();
+        for (String rod : PACK_RODS) {
+            items.add(new Object[] { rod, rod("akashicfishing:vara/" + rod) });
+        }
+        items.add(new Object[] { "vara-akashica-ouro-m6", rod("akashicfishing:vara/vara-akashica.ouro.m6") });
+        items.add(new Object[] { "peixe-tucunare", fish("tucunare", 45, 0) });
+        items.add(new Object[] { "peixe-pirarucu", fish("pirarucu", 220, 0) });
+        items.add(new Object[] { "peixe-akasha", fish("peixe-akasha", 80, 0) });
+        items.add(new Object[] { "peixe-palhaco", fish("peixe-palhaco", 10, 2) });
+        for (Object[] item : items) {
+            String name = (String) item[0];
+            ItemStack stack = (ItemStack) item[1];
+            steps.add(new Step("modelrods-" + name, 20, (mc, p) -> {
+                futura(true);
+                place(p, 180, 10);
+                view(mc, 2);
+                hold(p, stack.copy());
+            }));
+            steps.add(new Step("modelrods-vanilla-" + name, 15, (mc, p) -> futura(false)));
+        }
+        steps.add(new Step("modelrods-line-out", 40, (mc, p) -> {
+            futura(true);
+            hold(p, rod("akashicfishing:vara/vara-akashica.ouro.m6"));
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+        }));
+        steps.add(new Step("modelrods-vanilla-line-out", 15, (mc, p) -> futura(false)));
+        steps.add(new Step("modelrods-end", 5, (mc, p) -> futura(true)));
+    }
+
+    /** Development only: 3D Futura Engine on or off (its {@code PlayerModels.setEnabled}), on the default model. */
+    private void futura(boolean on) {
+        try {
+            Class<?> models = Class.forName("com.akashic.futura.client.PlayerModels");
+            Object instance = models.getField("INSTANCE")
+                .get(null);
+            models.getMethod("setEnabled", boolean.class)
+                .invoke(instance, on);
+            if (on) {
+                models.getMethod("use", String.class)
+                    .invoke(instance, "default");
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            report("futura3d unavailable: " + e);
+        }
     }
 
     /**
