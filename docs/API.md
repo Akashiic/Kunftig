@@ -405,6 +405,11 @@ if (KunftigApi.apiVersion() >= 7 && KunftigApi.isRodsAvailable()) {
   `-Dkunftig.rodModels.disable=true` no cliente desliga as varas 3D (ícone 2D).
 * Em primeira pessoa, a vara tem inércia (`balanco` no manifesto): fica para trás ao girar a câmera, andar de lado ou
   pular, e volta com um pequeno balanço. `-Dkunftig.rodSway.disable=true` no cliente desliga só isso.
+* **Modelos de jogador do 3D Futura Engine** (futura3d com API 4): os mesmos estados fazem o pescador acompanhar a
+  vara, com qualquer vara na mão (a vanilla também): o tranco da `mordida`, a `briga` inclinado para trás (a tensão
+  inclina mais e faz tremer), o `recolher` com a manivela, a `captura` com o puxão por cima da cabeça. Para a fuga,
+  mande `escapou`: a vara 3D, que não declara esse estado, volta à `parada`, e o modelo murcha os ombros. Nada a mais
+  para chamar; o Kunftig no cliente repassa (ver `docs/playermodel/ESTUDO-YSM.md`, seção 10).
 
 ## 13. Exibições: modelos 3D animados no mundo (API 8, 9 e 11)
 

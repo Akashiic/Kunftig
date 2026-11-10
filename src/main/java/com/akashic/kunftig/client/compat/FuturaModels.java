@@ -26,6 +26,10 @@ public final class FuturaModels {
     public static final String SLASHBLADE_HELD = "slashblade.held";
     /** futura3d API 3: the combo state playing. */
     public static final String SLASHBLADE_COMBO = "slashblade.combo";
+    /** futura3d API 4: the rod state the server set ({@code KunftigRods}). */
+    public static final String FISHING_STATE = "fishing.state";
+    /** futura3d API 4: the fight's tension, 0 to 1 as text. */
+    public static final String FISHING_TENSION = "fishing.tension";
 
     private static final String API = "com.akashic.futura.api.FuturaModels";
 
@@ -40,6 +44,8 @@ public final class FuturaModels {
     private static MethodHandle externalState;
     private static MethodHandle hasAnimation;
     private static MethodHandle playingAnimation;
+    // API 4 (optional): the models fish with the rod
+    private static MethodHandle fishingPhase;
     private static boolean failedOnce;
 
     private FuturaModels() {}
@@ -85,9 +91,17 @@ public final class FuturaModels {
                     } catch (NoSuchMethodException e) {
                         setExternalState = externalState = hasAnimation = playingAnimation = null;
                     }
+                    try {
+                        fishingPhase = l
+                            .findStatic(api, "fishingPhase", MethodType.methodType(String.class, EntityPlayer.class));
+                    } catch (NoSuchMethodException e) {
+                        fishingPhase = null;
+                    }
                     Kunftig.LOG.info(
                         "Kunftig: 3D Futura Engine found; rods and blades follow its player models{}",
-                        setExternalState != null ? ", which play the blade combos" : "");
+                        setExternalState == null ? ""
+                            : fishingPhase != null ? ", which play the blade combos and fish with the rod"
+                                : ", which play the blade combos");
                 } catch (ClassNotFoundException e) {
                     clear(); // not installed: the biped as always
                 } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
@@ -102,6 +116,7 @@ public final class FuturaModels {
     private static void clear() {
         drewModel = isModelled = hasLocator = locatorInLastDraw = setKeepsItemWhileFishing = null;
         setExternalState = externalState = hasAnimation = playingAnimation = null;
+        fishingPhase = null;
     }
 
     /** Whether futura3d is installed with the API Kunftig knows. */
@@ -208,6 +223,30 @@ public final class FuturaModels {
         } catch (Throwable e) {
             fail(e);
             return false;
+        }
+    }
+
+    /**
+     * Whether futura3d's models fish with the rod (its API 4): they play the server's rod states told through
+     * {@link #FISHING_STATE} and {@link #FISHING_TENSION}.
+     */
+    public static boolean playsFishing() {
+        lookUp();
+        return fishingPhase != null && setExternalState != null;
+    }
+
+    /** What the player's model does with the rod ({@code wait}, {@code fight}...), or null (API 4). */
+    public static String fishingPhase(EntityPlayer player) {
+        lookUp();
+        MethodHandle h = fishingPhase;
+        if (h == null) {
+            return null;
+        }
+        try {
+            return (String) h.invokeExact(player);
+        } catch (Throwable e) {
+            fail(e);
+            return null;
         }
     }
 
