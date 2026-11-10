@@ -22,6 +22,7 @@ import com.akashic.kunftig.common.text.Json;
  *   "_formato": 1,
  *   "movimento_lamina": "overkill:combostate/motion.vmd",
  *   "movimento_jogador": "overkill:model/pa/player_motion.vmd",
+ *   "combos": { "combo_a1": 1, "combo_a2": 100 },
  *   "laminas": {
  *     "katana/basica": {
  *       "obj": "overkill:model/blade.obj", "textura": "overkill:model/blade.png",
@@ -30,6 +31,9 @@ import com.akashic.kunftig.common.text.Json;
  *   }
  * }
  * </pre>
+ *
+ * {@code combos} (optional) names the combo states of the namespace's blade motion by their first frame, for player
+ * models that play an animation per combo ({@link SlashBladeCombos}); without it SlashBlade's names apply.
  */
 public final class BladeIndex {
 
@@ -106,6 +110,8 @@ public final class BladeIndex {
     private final Map<String, Blade> blades = new LinkedHashMap<>();
     private final Map<String, Map<String, Effect>> effects = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
+    /** Combo names by first frame, per blade motion resource. */
+    private final Map<String, Map<Integer, String>> combos = new LinkedHashMap<>();
 
     public Map<String, Blade> blades() {
         return Collections.unmodifiableMap(blades);
@@ -128,6 +134,17 @@ public final class BladeIndex {
     public Effect effect(String namespace, String name) {
         Map<String, Effect> m = effects.get(namespace);
         return m == null ? null : m.get(name);
+    }
+
+    /** The pack's combo names for a blade motion (first frame to name), or null: SlashBlade's apply. */
+    public Map<Integer, String> combos(String bladeMotion) {
+        Map<Integer, String> m = bladeMotion == null ? null : combos.get(bladeMotion);
+        return m == null ? null : Collections.unmodifiableMap(m);
+    }
+
+    /** The combo state a blade's chain starting at {@code startFrame} plays, or null ({@link SlashBladeCombos}). */
+    public String comboName(Blade blade, int startFrame, boolean onGround) {
+        return SlashBladeCombos.name(blade == null ? null : combos(blade.bladeMotion), startFrame, onGround);
     }
 
     /** Every item some blade is drawn on. */
@@ -179,6 +196,25 @@ public final class BladeIndex {
             }
         } else if (fx != null) {
             errors.add(source + ": efeitos must be an object");
+        }
+        Object names = root.get("combos");
+        if (names instanceof Map && bladeMotion != null) {
+            Map<Integer, String> table = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) names).entrySet()) {
+                String name = String.valueOf(e.getKey());
+                Object frame = e.getValue();
+                if (!SlashBladeCombos.validName(name) || !(frame instanceof Double)
+                    || (Double) frame < 0
+                    || (Double) frame > 65535
+                    || (Double) frame != Math.floor((Double) frame)) {
+                    errors.add(source + ": combos." + name + " must be a frame (0 to 65535) of a name a-z 0-9 _");
+                    continue;
+                }
+                table.put(((Double) frame).intValue(), name);
+            }
+            combos.put(bladeMotion, table);
+        } else if (names != null) {
+            errors.add(source + ": combos must be an object of name -> first frame");
         }
         Object list = root.get("laminas");
         if (!(list instanceof Map)) {

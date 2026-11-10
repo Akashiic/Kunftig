@@ -272,6 +272,37 @@ public final class BladeRenderer {
     /** Upstream YSM's waist locators for models without blade locators (the "old" SlashBlade layout). */
     private static final int AT_WAIST = 2;
 
+    private final com.akashic.kunftig.blade.ModelStateFeed feed = new com.akashic.kunftig.blade.ModelStateFeed();
+
+    /**
+     * Before a player is drawn: with a 3D Futura Engine that takes external states (its API 3), tells it whether he
+     * holds a blade and which combo state plays, so his model plays upstream YSM's SlashBlade animations
+     * ({@code slashblade:idle}, {@code slashblade:combo_a1}...). The combo is named by the first frame of the chain
+     * ({@link com.akashic.kunftig.blade.SlashBladeCombos}).
+     */
+    @SubscribeEvent
+    public void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
+        BladeClient c = BladeClient.INSTANCE;
+        if (!c.active() || !FuturaModels.hasExternalStates()) {
+            return;
+        }
+        EntityPlayer player = event.entityPlayer;
+        try {
+            BladeIndex.Blade blade = c.resolve(player.getHeldItem());
+            String combo = blade == null ? null : c.comboName(player, blade, event.partialRenderTick);
+            feed.update(
+                player,
+                blade != null,
+                combo,
+                c.chainSerial(player),
+                (key, value) -> FuturaModels.setExternalState(player, key, value));
+        } catch (RuntimeException e) {
+            if (loggedErrors++ < MAX_LOGGED_ERRORS) {
+                Kunftig.LOG.error("Kunftig blades: cannot tell 3D Futura Engine the blade state", e);
+            }
+        }
+    }
+
     /**
      * A player drawn with a 3D Futura Engine model: {@code RenderPlayerEvent.Specials} does not fire (the biped's
      * {@code renderEquippedItems} does not run) and the blade rig's hardpoints are in the biped's space, so the blade
@@ -295,8 +326,14 @@ public final class BladeRenderer {
     }
 
     /**
-     * The held blade and its sheath on the model's locators. A model with {@code BladeLocator}, {@code SheathLocator}
-     * and {@code LeftWaistLocator} (YSM 2.x's convention): while a combo plays, the blade at {@code BladeLocator} and
+     * The held blade and its sheath on the model's locators. When the model plays the SlashBlade animations (a
+     * futura3d with external states, {@link FuturaModels#playsBladeAnimations}) and has {@code BladeLocator},
+     * {@code SheathLocator} and {@code LeftWaistLocator}, as upstream YSM's {@code newMainhandSlashBlade}: the
+     * sheathed blade at {@code LeftWaistLocator}, the bare blade at {@code BladeLocator}, the sheath at
+     * {@code SheathLocator}, every one of them always, and the model's clips hide the ones not in use (a sheathed
+     * strike such as {@code combo_a1} keeps the blade at the waist; {@code combo_a3} draws it). Otherwise (an older
+     * futura3d): a model with those three locators (YSM 2.x's convention): while a combo plays, the blade at
+     * {@code BladeLocator} and
      * the sheath at {@code SheathLocator}; otherwise the sheathed blade at {@code LeftWaistLocator}. Upstream lets the
      * model's {@code slashblade:*} animations hide the locators that are not in use; Kunftig does not play those
      * animations yet, so its combo state chooses, and since models keep {@code BladeLocator} and {@code SheathLocator}
@@ -324,6 +361,13 @@ public final class BladeRenderer {
         boolean bladeLocators = FuturaModels.hasLocator(player, FuturaModels.BLADE)
             && FuturaModels.hasLocator(player, FuturaModels.SHEATH)
             && FuturaModels.hasLocator(player, FuturaModels.LEFT_WAIST);
+        if (bladeLocators && FuturaModels.playsBladeAnimations(player)) {
+            // upstream YSM: all three, the model's slashblade:* clips show and hide them
+            onLocator(player, FuturaModels.LEFT_WAIST, AT_SHEATH_END, held, blade, true, true, true, partial);
+            onLocator(player, FuturaModels.BLADE, AT_HILT, held, blade, true, false, false, partial);
+            onLocator(player, FuturaModels.SHEATH, AT_SHEATH_END, held, blade, false, true, true, partial);
+            return;
+        }
         if (bladeLocators) {
             if (drawn) {
                 // Models hide these two until a slashblade:* animation shows them (the built-in ones in a

@@ -714,6 +714,11 @@ SlashBlade portados do código (MIT) do SlashBlade: Resharped, passada por passa
 }
 ```
 
+`"combos"` (opcional) dá nome aos estados de combo do movimento da lâmina pelo primeiro quadro de cada um
+(`{"combo_a1": 1, "combo_a2": 100}`): um jogador desenhado com um modelo do 3D Futura Engine toca a animação do modelo
+para o combo cuja corrente começa nesse quadro (`slashblade:combo_a1`). Sem ele valem os nomes do SlashBlade (ver
+`docs/playermodel/ESTUDO-YSM.md`, seção 10). O plugin não muda nada: as mesmas correntes de sempre.
+
 Os grupos que cada modelo precisa são os do SlashBlade: `base` (corte, onda), `base` e `wind` (julgamento), `ss`
 (espada), `lockonBase`, `lockonHealthMask` e `lockonHealth` (mira); o `rank` é a textura 256x256 no layout do
 `rank.png` do SlashBlade. **A arte do SlashBlade é "todos os direitos reservados": um pack distribuído usa modelos e

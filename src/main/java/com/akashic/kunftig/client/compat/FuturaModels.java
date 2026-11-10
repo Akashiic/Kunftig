@@ -22,6 +22,10 @@ public final class FuturaModels {
     public static final String RIGHT_WAIST = "RightWaistLocator";
     public static final String BLADE = "BladeLocator";
     public static final String SHEATH = "SheathLocator";
+    /** futura3d API 3: the main hand holds a SlashBlade-style blade. */
+    public static final String SLASHBLADE_HELD = "slashblade.held";
+    /** futura3d API 3: the combo state playing. */
+    public static final String SLASHBLADE_COMBO = "slashblade.combo";
 
     private static final String API = "com.akashic.futura.api.FuturaModels";
 
@@ -31,6 +35,11 @@ public final class FuturaModels {
     private static MethodHandle hasLocator;
     private static MethodHandle locatorInLastDraw;
     private static MethodHandle setKeepsItemWhileFishing;
+    // API 3 (optional: an older futura3d works without them)
+    private static MethodHandle setExternalState;
+    private static MethodHandle externalState;
+    private static MethodHandle hasAnimation;
+    private static MethodHandle playingAnimation;
     private static boolean failedOnce;
 
     private FuturaModels() {}
@@ -64,7 +73,21 @@ public final class FuturaModels {
                         api,
                         "setKeepsItemWhileFishing",
                         MethodType.methodType(void.class, Predicate.class));
-                    Kunftig.LOG.info("Kunftig: 3D Futura Engine found; rods and blades follow its player models");
+                    try {
+                        MethodType nameName = MethodType.methodType(String.class, EntityPlayer.class, String.class);
+                        setExternalState = l.findStatic(
+                            api,
+                            "setExternalState",
+                            MethodType.methodType(boolean.class, EntityPlayer.class, String.class, String.class));
+                        externalState = l.findStatic(api, "externalState", nameName);
+                        hasAnimation = l.findStatic(api, "hasAnimation", boolName);
+                        playingAnimation = l.findStatic(api, "playingAnimation", nameName);
+                    } catch (NoSuchMethodException e) {
+                        setExternalState = externalState = hasAnimation = playingAnimation = null;
+                    }
+                    Kunftig.LOG.info(
+                        "Kunftig: 3D Futura Engine found; rods and blades follow its player models{}",
+                        setExternalState != null ? ", which play the blade combos" : "");
                 } catch (ClassNotFoundException e) {
                     clear(); // not installed: the biped as always
                 } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
@@ -78,6 +101,7 @@ public final class FuturaModels {
 
     private static void clear() {
         drewModel = isModelled = hasLocator = locatorInLastDraw = setKeepsItemWhileFishing = null;
+        setExternalState = externalState = hasAnimation = playingAnimation = null;
     }
 
     /** Whether futura3d is installed with the API Kunftig knows. */
@@ -161,6 +185,85 @@ public final class FuturaModels {
         } catch (Throwable e) {
             fail(e);
         }
+    }
+
+    /** Whether futura3d takes external states (its API 3): its models can play the blade combos. */
+    public static boolean hasExternalStates() {
+        lookUp();
+        return setExternalState != null;
+    }
+
+    /**
+     * Sets ({@code value} non-null) or clears a state futura3d's animation runtime reads for the player (API 3; a no-op
+     * without it). Setting the value it has changes nothing; clearing and setting it again restarts what it started.
+     */
+    public static boolean setExternalState(EntityPlayer player, String key, String value) {
+        lookUp();
+        MethodHandle h = setExternalState;
+        if (h == null) {
+            return false;
+        }
+        try {
+            return (boolean) h.invokeExact(player, key, value);
+        } catch (Throwable e) {
+            fail(e);
+            return false;
+        }
+    }
+
+    /** A state set with {@link #setExternalState}, or null. */
+    public static String externalState(EntityPlayer player, String key) {
+        lookUp();
+        MethodHandle h = externalState;
+        if (h == null) {
+            return null;
+        }
+        try {
+            return (String) h.invokeExact(player, key);
+        } catch (Throwable e) {
+            fail(e);
+            return null;
+        }
+    }
+
+    /** Whether the player's model (or the default model behind it) has an animation of that name (API 3). */
+    public static boolean hasAnimation(EntityPlayer player, String animation) {
+        lookUp();
+        MethodHandle h = hasAnimation;
+        if (h == null) {
+            return false;
+        }
+        try {
+            return (boolean) h.invokeExact(player, animation);
+        } catch (Throwable e) {
+            fail(e);
+            return false;
+        }
+    }
+
+    /** The clip a controller of the player's model plays now ({@code player.swing}...), or null (API 3). */
+    public static String playingAnimation(EntityPlayer player, String controller) {
+        lookUp();
+        MethodHandle h = playingAnimation;
+        if (h == null) {
+            return null;
+        }
+        try {
+            return (String) h.invokeExact(player, controller);
+        } catch (Throwable e) {
+            fail(e);
+            return null;
+        }
+    }
+
+    /**
+     * Whether the player's model plays the SlashBlade animations for the blade he holds: futura3d takes external
+     * states, Kunftig told it he holds a blade, and the model has {@code slashblade:idle}. The model's clips then show
+     * and hide {@link #BLADE}, {@link #SHEATH} and {@link #LEFT_WAIST} as upstream YSM's do.
+     */
+    public static boolean playsBladeAnimations(EntityPlayer player) {
+        return hasExternalStates() && externalState(player, SLASHBLADE_HELD) != null
+            && hasAnimation(player, "slashblade:idle");
     }
 
     private static void fail(Throwable e) {

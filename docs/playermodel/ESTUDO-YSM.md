@@ -397,15 +397,56 @@ AkashicFishing e um pack de lâmina substituto em `run/client/resourcepacks`): v
 fora (a linha dourada sai da ponta), briga visto de lado, vara vanilla lançada com a linha saindo do graveto na mão,
 lâmina na bainha e fora dela nos modelos `default` e `wine_fox/13_matured`, `isModelled` falso em primeira pessoa.
 
+**Combos nos modelos** (futura3d com API 3). O futura3d agora toca as animações `slashblade:*` que os modelos trazem,
+a partir de estados externos que o Kunftig diz por reflexão (`FuturaModels.setExternalState`), em
+`BladeRenderer.onRenderPlayerPre` (antes de o modelo ser desenhado), só com mudanças (`blade/ModelStateFeed`):
+
+* `slashblade.held` enquanto a mão principal segura uma lâmina do Kunftig: o modelo usa a classe `:slashblade`
+  (`hold_mainhand:slashblade`) e o estado principal como `slashblade:<estado>` (`slashblade:idle`,
+  `slashblade:walk`...), como o `SlashBladeAnimation.playMainAnimation` do upstream.
+* `slashblade.combo` com o estado de combo do SlashBlade enquanto a corrente toca (`BladeClient.comboName`): o servidor
+  manda trechos de quadros, não nomes, então o nome vem do **primeiro quadro da corrente** (`blade/SlashBladeCombos`:
+  `combo_a1` 1, `combo_a2` 100, `combo_a3` 200, `combo_a4` 500, `aerial_rave_a1` 1100, `aerial_rave_b3` 1400,
+  `judgement_cut` 1900, os que o harness do Kunftig já compara com o SlashBlade, e os outros no mesmo arranjo, **a
+  checar** contra o registro do SlashBlade: `combo_c` 400, `combo_b1` 700, `combo_a4ex` 800, `combo_a5ex` 900,
+  `aerial_rave_a2/a3/b4` 1200/1300/1500, `upperslash` 1600, `upperslash_jump` 1700, `rapid_slash` 2000,
+  `rising_star` 2100, `void_slash` 2200). A regra do upstream para o ar: `judgement_cut` fora do chão é
+  `judgement_cut_slash_air`. Um pack com outro movimento nomeia os seus no `blades.json`
+  (`"combos": {"combo_a1": 1, ...}`, ver `docs/API.md`, seção 20), e a tabela dele substitui a do SlashBlade. O clipe
+  do modelo (`slashblade:combo_a1`) toca uma vez no controlador `swing` e cobre a corrente inteira
+  (`combo_a1` → `combo_a1_end` → `combo_a1_end2`); uma corrente nova que começa no mesmo estado limpa e põe o nome de
+  novo, e o clipe recomeça.
+* **Locators, revistos**: com o modelo tocando essas animações (`FuturaModels.playsBladeAnimations`: futura3d com API
+  3, `slashblade.held` dito e o modelo com `slashblade:idle`, o que vale para todo modelo, que cai no conjunto do modelo
+  padrão) e com os três locators, a lâmina vai como no `newMainhandSlashBlade` do upstream: lâmina e bainha juntas no
+  `LeftWaistLocator`, a lâmina nua no `BladeLocator`, a bainha no `SheathLocator`, sempre os três, e os clipes escondem
+  os que não estão em uso (no `combo_a1`, um golpe embainhado, a lâmina fica na cintura que vai com a mão esquerda; no
+  `combo_a3` ela sai). Sem o futura3d novo, a escolha por estado acima continua; sem o futura3d, o bíped como sempre.
+
+![Combos no wine_fox/13_matured (harness `modelcombos`)](combos-futura3d.png)
+
+Da esquerda para a direita, de cima para baixo: parada (`slashblade:idle`, a lâmina embainhada na cintura),
+`combo_a1`, `combo_a3` (lâmina no `BladeLocator`, bainha no `SheathLocator`), `aerial_rave_a1`, `combo_a3` de costas,
+`combo_a3` no modelo `default`. Harness `modelcombos` (`kunftig-rod-harness` = `modelcombos [lâmina]`, o jar de dev do
+futura3d em `run/client/mods`, o pack substituto da lâmina): toca as correntes como o servidor mandaria
+(`BladeClient.play`, sem plugin) e o log de cada foto diz o que o modelo toca (`playingAnimation` dos controladores
+`main`, `swing` e `hold_mainhand`, pela API 3) e o que foi dito a ele. Conferido: `slashblade:idle` e
+`hold_mainhand:slashblade` parado, `slashblade:combo_a1`/`combo_a3`/`aerial_rave_a1` no `swing` durante as correntes,
+nada depois, também num outro jogador visto de lado e no modelo `default`.
+
 **A checar**:
 
+* Os nomes dos combos além dos sete conferidos (acima), num pack com o movimento do SlashBlade de verdade e um plugin
+  (Overkill) mandando as correntes; um jogador que chega perto no meio de uma corrente vê o clipe do começo.
+* O clipe do modelo e a lâmina do Kunftig andam juntos só pelo tempo: o clipe do YSM foi feito contra o SlashBlade e a
+  corrente dura o mesmo no Kunftig, mas não foi comparado quadro a quadro.
 * Com a arte de verdade do SlashBlade (`sbref`): a orientação da lâmina e da bainha nos locators (segue os números do
   upstream, mas o OBJ do harness é uma caixa) e o tamanho (o upstream usa 1/100 de bloco por unidade, a lâmina sai
   com uns 2,9 blocos; o Kunftig no bíped usa 1/128).
 * Na parada, o `LeftWaistLocator` dos modelos embutidos fica na mão esquerda; é a animação `slashblade:idle` que leva
-  a mão à cintura. Sem essa animação a lâmina embainhada fica na mão esquerda, apontando para a frente.
-* Seguimento: tocar as animações `slashblade:*` do modelo a partir dos estados de combo do Kunftig (o mapa de nomes do
-  upstream está em `SlashBladeResharped`); aí a visibilidade dos locators passa a vir do modelo, e a escolha por
-  estado acima deve ser revista.
+  a mão à cintura (agora tocada; a lâmina embainhada sai de lado, a comparar com o YSM 1.20). Com um futura3d antigo,
+  sem essa animação, a lâmina embainhada fica na mão esquerda, apontando para a frente.
+* ~~Seguimento: tocar as animações `slashblade:*` do modelo a partir dos estados de combo do Kunftig~~: feito (acima,
+  "Combos nos modelos").
 * A cor da linha da vara 3D vista de lado saiu preta numa das fotos (a do jogador lateral); a da frente, dourada.
 * Num servidor de verdade, com outros jogadores e a boia desenhada antes do pescador.
