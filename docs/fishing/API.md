@@ -160,3 +160,10 @@ também em singleplayer.
 
 `-Dkunftig.fishing.disable=true` não aplica o mixin (pesca vanilla, sem eventos). `enabled=false` no config tem o
 mesmo efeito com o mixin aplicado: ele devolve o ciclo ao código vanilla.
+
+## Neo States
+
+Com o [Neo States](https://github.com/Akashiic/Neo-States) instalado, o anzol pergunta a ele a superfície da água
+(`compat/NeoStatesBridge`, por reflexão), então também boia em água guardada dentro de um bloco (laje, cerca). Sem o
+mod, nada muda. **A verificar** em jogo: a ponte compila e os dois mods sobem juntos no TEOF 5.4, mas o anzol ainda não
+foi lançado numa água dessas.
