@@ -280,8 +280,14 @@ final class RodItemRenderer implements IItemRenderer, IGeoRenderer<RodAnimatable
         // The hanging line goes while the line is out, except while casting: the cast animation whips it away.
         boolean lineOut = player != null && player.fishEntity != null && !RodModelDef.CAST.equals(state);
 
-        RodModelDef.Display display = RodModelDef
-            .scaled(models.display(def, context, band), RodModels.sizeScale(stack, def));
+        // A rod in the hand of a 3D Futura Engine model: the model holds it with its own clips, not the biped's arm
+        // the display was tuned with (held fish keep it: their arm pose goes to the model, futura3d API 5)
+        boolean onModel = RodModelDef.THIRD_PERSON.equals(context) && player != null
+            && stack.getItem() == net.minecraft.init.Items.fishing_rod
+            && com.akashic.kunftig.client.compat.FuturaModels.drewModel(player);
+        RodModelDef.Display display = RodModelDef.scaled(
+            onModel ? models.modelDisplay(def, band) : models.display(def, context, band),
+            RodModels.sizeScale(stack, def));
         RodMatrix transform;
         if (RodModelDef.FIRST_PERSON.equals(context)) {
             float swing = holder == null ? 0 : holder.getSwingProgress(models.partialTicks());

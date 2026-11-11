@@ -37,6 +37,15 @@ public final class RodTimeline {
     /** Predictions kept at once (a combo clicked faster than the round trip). */
     private static final int MAX_PREDICTIONS = 8;
 
+    /**
+     * Ticks the cast starts in for a player drawn with a 3D Futura Engine model. Its own cast throws with the bobber
+     * (0.14 s after the click), while a 3D rod's {@code lancar} is timed with the biped's arm, which winds up first
+     * (AkashicFishing's rods whip back at 0.37 s and forward at 0.5 s); started 0.3 s in, the rod whips back with the
+     * model's wind-up and forward with its throw.
+     */
+    public static final int MODEL_CAST_LEAD_TICKS = 6;
+
+    private int castLead;
     private final java.util.ArrayDeque<String> predicted = new java.util.ArrayDeque<>();
     private final java.util.ArrayDeque<Long> predictedAt = new java.util.ArrayDeque<>();
 
@@ -103,6 +112,16 @@ public final class RodTimeline {
      * @param line      whether the player's line is out ({@code fishEntity})
      */
     public void observe(long now, String heldModel, boolean line, Clips clips) {
+        observe(now, heldModel, line, clips, 0);
+    }
+
+    /**
+     * As {@link #observe(long, String, boolean, Clips)}, with the cast started {@code castLead} ticks in (a player
+     * drawn
+     * with a 3D Futura Engine model: see {@link #MODEL_CAST_LEAD_TICKS}).
+     */
+    public void observe(long now, String heldModel, boolean line, Clips clips, int castLead) {
+        this.castLead = castLead;
         lastSeen = now;
         boolean first = !seen;
         seen = true;
@@ -151,6 +170,12 @@ public final class RodTimeline {
 
     /** The local player just cast (before the server spawns the bobber). */
     public void localCast(long now, Clips clips) {
+        localCast(now, clips, 0);
+    }
+
+    /** As {@link #localCast(long, Clips)}, the cast started {@code castLead} ticks in. */
+    public void localCast(long now, Clips clips, int castLead) {
+        this.castLead = castLead;
         if (held != null) {
             cast(now, clips);
         }
@@ -163,7 +188,7 @@ public final class RodTimeline {
         if (RodModelDef.CAST.equals(state) && now - start < clips.lengthTicks(RodModelDef.CAST)) {
             return; // the local click already started it; the bobber appearing is the same cast
         }
-        begin(RodModelDef.CAST, now);
+        begin(RodModelDef.CAST, now - Math.max(0, Math.min(castLead, clips.lengthTicks(RodModelDef.CAST) - 1)));
     }
 
     /** A state from the server (or the debug command), started at {@code startTick}. */

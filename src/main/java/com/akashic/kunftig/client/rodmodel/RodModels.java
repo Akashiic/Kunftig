@@ -431,6 +431,15 @@ public final class RodModels implements IResourceManagerReloadListener {
         return display(rod, context, null);
     }
 
+    /**
+     * The display of a rod in the hand of a 3D Futura Engine model ({@link RodModelDef#modelDisplay}), unless one was
+     * set in game for {@link RodModelDef#MODEL_THIRD_PERSON}.
+     */
+    public RodModelDef.Display modelDisplay(RodModelDef rod, RodModelDef.Band band) {
+        RodModelDef.Display d = displayOverrides.get(RodModelDef.MODEL_THIRD_PERSON);
+        return d != null ? d : rod.modelDisplay(band);
+    }
+
     /** The display of a context for a size band (null: the model's), unless one was set in game. */
     public RodModelDef.Display display(RodModelDef rod, String context, RodModelDef.Band band) {
         RodModelDef.Display d = displayOverrides.get(context);
@@ -482,7 +491,8 @@ public final class RodModels implements IResourceManagerReloadListener {
                 clock,
                 rod == null ? null : band == null ? rod.id : rod.id + "#" + band.name,
                 p.fishEntity != null,
-                clips(rod, band));
+                clips(rod, band),
+                castLead(p));
         }
         tickSway(mc.thePlayer);
         for (Iterator<Map.Entry<Integer, RodTimeline>> it = timelines.entrySet()
@@ -559,6 +569,15 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
     }
 
+    /**
+     * Ticks a player's cast starts in: {@link RodTimeline#MODEL_CAST_LEAD_TICKS} when he is drawn with a 3D Futura
+     * Engine model that fishes with the rod (its own cast throws with the bobber), 0 otherwise (the biped, first
+     * person).
+     */
+    private static int castLead(EntityPlayer player) {
+        return FuturaModels.playsFishing() && FuturaModels.isModelled(player) ? RodTimeline.MODEL_CAST_LEAD_TICKS : 0;
+    }
+
     /** {@code ItemFishingRod#onItemRightClick} on the client: the local player casts now (before the bobber spawns). */
     public void onLocalRightClick(EntityPlayer player) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -567,7 +586,7 @@ public final class RodModels implements IResourceManagerReloadListener {
         }
         RodModelIndex.Resolved r = resolve(player.getHeldItem());
         if (r != null) {
-            timeline(player).localCast(clock, clips(r.model));
+            timeline(player).localCast(clock, clips(r.model), castLead(player));
         }
     }
 

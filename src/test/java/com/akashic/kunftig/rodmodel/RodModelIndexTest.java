@@ -36,6 +36,33 @@ class RodModelIndexTest {
     }
 
     @Test
+    void aRodInAFuturaModelsHandHasNoYaw() throws IOException {
+        RodModelDef rod = fixture().models()
+            .get("akashicfishing:vara/vara-solar");
+        RodModelDef.Display third = rod.display(RodModelDef.THIRD_PERSON, null);
+        RodModelDef.Display model = rod.modelDisplay(null);
+        assertEquals(third.rotation[0], model.rotation[0], 1e-6f);
+        assertEquals(0f, model.rotation[1], 1e-6f, "the turn about Y is the biped arm's business");
+        assertEquals(third.rotation[2], model.rotation[2], 1e-6f);
+        assertEquals(third.scale, model.scale, 1e-6f);
+        // a manifest can say it
+        RodModelIndex index = new RodModelIndex();
+        index.add(
+            "x",
+            ("{\"_formato\":1,\"modelos\":{\"vara/a\":{\"geo\":\"x:g\",\"animacoes\":\"x:a\",\"textura\":\"x:t\","
+                + "\"estados\":{\"parada\":{\"vara\":\"p\"}},\"display\":{"
+                + "\"terceira_pessoa\":{\"rotation\":[80,35,0]},"
+                + "\"terceira_pessoa_modelo\":{\"rotation\":[75,0,5],\"scale\":0.8}}}}}"),
+            "x:" + RodModelIndex.PATH);
+        RodModelDef.Display declared = index.models()
+            .get("x:vara/a")
+            .modelDisplay(null);
+        assertEquals(75f, declared.rotation[0], 1e-6f);
+        assertEquals(5f, declared.rotation[2], 1e-6f);
+        assertEquals(0.8f, declared.scale, 1e-6f);
+    }
+
+    @Test
     void readsTheManifest() throws IOException {
         RodModelIndex index = fixture();
         RodModelDef rod = index.models()

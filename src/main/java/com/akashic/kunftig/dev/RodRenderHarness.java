@@ -148,6 +148,16 @@ public final class RodRenderHarness {
                     .warn("Kunftig DEV ROD HARNESS (modelcombos) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("modelfishing")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planModelFishing();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (modelfishing) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("modelrods")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planModelRods();
@@ -673,6 +683,94 @@ public final class RodRenderHarness {
         }));
         steps.add(new Step("modelrods-vanilla-line-out", 15, (mc, p) -> futura(false)));
         steps.add(new Step("modelrods-end", 5, (mc, p) -> futura(true)));
+    }
+
+    /**
+     * 3D rods fishing on 3D Futura Engine's models (futura3d API 4+ and its dev jar in run/client/mods, the
+     * AkashicFishing pack selected): the local player from the front with a real cast, waiting and fighting; then
+     * another player from the side waiting, fighting, casting (the rod's lancar started in, MODEL_CAST_LEAD_TICKS),
+     * and in each reaction of the Sanrio rods (Hello Kitty). The rod must point straight ahead of the torso.
+     */
+    private void planModelFishing() {
+        String akashica = "akashicfishing:vara/vara-akashica";
+        String kitty = "akashicfishing:vara/vara-hello-kitty";
+        steps.add(new Step("mf-front-hold", 20, (mc, p) -> {
+            futura(true);
+            place(p, 180, 10);
+            view(mc, 2);
+            hold(p, rod(akashica));
+        }));
+        steps.add(
+            new Step(
+                "mf-front-cast",
+                3,
+                (mc, p) -> mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem())));
+        steps.add(new Step("mf-front-wait", 40, (mc, p) -> {}));
+        steps.add(new Step("mf-front-fight", 30, (mc, p) -> {
+            modelState(mc.thePlayer, "briga", "0.6");
+            RodModels.INSTANCE.forceLocalState("briga", 0.6F);
+        }));
+        steps.add(new Step("mf-side-wait", 30, (mc, p) -> {
+            modelState(mc.thePlayer, null, null);
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            hold(p, null);
+            view(mc, 0);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Lateral"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod(akashica));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("mf-side-fight", 30, (mc, p) -> {
+            modelState(side, "briga", "0.6");
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("briga", RodModels.INSTANCE.clock());
+                RodModels.INSTANCE.timeline(side)
+                    .setTension(0.6F);
+            }
+        }));
+        steps.add(new Step("mf-side-cast", 4, (mc, p) -> {
+            modelState(side, "parada", null);
+            mc.theWorld.removeEntityFromWorld(-4243);
+            side.fishEntity = null;
+            side.swingItem();
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("mf-side-cast-later", 6, (mc, p) -> {}));
+        String[][] reactions = { { "carinho", "12" }, { "inspecionar", "20" }, { "ociosa", "72" }, { "encontro", "10" },
+            { "rivalidade", "12" }, { "comemoracao", "6" } };
+        for (String[] r : reactions) {
+            steps.add(new Step("mf-side-" + r[0], Integer.parseInt(r[1]), (mc, p) -> {
+                mc.theWorld.removeEntityFromWorld(-4243);
+                side.fishEntity = null;
+                side.inventory.setInventorySlotContents(0, rod(kitty));
+                modelState(side, r[0], null);
+                if (RodModels.INSTANCE.active()) {
+                    RodModels.INSTANCE.timeline(side)
+                        .server(r[0], RodModels.INSTANCE.clock());
+                }
+            }));
+        }
+        steps.add(new Step("mf-end", 5, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(-4242);
+            side = null;
+        }));
+    }
+
+    /** The rod state 3D Futura Engine's model plays (what the fishing feed would tell it), cleared and set. */
+    private void modelState(EntityPlayer player, String state, String tension) {
+        com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.state", null);
+        if (state != null) {
+            com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.state", state);
+        }
+        com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.tension", tension);
+        report("model state " + state + " -> " + com.akashic.kunftig.client.compat.FuturaModels.fishingPhase(player));
     }
 
     /** Development only: 3D Futura Engine on or off (its {@code PlayerModels.setEnabled}), on the default model. */

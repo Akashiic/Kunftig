@@ -15,6 +15,11 @@ public final class RodModelDef {
     /** Contexts of {@code display} and {@code contextos}. */
     public static final String FIRST_PERSON = "primeira_pessoa";
     public static final String THIRD_PERSON = "terceira_pessoa";
+    /**
+     * Third person in the hand of a 3D Futura Engine model ({@link #modelDisplay}): optional; without it,
+     * {@link #THIRD_PERSON} without its turn about Y.
+     */
+    public static final String MODEL_THIRD_PERSON = "terceira_pessoa_modelo";
     public static final String GROUND = "chao";
     public static final String FRAME = "moldura";
 
@@ -162,6 +167,11 @@ public final class RodModelDef {
             this.rotation = rotation.clone();
             this.translation = translation.clone();
             this.scale = scale;
+        }
+
+        /** The same display without its turn about Y. */
+        public Display withoutYaw() {
+            return new Display(new float[] { rotation[0], 0, rotation[2] }, translation, scale);
         }
 
         /** As JSON, to paste back into the manifest generator. */
@@ -520,6 +530,22 @@ public final class RodModelDef {
     }
 
     /** A display scaled by {@code factor} (the model's size). */
+    /**
+     * The display of a rod in the hand of a 3D Futura Engine model. The third-person display is tuned with the biped's
+     * arm, which the rod's {@code braco} clips turn (−55° about Y with the line out, against the display's 35°); a
+     * model holds the rod with its own fishing clips, the rod straight ahead of the hand like the vanilla one, so the
+     * display's turn about Y would slant it to the side. {@link #MODEL_THIRD_PERSON} when the manifest has it (for the
+     * size band, then the model), otherwise {@link #THIRD_PERSON} without that turn.
+     */
+    public Display modelDisplay(Band band) {
+        Display d = display(MODEL_THIRD_PERSON, band);
+        if (d != null) {
+            return d;
+        }
+        Display t = display(THIRD_PERSON, band);
+        return t == null ? null : t.withoutYaw();
+    }
+
     public static Display scaled(Display d, float factor) {
         return d == null || factor == 1F ? d : new Display(d.rotation, d.translation, d.scale * factor);
     }

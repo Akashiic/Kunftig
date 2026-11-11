@@ -44,6 +44,7 @@ public final class FishingStateFeed {
     public static boolean loops(String state) {
         return "briga".equals(state) || "briga_erro".equals(state)
             || "recolher".equals(state)
+            || "ociosa".equals(state)
             || "fight".equals(state)
             || "reel".equals(state);
     }
