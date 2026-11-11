@@ -165,5 +165,5 @@ mesmo efeito com o mixin aplicado: ele devolve o ciclo ao código vanilla.
 
 Com o [Neo States](https://github.com/Akashiic/Neo-States) instalado, o anzol pergunta a ele a superfície da água
 (`compat/NeoStatesBridge`, por reflexão), então também boia em água guardada dentro de um bloco (laje, cerca). Sem o
-mod, nada muda. **A verificar** em jogo: a ponte compila e os dois mods sobem juntos no TEOF 5.4, mas o anzol ainda não
-foi lançado numa água dessas.
+mod, nada muda. Visto no TEOF 5.4 com o Crucible (2026-11-11): lançado sobre lajes com água, o anzol fica na
+superfície, como em água normal. **A verificar**: mordida e fisgada nessa água, e o AkashicFishing por cima.
