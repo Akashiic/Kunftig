@@ -391,6 +391,18 @@ estados que o próprio cliente infere para a vara 3D (`sacar`, `lancar`, a `para
 futura3d tem as regras dele para esses momentos. Precisa do canal registrado, ou seja, do GeckoLib no cliente (como
 no TEOF); **a checar**: num servidor com o AkashicFishing e dois clientes.
 
+**A vara reta e o lançar nos modelos.** No primeiro teste no TEOF a vara 3D saía inclinada para o lado nas mãos do
+modelo: o `display` de terceira pessoa das varas (`[80, 35, 0]`) conta com o braço do bíped girado pelos clipes `braco`
+(−55° em Y), e o modelo segura a vara com os clipes de pesca dele. Agora, com o jogador desenhado pelo futura3d
+(`FuturaModels.drewModel`) e uma vara na mão, o `RodItemRenderer` usa `RodModelDef.modelDisplay`: o
+`terceira_pessoa_modelo` do manifesto, ou o `terceira_pessoa` sem o giro em Y; o futura3d mantém a vara reta à frente
+do tronco (`anim/RodAim`). E o `lancar` das varas, feito para o bíped (que arma antes e arremessa aos 0,5 s), começa
+`RodTimeline.MODEL_CAST_LEAD_TICKS` (6 ticks) adiantado num jogador com modelo, para os chicotes da vara caírem na
+armada e no arremesso do modelo, que arremessa com a boia. Harness `modelfishing` (`kunftig-rod-harness` =
+`modelfishing`, o jar de dev do futura3d e o pack do AkashicFishing): o jogador local de frente lançando, esperando e
+brigando, e outro de lado esperando, brigando, lançando e em cada reação das varas Sanrio (foto no futura3d,
+`docs/img/pesca-varas-3d.png`).
+
 **Peixes 3D nos modelos** (futura3d com API 5). As faixas de tamanho dos peixes do AkashicFishing posam o braço do
 bíped (`braco`/`braco_esquerdo`) e o `display` do peixe é posto para esse braço; num jogador com modelo o mixin do
 bíped não roda, e o peixe ficava num braço parado (dentro do corpo, ou o gigante virado para o chão). Agora

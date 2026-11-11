@@ -68,6 +68,28 @@ class RodTimelineTest {
     }
 
     @Test
+    void onAFuturaModelTheCastStartsIn() {
+        // a 3D Futura Engine model throws with the bobber; the rod's lancar (timed with the biped's wind-up) starts
+        // 0.3 s in, so its whips land on the model's
+        RodTimeline t = new RodTimeline();
+        t.observe(0, ROD, false, CLIPS, RodTimeline.MODEL_CAST_LEAD_TICKS);
+        t.localCast(10, CLIPS, RodTimeline.MODEL_CAST_LEAD_TICKS);
+        assertEquals("lancar", t.state());
+        assertEquals(10 - RodTimeline.MODEL_CAST_LEAD_TICKS, t.start());
+        // the bobber a round trip later is the same cast
+        t.observe(13, ROD, true, CLIPS, RodTimeline.MODEL_CAST_LEAD_TICKS);
+        assertEquals(10 - RodTimeline.MODEL_CAST_LEAD_TICKS, t.start());
+        // and it ends that much sooner
+        t.observe(10 - RodTimeline.MODEL_CAST_LEAD_TICKS + 18, ROD, true, CLIPS, RodTimeline.MODEL_CAST_LEAD_TICKS);
+        assertEquals("parada", t.state());
+        // the biped (no lead) as before
+        RodTimeline biped = new RodTimeline();
+        biped.observe(0, ROD, false, CLIPS);
+        biped.localCast(10, CLIPS);
+        assertEquals(10, biped.start());
+    }
+
+    @Test
     void castingOnceWhetherTheClickOrTheBobberComesFirst() {
         RodTimeline t = new RodTimeline();
         t.observe(0, ROD, false, CLIPS);

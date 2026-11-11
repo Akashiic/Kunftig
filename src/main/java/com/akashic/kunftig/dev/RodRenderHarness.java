@@ -148,6 +148,16 @@ public final class RodRenderHarness {
                     .warn("Kunftig DEV ROD HARNESS (modelcombos) enabled: this client will take screenshots and quit");
                 return;
             }
+            if (mode.length == 1 && mode[0].equals("modelfishing")) {
+                RodRenderHarness h = new RodRenderHarness();
+                h.planModelFishing();
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(h);
+                Kunftig.LOG
+                    .warn("Kunftig DEV ROD HARNESS (modelfishing) enabled: this client will take screenshots and quit");
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("modelrods")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planModelRods();
@@ -675,6 +685,97 @@ public final class RodRenderHarness {
         steps.add(new Step("modelrods-end", 5, (mc, p) -> futura(true)));
     }
 
+    /**
+     * 3D rods fishing on 3D Futura Engine's models (futura3d API 4+ and its dev jar in run/client/mods, the
+     * AkashicFishing pack selected): the local player from the front with a real cast, waiting and fighting; then
+     * another player from the side waiting, fighting, casting (the rod's lancar started in, MODEL_CAST_LEAD_TICKS),
+     * and in each reaction of the Sanrio rods (Hello Kitty). The rod must point straight ahead of the torso.
+     */
+    private void planModelFishing() {
+        String akashica = "akashicfishing:vara/vara-akashica";
+        String kitty = "akashicfishing:vara/vara-hello-kitty";
+        steps.add(new Step("mf-front-hold", 20, (mc, p) -> {
+            futura(true);
+            place(p, 180, 10);
+            view(mc, 2);
+            hold(p, rod(akashica));
+        }));
+        steps.add(
+            new Step(
+                "mf-front-cast",
+                3,
+                (mc, p) -> mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem())));
+        steps.add(new Step("mf-front-wait", 40, (mc, p) -> {}));
+        // the head turns 30 degrees with the line out; standing, the body lags behind
+        steps.add(new Step("mf-front-wait-turned", 20, (mc, p) -> place(p, 150, 10)));
+        steps.add(new Step("mf-front-wait-back", 20, (mc, p) -> place(p, 180, 10)));
+        steps.add(new Step("mf-front-fight", 30, (mc, p) -> {
+            modelState(mc.thePlayer, "briga", "0.6");
+            RodModels.INSTANCE.forceLocalState("briga", 0.6F);
+        }));
+        steps.add(new Step("mf-side-wait", 30, (mc, p) -> {
+            modelState(mc.thePlayer, null, null);
+            mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+            hold(p, null);
+            view(mc, 0);
+            place(p, 180, 5);
+            side = new EntityOtherPlayerMP(mc.theWorld, new GameProfile(UUID.randomUUID(), "Lateral"));
+            side.setPositionAndRotation(0.5, 4 + side.yOffset, -2.5, 270, 0);
+            turn(side, 270);
+            side.inventory.setInventorySlotContents(0, rod(akashica));
+            side.inventory.currentItem = 0;
+            mc.theWorld.addEntityToWorld(-4242, side);
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("mf-side-fight", 30, (mc, p) -> {
+            modelState(side, "briga", "0.6");
+            if (RodModels.INSTANCE.active()) {
+                RodModels.INSTANCE.timeline(side)
+                    .server("briga", RodModels.INSTANCE.clock());
+                RodModels.INSTANCE.timeline(side)
+                    .setTension(0.6F);
+            }
+        }));
+        steps.add(new Step("mf-side-cast", 4, (mc, p) -> {
+            modelState(side, "parada", null);
+            mc.theWorld.removeEntityFromWorld(-4243);
+            side.fishEntity = null;
+            side.swingItem();
+            EntityFishHook hook = new EntityFishHook(mc.theWorld, side.posX + 3, side.posY - 1, side.posZ - 1, side);
+            mc.theWorld.addEntityToWorld(-4243, hook);
+        }));
+        steps.add(new Step("mf-side-cast-later", 6, (mc, p) -> {}));
+        String[][] reactions = { { "carinho", "12" }, { "inspecionar", "20" }, { "ociosa", "72" }, { "encontro", "10" },
+            { "rivalidade", "12" }, { "comemoracao", "6" } };
+        for (String[] r : reactions) {
+            steps.add(new Step("mf-side-" + r[0], Integer.parseInt(r[1]), (mc, p) -> {
+                mc.theWorld.removeEntityFromWorld(-4243);
+                side.fishEntity = null;
+                side.inventory.setInventorySlotContents(0, rod(kitty));
+                modelState(side, r[0], null);
+                if (RodModels.INSTANCE.active()) {
+                    RodModels.INSTANCE.timeline(side)
+                        .server(r[0], RodModels.INSTANCE.clock());
+                }
+            }));
+        }
+        steps.add(new Step("mf-end", 5, (mc, p) -> {
+            mc.theWorld.removeEntityFromWorld(-4242);
+            side = null;
+        }));
+    }
+
+    /** The rod state 3D Futura Engine's model plays (what the fishing feed would tell it), cleared and set. */
+    private void modelState(EntityPlayer player, String state, String tension) {
+        com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.state", null);
+        if (state != null) {
+            com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.state", state);
+        }
+        com.akashic.kunftig.client.compat.FuturaModels.setExternalState(player, "fishing.tension", tension);
+        report("model state " + state + " -> " + com.akashic.kunftig.client.compat.FuturaModels.fishingPhase(player));
+    }
+
     /** Development only: 3D Futura Engine on or off (its {@code PlayerModels.setEnabled}), on the default model. */
     private void futura(boolean on) {
         try {
@@ -934,6 +1035,41 @@ public final class RodRenderHarness {
     private static java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> longChain() {
         return java.util.Collections
             .singletonList(new com.akashic.kunftig.blade.BladeTimeline.Segment(0, 60, true, 20000));
+    }
+
+    /**
+     * Where the player's rod points in the world (hand locator to the captured tip) next to where his body and head
+     * face, in degrees (Minecraft yaw: facing -sin, cos). A straight rod has the body's yaw.
+     */
+    private static String rodAim(EntityPlayer player) {
+        double[] tip = player == null ? null : RodModels.INSTANCE.thirdPersonTipOffset(player);
+        float[] hand = null;
+        try {
+            hand = (float[]) Class.forName("com.akashic.futura.api.FuturaModels")
+                .getMethod("locator", EntityPlayer.class, String.class)
+                .invoke(null, player, "RightHandLocator");
+        } catch (ReflectiveOperationException | LinkageError e) {
+            // no futura3d
+        }
+        if (tip == null || hand == null) {
+            return "tip=" + (tip != null) + " hand=" + (hand != null);
+        }
+        float pt = RodModels.INSTANCE.partialTicks();
+        double px = player.lastTickPosX + (player.posX - player.lastTickPosX) * pt;
+        double py = player.lastTickPosY + (player.posY - player.lastTickPosY) * pt;
+        double pz = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * pt;
+        double dx = px + tip[0] - (hand[12] + net.minecraft.client.renderer.entity.RenderManager.renderPosX);
+        double dy = py + tip[1] - (hand[13] + net.minecraft.client.renderer.entity.RenderManager.renderPosY);
+        double dz = pz + tip[2] - (hand[14] + net.minecraft.client.renderer.entity.RenderManager.renderPosZ);
+        double yaw = Math.toDegrees(Math.atan2(-dx, dz));
+        double rise = Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        return String.format(
+            java.util.Locale.ROOT,
+            "rod yaw %.1f rise %.1f | body %.1f head %.1f",
+            net.minecraft.util.MathHelper.wrapAngleTo180_double(yaw),
+            rise,
+            net.minecraft.util.MathHelper.wrapAngleTo180_float(player.renderYawOffset),
+            net.minecraft.util.MathHelper.wrapAngleTo180_float(player.rotationYawHead));
     }
 
     /** futura3d's locator, by reflection on its API (development check), as a short text. */
@@ -1728,6 +1864,12 @@ public final class RodRenderHarness {
                 step.name + " model: "
                     + modelState(mc.thePlayer)
                     + (side != null && side.worldObj != null && !side.isDead ? " | side " + modelState(side) : ""));
+        }
+        if (step.name.startsWith("mf-")) {
+            report(
+                step.name + " aim: "
+                    + rodAim(mc.thePlayer)
+                    + (side != null && !side.isDead ? " | side " + rodAim(side) : ""));
         }
         report(
             step.name + ": state="
