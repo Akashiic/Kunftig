@@ -50,6 +50,12 @@ public final class ClientProxy extends CommonProxy {
                 .bus()
                 .register(com.akashic.kunftig.client.display.DisplayClient.INSTANCE);
             MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.display.DisplayClient.INSTANCE);
+            if (!com.akashic.kunftig.client.display.DeckClient.disabled()) {
+                // Walking on displays (API 12): the player's tick, on FML's bus.
+                FMLCommonHandler.instance()
+                    .bus()
+                    .register(com.akashic.kunftig.client.display.DeckClient.INSTANCE);
+            }
         }
         if (!RodModels.disabled()) {
             // Reads the manifests now and on every resource reload (server resource packs included).

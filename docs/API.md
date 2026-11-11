@@ -788,3 +788,72 @@ KunftigEffects.hits(jogador, "overkill", golpes);        // contador estilo DmC;
   depois do último.
 * Canais `kunftig:blade` e `kunftig:effect`. Thread principal. `KunftigApi.isBladesAvailable()` diz se o servidor tem.
 
+## 21. Andar em exibições: o convés de um navio (API 12)
+
+A API 12 também traz `Display#setVariant(variante)`: a exibição troca de textura no lugar, sem piscar e sem mexer em
+mais nada (mensagem `VARIANT`, 9; um cliente antigo fica com a textura com que ela nasceu).
+
+Uma exibição pode ter **caixas sólidas**: o jogador anda em cima delas, esbarra nas mais altas e é **levado junto**
+quando a exibição se move, gira, caturra ou balança. Feito para os navios do Expeditions.
+
+```java
+if (KunftigApi.apiVersion() >= 12) {
+    List<DisplayBox> caixas = new ArrayList<>();
+    caixas.add(new DisplayBox(-3, 3.5, -10, 3, 4, 10));      // o convés: o topo (y = 4) é o chão
+    caixas.add(new DisplayBox(-3, 4, -10, -2.75, 5, 10));    // a amurada de bombordo: 1 bloco de parede
+    caixas.add(new DisplayBox(1, 4, -6, 2, 4.5, -5.5));      // um degrau de meio bloco
+    navio.setCollision(caixas);
+}
+// a cada 2 ticks, com um planeio de 2: o cliente interpola e leva quem está a bordo
+navio.setRotation(guinada, caturro, balanco);
+navio.moveTo(origem, 2);
+```
+
+* **As caixas** ficam no referencial da exibição: X de través, Y para cima, Z para a frente do modelo, em blocos, a
+  partir da origem do modelo e **no tamanho em que ele é desenhado** (a escala já aplicada). Giram com a guinada, o
+  caturro e o balanço. No máximo 2048 por exibição, cada uma a até 1023 blocos da origem; viajam arredondadas a 1/32
+  de bloco. `setCollision` de novo troca todas; `null` ou vazio tira.
+* **Chão e parede** são a mesma coisa: o topo de uma caixa é chão; uma caixa que sobe mais de **0,6 bloco** acima dos
+  pés é parede (até lá é degrau, que se sobe e se desce andando). Uma caixa acima da cabeça é teto. Para uma escada,
+  uma caixa por degrau; para um convés elevado, uma caixa maciça desde o convés de baixo (a frente dela vira a
+  antepara).
+* **Quem está a bordo:** o convés só existe para quem pisa nele. Cair em cima de um chão (ou dar um passo para ele a
+  partir do chão ao lado) põe o jogador a bordo; a partir daí ele fica no mesmo ponto da exibição por mais que ela se
+  mexa, anda, pula (o pulo também é levado) e é parado pelas paredes. Quem nada ou voa por perto atravessa. Sai de
+  bordo quem pisa num bloco do mundo, voa, monta em algo ou fica mais de 2 s no ar.
+* **Sem escorregar:** o chão é procurado na vertical do mundo, então o jogador parado num convés inclinado não
+  desliza; ele continua em pé (a caixa do Minecraft não inclina), com os pés na tábua.
+* **Onde acontece:** no cliente de cada jogador, no fim do tick dele, contra a pose que o cliente desenha (a
+  exibição avança no começo do tick; jogador e exibição são interpolados no mesmo intervalo e não tremem um contra o
+  outro). **Mova com planeios** (`moveTo(local, n)` a cada `n` ticks): um salto (`teleport`) joga o jogador junto.
+* **Os outros jogadores** chegam do servidor alguns ticks atrasados: quem está a até 0,4 bloco de um chão é desenhado
+  nele.
+* **O servidor** vê os jogadores parados no ar sobre a exibição: precisa de `allow-flight=true` no
+  `server.properties` (o TEOF tem), senão expulsa por voo. O dano de queda continua sendo do servidor, pelo que o
+  cliente informa (no convés ele informa "no chão"). Um plugin de anticheat veria voo: **a verificar** no servidor de
+  produção.
+* `KunftigDisplays.walksOnDisplays(jogador)`: se o cliente dele anda em exibições (registra `kunftig:display3`). Os
+  outros atravessam: não os deixe embarcar, ou dê outro chão a eles.
+* Mensagem `DECK` (8) no canal `kunftig:display`; um cliente antigo a ignora. Desligado no cliente com
+  `-Dkunftig.decks.disable=true`.
+* Classes sem Minecraft, com testes: `display/DeckShape` (as caixas), `DeckPose` (a pose, como o renderizador gira),
+  `DeckWalker` (um jogador contra um convés, um tick por vez).
+* **Trocar o que há no convés sem recriar a exibição:** recriar joga quem está a bordo (a nova nasce onde o servidor
+  está, e o cliente ainda desenha a antiga 2 ou 3 ticks atrás: visto no jogo, 23 cm de diferença na proa com mar de
+  2,5 m). Para um navio que muda de nível, use na mesma exibição `setVariant` (a textura, API 12), `setBoneVisible`
+  (as peças) e `setCollision` (as caixas).
+* `-Dkunftig.decks.debug=true` no cliente registra cada embarque e desembarque do jogador local (a altura dos pés,
+  a do chão sob eles e a pose da exibição).
+* **Visto no jogo** (cliente TEOF 5.4 e Crucible, com os navios do Expeditions, em modo sobrevivência):
+  * em pé e andando no convés do galeão com mar de 2,5 e 3 m e vento, sem escorregar e sem sair de bordo;
+  * a escada do castelo de proa (degraus de 0,27 bloco) subida andando; a amurada e um barril param o jogador; pular
+    a amurada tira de bordo;
+  * uma queda de 13 blocos sobre o convés pousa nele e tira vida (o dano é do servidor);
+  * o nível do navio trocado no lugar (`setVariant`, ossos e caixas), cinco vezes com o jogador na proa: nenhuma
+    saída de bordo;
+  * o servidor não registrou "moved wrongly", "moved too quickly" nem expulsão por voo.
+* **A verificar no jogo:** outro jogador visto de fora (o desenho no chão dos que chegam atrasados precisa de dois
+  clientes), a suavidade em vídeo num cliente com placa de vídeo, e os anticheats do servidor de produção.
+* **Ainda não:** itens e criaturas no convés (caem através), agachar na borda sem cair, o balanço da câmera ao andar
+  (o Minecraft o calcula antes de o Kunftig pôr o jogador no chão), som de passos, escadas de mão (subir aos cestos).
+

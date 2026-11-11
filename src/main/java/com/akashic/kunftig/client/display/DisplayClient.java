@@ -28,6 +28,7 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import org.apache.commons.io.IOUtils;
 
 import com.akashic.kunftig.Kunftig;
+import com.akashic.kunftig.display.DeckShape;
 import com.akashic.kunftig.display.DisplayModelIndex;
 import com.akashic.kunftig.display.DisplayMotion;
 import com.akashic.kunftig.display.DisplayWire;
@@ -55,7 +56,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
 
         public final int id;
         public final String model;
-        public final String variant;
+        /** The texture variant; the server may change it (API 12). */
+        public volatile String variant;
         /** Where it is, tick by tick, and how it moves (API 9: glides and flights). */
         public final DisplayMotion motion = new DisplayMotion();
         public volatile String state;
@@ -66,6 +68,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public volatile float[] scale = { 1, 1, 1 };
         /** API 9: the bones whose visibility the server set. */
         public volatile Map<String, Boolean> bones = Collections.emptyMap();
+        /** API 12: the boxes players walk on (empty: none). */
+        public volatile DeckShape deck = DeckShape.EMPTY;
 
         Entry(int id, String model, String variant) {
             this.id = id;
@@ -111,6 +115,15 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         return renderer != null;
     }
 
+    /** The displays this client knows now (a live view). */
+    public java.util.Collection<Entry> entries() {
+        return displays.values();
+    }
+
+    public Entry get(int id) {
+        return displays.get(id);
+    }
+
     /** Displays this client knows now. */
     public int count() {
         return displays.size();
@@ -137,19 +150,24 @@ public final class DisplayClient implements IResourceManagerReloadListener {
      */
     public void onJoinGame(NetHandlerPlayClient handler) {
         displays.clear();
+        DeckClient.INSTANCE.reset();
         if (renderer == null) {
             return;
         }
         handler.addToSendQueue(
             new C17PacketCustomPayload(
                 "REGISTER",
-                // the second channel only says this client draws scale, hidden bones and blends (API 9)
-                (DisplayWire.CHANNEL + "\0" + DisplayWire.CHANNEL_V2).getBytes(StandardCharsets.UTF_8)));
+                // the second channel only says this client draws scale, hidden bones and blends (API 9); the third,
+                // that its player walks on displays (API 12)
+                (DisplayWire.CHANNEL + "\0"
+                    + DisplayWire.CHANNEL_V2
+                    + (DeckClient.disabled() ? "" : "\0" + DisplayWire.CHANNEL_V3)).getBytes(StandardCharsets.UTF_8)));
     }
 
     /** Respawn or dimension change: the server shows them again where they apply. */
     public void clear() {
         displays.clear();
+        DeckClient.INSTANCE.reset();
     }
 
     /** A message on the display channel. */
@@ -213,6 +231,20 @@ public final class DisplayClient implements IResourceManagerReloadListener {
                 Entry e = displays.get(m.id);
                 if (e != null) {
                     e.bones = m.bones;
+                }
+                break;
+            }
+            case DisplayWire.VARIANT: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.variant = m.variant;
+                }
+                break;
+            }
+            case DisplayWire.DECK: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.deck = m.deck;
                 }
                 break;
             }
@@ -289,9 +321,13 @@ public final class DisplayClient implements IResourceManagerReloadListener {
 
     // ---- ticking and drawing ------------------------------------------------------------------------------------
 
+    /**
+     * At the start of the client tick, before the world's: a player standing on a display (API 12) is moved, at the
+     * end of its own tick, to where the display is now, so both are drawn together between this tick and the next.
+     */
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && !Minecraft.getMinecraft()
+        if (event.phase == TickEvent.Phase.START && !Minecraft.getMinecraft()
             .isGamePaused()) {
             clock++;
             for (Entry e : displays.values()) {

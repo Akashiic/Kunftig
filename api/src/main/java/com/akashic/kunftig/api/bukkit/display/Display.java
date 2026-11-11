@@ -30,6 +30,16 @@ public interface Display {
     /** The texture variant ({@code variantes} of the manifest), or {@code ""} for the default texture. */
     String getVariant();
 
+    /**
+     * Gives the display another texture variant where it stands, with no flicker and without moving anything on it: a
+     * ship painted on an upgrade, a chest changing rarity. Viewers with an older Kunftig keep the texture it was
+     * spawned with.
+     *
+     * @param variant a variant of the manifest ({@code variantes}), or null / {@code ""} for the default texture
+     * @since API 12
+     */
+    void setVariant(String variant);
+
     /** The state playing (a name of the manifest's {@code estados}). */
     String getState();
 
@@ -125,6 +135,29 @@ public interface Display {
 
     /** Blocks per tick (zero when it does not fly). @since API 11 */
     org.bukkit.util.Vector getMotion();
+
+    /**
+     * What players walk on and bump into on this display: a ship's deck, a platform that moves. Each box is solid, in
+     * the display's own frame ({@link DisplayBox}); the top of a box is a floor. A player who comes down on a floor
+     * (or steps onto one from the ground beside it) stands on it and is carried along: when the display moves, turns,
+     * pitches or rolls ({@link #moveTo}, {@link #setRotation}), the player stays on the same spot of it, and walks,
+     * jumps, takes steps up to 0.6 block and is stopped by the higher boxes as by walls. Someone swimming or flying
+     * by passes through.
+     * <p>
+     * It happens on each player's own client, tick by tick, against the pose the client draws: move the display with
+     * glides ({@code moveTo(location, n)} every {@code n} ticks), not jumps, or players are thrown about. The server
+     * sees the players standing in the air over the display, so it must allow flight ({@code allow-flight=true});
+     * fall damage is still the server's, from what the client reports. At most 2048 boxes, each within
+     * {@link DisplayBox#MAX_REACH} blocks of the origin; the coordinates travel rounded to 1/32 block. A client
+     * without this ({@link KunftigDisplays#walksOnDisplays}) falls through.
+     *
+     * @param boxes the boxes (null or empty: nothing to walk on); replaces the earlier ones
+     * @since API 12
+     */
+    void setCollision(List<DisplayBox> boxes);
+
+    /** The boxes set by {@link #setCollision} (as they travel, rounded to 1/32 block). @since API 12 */
+    List<DisplayBox> getCollision();
 
     /** Blocks around the model within which players see it. */
     double getViewRange();

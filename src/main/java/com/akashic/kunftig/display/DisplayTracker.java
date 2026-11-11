@@ -64,7 +64,8 @@ public final class DisplayTracker<C> {
         final int id;
         final double range;
         final String model;
-        final String variant;
+        String variant;
+        boolean variantChanged;
         String world;
         double x;
         double y;
@@ -88,6 +89,9 @@ public final class DisplayTracker<C> {
         boolean motionChanged;
         boolean scaleChanged;
         boolean bonesChanged;
+        /** API 12: the boxes players walk on ({@link DeckShape#pack}); empty for none. */
+        short[] deck = new short[0];
+        boolean deckChanged;
         final Set<C> shown = Collections.newSetFromMap(new IdentityHashMap<>());
 
         State(int id, String world, double x, double y, double z, float yaw, String model, String variant, String state,
@@ -114,8 +118,17 @@ public final class DisplayTracker<C> {
             return model;
         }
 
-        public String variant() {
+        public synchronized String variant() {
             return variant;
+        }
+
+        /** Another texture variant where it stands (API 12); {@code ""} for the default texture. */
+        public synchronized void setVariant(String newVariant) {
+            String v = newVariant == null ? "" : newVariant;
+            if (!v.equals(variant)) {
+                variant = v;
+                variantChanged = true;
+            }
         }
 
         public synchronized String state() {
@@ -214,6 +227,22 @@ public final class DisplayTracker<C> {
 
         public synchronized Map<String, Boolean> bones() {
             return Collections.unmodifiableMap(new LinkedHashMap<>(bones));
+        }
+
+        /** The boxes players walk on (API 12), as {@link DeckShape#pack} gives them; null or empty for none. */
+        public synchronized void setDeck(short[] packed) {
+            short[] next = packed == null ? new short[0] : packed.clone();
+            if (DeckShape.of(next) == null) {
+                throw new IllegalArgumentException("malformed deck boxes");
+            }
+            if (!java.util.Arrays.equals(next, deck)) {
+                deck = next;
+                deckChanged = true;
+            }
+        }
+
+        public synchronized short[] deck() {
+            return deck.clone();
         }
 
         /** Flies from where it is, {@code vx, vy, vz} blocks per tick, on the server and on every client (0: stops). */
@@ -323,6 +352,12 @@ public final class DisplayTracker<C> {
                     if (d.bonesChanged) {
                         out.add(new Out<>(c, DisplayWire.bones(d.id, d.bones)));
                     }
+                    if (d.variantChanged) {
+                        out.add(new Out<>(c, DisplayWire.variant(d.id, d.variant)));
+                    }
+                    if (d.deckChanged) {
+                        out.add(new Out<>(c, DisplayWire.deck(d.id, d.deck)));
+                    }
                     if (d.itemsChanged) {
                         out.add(new Out<>(c, DisplayWire.items(d.id, d.items)));
                     }
@@ -334,6 +369,8 @@ public final class DisplayTracker<C> {
                 d.motionChanged = false;
                 d.scaleChanged = false;
                 d.bonesChanged = false;
+                d.deckChanged = false;
+                d.variantChanged = false;
                 d.glide = 0;
                 d.itemsChanged = false;
                 d.stateChanged = false;
@@ -360,6 +397,9 @@ public final class DisplayTracker<C> {
                                     d.items,
                                     d.scale,
                                     d.bones)));
+                        if (d.deck.length > 0) {
+                            out.add(new Out<>(v.connection, DisplayWire.deck(d.id, d.deck)));
+                        }
                         d.shown.add(v.connection);
                     }
                 }

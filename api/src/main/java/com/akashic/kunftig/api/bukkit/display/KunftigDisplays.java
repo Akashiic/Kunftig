@@ -42,6 +42,8 @@ public final class KunftigDisplays {
         boolean drawsDisplays(Player player);
 
         boolean drawsExtendedDisplays(Player player);
+
+        boolean walksOnDisplays(Player player);
     }
 
     private static volatile Provider provider;
@@ -118,6 +120,16 @@ public final class KunftigDisplays {
      */
     public static boolean drawsExtendedDisplays(Player player) {
         return provider().drawsExtendedDisplays(player);
+    }
+
+    /**
+     * Whether the player's client makes it walk on displays ({@link Display#setCollision}). The others fall through:
+     * keep them off a ship, or give them something else to stand on.
+     *
+     * @since API 12
+     */
+    public static boolean walksOnDisplays(Player player) {
+        return provider().walksOnDisplays(player);
     }
 
     /** Internal: called by the mod. */

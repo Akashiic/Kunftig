@@ -35,9 +35,11 @@ public final class KunftigApi {
      * attack prediction for 3D held models ({@code ao_atacar} in the pack), displays that fly and turn on every axis
      * ({@code Display#moveTo}, {@code setMotion}, {@code setRotation}), the screen HUD ({@code KunftigHud}) and the
      * camera lock-on ({@code KunftigCamera}), SlashBlade-style blades ({@code KunftigBlades}), effects
-     * ({@code KunftigEffects}) and {@code KunftigPlayers#pushVelocity}.
+     * ({@code KunftigEffects}) and {@code KunftigPlayers#pushVelocity}. 12: displays players walk on
+     * ({@code Display#setCollision}, {@code KunftigDisplays#walksOnDisplays}) and a display's texture variant changed
+     * in place ({@code Display#setVariant}).
      */
-    private static final int API_VERSION = 11;
+    private static final int API_VERSION = 12;
 
     private KunftigApi() {}
 
