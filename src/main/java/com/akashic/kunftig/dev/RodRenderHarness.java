@@ -706,6 +706,9 @@ public final class RodRenderHarness {
                 3,
                 (mc, p) -> mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem())));
         steps.add(new Step("mf-front-wait", 40, (mc, p) -> {}));
+        // the head turns 30 degrees with the line out; standing, the body lags behind
+        steps.add(new Step("mf-front-wait-turned", 20, (mc, p) -> place(p, 150, 10)));
+        steps.add(new Step("mf-front-wait-back", 20, (mc, p) -> place(p, 180, 10)));
         steps.add(new Step("mf-front-fight", 30, (mc, p) -> {
             modelState(mc.thePlayer, "briga", "0.6");
             RodModels.INSTANCE.forceLocalState("briga", 0.6F);
@@ -1032,6 +1035,41 @@ public final class RodRenderHarness {
     private static java.util.List<com.akashic.kunftig.blade.BladeTimeline.Segment> longChain() {
         return java.util.Collections
             .singletonList(new com.akashic.kunftig.blade.BladeTimeline.Segment(0, 60, true, 20000));
+    }
+
+    /**
+     * Where the player's rod points in the world (hand locator to the captured tip) next to where his body and head
+     * face, in degrees (Minecraft yaw: facing -sin, cos). A straight rod has the body's yaw.
+     */
+    private static String rodAim(EntityPlayer player) {
+        double[] tip = player == null ? null : RodModels.INSTANCE.thirdPersonTipOffset(player);
+        float[] hand = null;
+        try {
+            hand = (float[]) Class.forName("com.akashic.futura.api.FuturaModels")
+                .getMethod("locator", EntityPlayer.class, String.class)
+                .invoke(null, player, "RightHandLocator");
+        } catch (ReflectiveOperationException | LinkageError e) {
+            // no futura3d
+        }
+        if (tip == null || hand == null) {
+            return "tip=" + (tip != null) + " hand=" + (hand != null);
+        }
+        float pt = RodModels.INSTANCE.partialTicks();
+        double px = player.lastTickPosX + (player.posX - player.lastTickPosX) * pt;
+        double py = player.lastTickPosY + (player.posY - player.lastTickPosY) * pt;
+        double pz = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * pt;
+        double dx = px + tip[0] - (hand[12] + net.minecraft.client.renderer.entity.RenderManager.renderPosX);
+        double dy = py + tip[1] - (hand[13] + net.minecraft.client.renderer.entity.RenderManager.renderPosY);
+        double dz = pz + tip[2] - (hand[14] + net.minecraft.client.renderer.entity.RenderManager.renderPosZ);
+        double yaw = Math.toDegrees(Math.atan2(-dx, dz));
+        double rise = Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        return String.format(
+            java.util.Locale.ROOT,
+            "rod yaw %.1f rise %.1f | body %.1f head %.1f",
+            net.minecraft.util.MathHelper.wrapAngleTo180_double(yaw),
+            rise,
+            net.minecraft.util.MathHelper.wrapAngleTo180_float(player.renderYawOffset),
+            net.minecraft.util.MathHelper.wrapAngleTo180_float(player.rotationYawHead));
     }
 
     /** futura3d's locator, by reflection on its API (development check), as a short text. */
@@ -1826,6 +1864,12 @@ public final class RodRenderHarness {
                 step.name + " model: "
                     + modelState(mc.thePlayer)
                     + (side != null && side.worldObj != null && !side.isDead ? " | side " + modelState(side) : ""));
+        }
+        if (step.name.startsWith("mf-")) {
+            report(
+                step.name + " aim: "
+                    + rodAim(mc.thePlayer)
+                    + (side != null && !side.isDead ? " | side " + rodAim(side) : ""));
         }
         report(
             step.name + ": state="

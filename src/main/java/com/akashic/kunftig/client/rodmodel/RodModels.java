@@ -980,6 +980,15 @@ public final class RodModels implements IResourceManagerReloadListener {
         return finite(rel[0], rel[1], rel[2]);
     }
 
+    /**
+     * The rod's tip last captured in third person, as an offset (blocks) from the player's interpolated position, or
+     * null (development checks: the harness measures where the rod points).
+     */
+    public double[] thirdPersonTipOffset(EntityPlayer player) {
+        Tip tip = thirdPersonTips.get(player.getEntityId());
+        return tip == null || frame - tip.frame > TIP_FRAMES ? null : new double[] { tip.x, tip.y, tip.z };
+    }
+
     private double[] thirdPersonStart(EntityPlayer player, float partial) {
         Tip tip = thirdPersonTips.get(player.getEntityId());
         if (tip == null || frame - tip.frame > TIP_FRAMES) {
