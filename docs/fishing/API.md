@@ -160,3 +160,10 @@ também em singleplayer.
 
 `-Dkunftig.fishing.disable=true` não aplica o mixin (pesca vanilla, sem eventos). `enabled=false` no config tem o
 mesmo efeito com o mixin aplicado: ele devolve o ciclo ao código vanilla.
+
+## Neo States
+
+Com o [Neo States](https://github.com/Akashiic/Neo-States) instalado, o anzol pergunta a ele a superfície da água
+(`compat/NeoStatesBridge`, por reflexão), então também boia em água guardada dentro de um bloco (laje, cerca). Sem o
+mod, nada muda. Visto no TEOF 5.4 com o Crucible (2026-11-11): lançado sobre lajes com água, o anzol fica na
+superfície, como em água normal. **A verificar**: mordida e fisgada nessa água, e o AkashicFishing por cima.
