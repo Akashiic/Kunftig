@@ -380,6 +380,22 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
         }
 
         @Override
+        public void setBoneRotation(String bone, float x, float y, float z, int glideTicks) {
+            if (bone == null || bone.isEmpty() || bone.length() > DisplayWire.MAX_NAME) {
+                throw new IllegalArgumentException("bone name required (at most " + DisplayWire.MAX_NAME + " chars)");
+            }
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
+                throw new IllegalArgumentException("rotation must be finite");
+            }
+            state.setPose(bone, x, y, z, glideTicks);
+        }
+
+        @Override
+        public float[] getBoneRotation(String bone) {
+            return state.pose(bone);
+        }
+
+        @Override
         public void setVariant(String variant) {
             if (variant != null && !variant.isEmpty()
                 && !KunftigDisplays.STATE_NAME.matcher(variant)

@@ -857,3 +857,28 @@ navio.moveTo(origem, 2);
 * **Ainda não:** itens e criaturas no convés (caem através), agachar na borda sem cair, o balanço da câmera ao andar
   (o Minecraft o calcula antes de o Kunftig pôr o jogador no chão), som de passos, escadas de mão (subir aos cestos).
 
+## 22. Girar um osso pelo servidor (API 13)
+
+`Display#setBoneRotation(osso, x, y, z, ticks)` gira um osso do modelo, e tudo o que está debaixo dele, em torno do
+pivô do osso: uma porta que abre, uma prancha que desce, um timão. Os graus **somam** à rotação do próprio osso (e ao
+que a animação do estado der a ele), nos eixos e sinais do arquivo do modelo, como o Blockbench mostra; quem vê
+acompanha o osso chegar lá em `ticks` ticks (0: de uma vez; até 255). `0, 0, 0` devolve o osso ao lugar.
+
+```java
+if (KunftigApi.apiVersion() >= 13) {
+    navio.setBoneRotation("porta_capitao", 0, 95, 0, 8);   // abre em 8 ticks
+    navio.setBoneRotation("porta_capitao", 0, 0, 0, 8);    // fecha
+}
+```
+
+* Não precisa de arquivo de animação nem de um estado por porta: cada osso tem o seu giro, independente dos outros e
+  do estado que a exibição toca.
+* **A colisão é sua:** o giro é só desenho. Uma porta que abre troca a caixa dela em `setCollision` (fechada: a folha
+  no vão; aberta: a folha encostada); uma rampa manda os degraus dela.
+* Um osso girado em mais de um eixo, ou que já tem rotação própria em outro eixo, gira na ordem do formato
+  (Z, depois Y, depois X). No máximo 64 ossos girados por exibição. Quem chega depois recebe cada osso onde ele está.
+* Mensagem `POSE` (10) no canal `kunftig:display`; um cliente antigo desenha o osso onde o modelo o tem.
+* `getBoneRotation(osso)` devolve o que foi pedido (`{x, y, z}`).
+* **Visto no jogo** (navios do Expeditions): a porta da sala do capitão abre e fecha em 8 ticks, e a prancha de
+  embarque desce 23,8° até um cais, com o jogador passando por uma e subindo pela outra.
+

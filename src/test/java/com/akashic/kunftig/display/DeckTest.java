@@ -175,6 +175,40 @@ class DeckTest {
     }
 
     @Test
+    void bonesTurnAndLateViewersGetThemWhereTheyAre() {
+        DisplayWire.Message m = DisplayWire.read(DisplayWire.pose(4, "porta", 0, -95, 0, 12));
+        assertEquals(DisplayWire.POSE, m.op);
+        assertEquals("porta", m.bone);
+        assertArrayEquals(new float[] { 0, -95, 0 }, m.turn, 0);
+        assertEquals(12, m.ticks);
+        assertNull(DisplayWire.read(DisplayWire.pose(4, "", 0, 0, 0, 0)));
+        DisplayTracker<String> t = new DisplayTracker<>();
+        DisplayTracker.State<String> d = t
+            .create("w", 0, 64, 0, 0, "ns:navio", "", "parado", Collections.emptyList(), 48);
+        List<DisplayTracker.Viewer<String>> viewers = new ArrayList<>();
+        viewers.add(new DisplayTracker.Viewer<>("ana", "w", 1, 64, 1, true));
+        t.update(viewers);
+        d.setPose("porta", 0, 0, 0, 5); // already there: nothing
+        assertTrue(
+            t.update(viewers)
+                .isEmpty());
+        d.setPose("porta", 0, -95, 0, 12);
+        List<DisplayTracker.Out<String>> out = t.update(viewers);
+        assertEquals(1, out.size());
+        assertEquals(12, DisplayWire.read(out.get(0).data).ticks);
+        assertTrue(
+            t.update(viewers)
+                .isEmpty());
+        viewers.add(new DisplayTracker.Viewer<>("bia", "w", 1, 64, 1, true));
+        out = t.update(viewers);
+        assertEquals(2, out.size()); // SHOW, then the door where it is, at once
+        DisplayWire.Message late = DisplayWire.read(out.get(1).data);
+        assertEquals(-95, late.turn[1], 0);
+        assertEquals(0, late.ticks);
+        assertArrayEquals(new float[] { 0, -95, 0 }, d.pose("porta"), 0);
+    }
+
+    @Test
     void variantChangesInPlace() {
         DisplayWire.Message m = DisplayWire.read(DisplayWire.variant(9, "pintado"));
         assertEquals(DisplayWire.VARIANT, m.op);

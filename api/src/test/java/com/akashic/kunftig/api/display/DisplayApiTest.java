@@ -66,7 +66,7 @@ class DisplayApiTest {
         });
         try {
             assertTrue(KunftigApi.isDisplaysAvailable());
-            assertEquals(12, KunftigApi.apiVersion());
+            assertEquals(13, KunftigApi.apiVersion());
             assertFalse(KunftigDisplays.drawsExtendedDisplays(proxy(Player.class)));
             assertFalse(KunftigDisplays.walksOnDisplays(proxy(Player.class)));
             assertSame(made, KunftigDisplays.spawn(at, "akashicfishing:caixa_da_sorte", "epico", "abrir", null));

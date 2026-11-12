@@ -68,6 +68,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public volatile float[] scale = { 1, 1, 1 };
         /** API 9: the bones whose visibility the server set. */
         public volatile Map<String, Boolean> bones = Collections.emptyMap();
+        /** API 13: the bones the server turned. */
+        public final Map<String, BoneTurn> turns = new ConcurrentHashMap<>();
         /** API 12: the boxes players walk on (empty: none). */
         public volatile DeckShape deck = DeckShape.EMPTY;
 
@@ -81,6 +83,39 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public boolean boneVisible(String bone, DisplayModelIndex.Model model) {
             Boolean set = bones.get(bone);
             return set != null ? set : !model.hiddenBones.contains(bone);
+        }
+    }
+
+    /** A bone turning to where the server put it (API 13): degrees added to its rotation, glided tick by tick. */
+    public static final class BoneTurn {
+
+        private final float[] now = new float[3];
+        private final float[] last = new float[3];
+        private final float[] to = new float[3];
+        private int glide;
+
+        void set(float[] target, int ticks) {
+            System.arraycopy(target, 0, to, 0, 3);
+            glide = ticks;
+            if (ticks <= 0) {
+                System.arraycopy(target, 0, now, 0, 3);
+                System.arraycopy(target, 0, last, 0, 3);
+            }
+        }
+
+        void tick() {
+            System.arraycopy(now, 0, last, 0, 3);
+            if (glide > 0) {
+                for (int i = 0; i < 3; i++) {
+                    now[i] += (to[i] - now[i]) / glide;
+                }
+                glide--;
+            }
+        }
+
+        /** Degrees on axis 0 (X), 1 (Y) or 2 (Z) at this frame. */
+        public float get(int axis, float partial) {
+            return last[axis] + (now[axis] - last[axis]) * partial;
         }
     }
 
@@ -234,6 +269,18 @@ public final class DisplayClient implements IResourceManagerReloadListener {
                 }
                 break;
             }
+            case DisplayWire.POSE: {
+                Entry e = displays.get(m.id);
+                if (e != null && (e.turns.size() < DisplayWire.MAX_POSES || e.turns.containsKey(m.bone))) {
+                    BoneTurn t = e.turns.get(m.bone);
+                    if (t == null) {
+                        t = new BoneTurn();
+                        e.turns.put(m.bone, t);
+                    }
+                    t.set(m.turn, m.ticks);
+                }
+                break;
+            }
             case DisplayWire.VARIANT: {
                 Entry e = displays.get(m.id);
                 if (e != null) {
@@ -332,6 +379,9 @@ public final class DisplayClient implements IResourceManagerReloadListener {
             clock++;
             for (Entry e : displays.values()) {
                 e.motion.tick();
+                for (BoneTurn t : e.turns.values()) {
+                    t.tick();
+                }
             }
         }
     }

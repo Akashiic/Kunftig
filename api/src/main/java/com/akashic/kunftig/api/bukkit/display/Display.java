@@ -31,6 +31,23 @@ public interface Display {
     String getVariant();
 
     /**
+     * Turns a bone of the model, and everything under it, about the bone's pivot: a door opening, a gangplank
+     * lowered, a wheel put over. The degrees are added to the bone's own rotation (and to what the animation of the
+     * state gives it), in the axes and signs of the model file, as Blockbench shows them; viewers see the bone get
+     * there over {@code glideTicks} ticks (0: at once, up to 255). {@code 0, 0, 0} puts it back. A bone turned on more
+     * than one axis, or that already has a rotation of its own on another axis, turns in the order the model format
+     * applies them (Z, then Y, then X). At most 64 bones turned per display. Viewers with an older Kunftig see the
+     * bone where the model has it.
+     *
+     * @param bone a bone name of the model's geometry (unknown names do nothing on the client)
+     * @since API 13
+     */
+    void setBoneRotation(String bone, float x, float y, float z, int glideTicks);
+
+    /** The degrees set by {@link #setBoneRotation}, {@code {x, y, z}}; zeros when never set. @since API 13 */
+    float[] getBoneRotation(String bone);
+
+    /**
      * Gives the display another texture variant where it stands, with no flicker and without moving anything on it: a
      * ship painted on an upgrade, a chest changing rarity. Viewers with an older Kunftig keep the texture it was
      * spawned with.
