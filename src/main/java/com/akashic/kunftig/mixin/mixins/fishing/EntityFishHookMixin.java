@@ -27,6 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.akashic.kunftig.KunftigConfig;
+import com.akashic.kunftig.compat.NeoStatesBridge;
 import com.akashic.kunftig.fishing.CatchArc;
 import com.akashic.kunftig.fishing.FishingEngine;
 import com.akashic.kunftig.fishing.FishingParameters;
@@ -268,6 +269,11 @@ public abstract class EntityFishHookMixin extends Entity implements KunftigFishH
         int x = MathHelper.floor_double(posX);
         int y = MathHelper.floor_double(posY);
         int z = MathHelper.floor_double(posZ);
+        // Neo States, when installed, owns the water surface (water held inside a slab or stairs included).
+        Double neoSurface = NeoStatesBridge.waterSurface(worldObj, x, y, z);
+        if (neoSurface != null) {
+            return neoSurface;
+        }
         Material material = worldObj.getBlock(x, y, z)
             .getMaterial();
         boolean fluid = material == Material.water || material == Material.lava && kunftig$inLava;
