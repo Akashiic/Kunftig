@@ -28,6 +28,7 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import org.apache.commons.io.IOUtils;
 
 import com.akashic.kunftig.Kunftig;
+import com.akashic.kunftig.display.DeckShape;
 import com.akashic.kunftig.display.DisplayModelIndex;
 import com.akashic.kunftig.display.DisplayMotion;
 import com.akashic.kunftig.display.DisplayWire;
@@ -55,7 +56,8 @@ public final class DisplayClient implements IResourceManagerReloadListener {
 
         public final int id;
         public final String model;
-        public final String variant;
+        /** The texture variant; the server may change it (API 12). */
+        public volatile String variant;
         /** Where it is, tick by tick, and how it moves (API 9: glides and flights). */
         public final DisplayMotion motion = new DisplayMotion();
         public volatile String state;
@@ -66,6 +68,10 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public volatile float[] scale = { 1, 1, 1 };
         /** API 9: the bones whose visibility the server set. */
         public volatile Map<String, Boolean> bones = Collections.emptyMap();
+        /** API 13: the bones the server turned. */
+        public final Map<String, BoneTurn> turns = new ConcurrentHashMap<>();
+        /** API 12: the boxes players walk on (empty: none). */
+        public volatile DeckShape deck = DeckShape.EMPTY;
 
         Entry(int id, String model, String variant) {
             this.id = id;
@@ -77,6 +83,39 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         public boolean boneVisible(String bone, DisplayModelIndex.Model model) {
             Boolean set = bones.get(bone);
             return set != null ? set : !model.hiddenBones.contains(bone);
+        }
+    }
+
+    /** A bone turning to where the server put it (API 13): degrees added to its rotation, glided tick by tick. */
+    public static final class BoneTurn {
+
+        private final float[] now = new float[3];
+        private final float[] last = new float[3];
+        private final float[] to = new float[3];
+        private int glide;
+
+        void set(float[] target, int ticks) {
+            System.arraycopy(target, 0, to, 0, 3);
+            glide = ticks;
+            if (ticks <= 0) {
+                System.arraycopy(target, 0, now, 0, 3);
+                System.arraycopy(target, 0, last, 0, 3);
+            }
+        }
+
+        void tick() {
+            System.arraycopy(now, 0, last, 0, 3);
+            if (glide > 0) {
+                for (int i = 0; i < 3; i++) {
+                    now[i] += (to[i] - now[i]) / glide;
+                }
+                glide--;
+            }
+        }
+
+        /** Degrees on axis 0 (X), 1 (Y) or 2 (Z) at this frame. */
+        public float get(int axis, float partial) {
+            return last[axis] + (now[axis] - last[axis]) * partial;
         }
     }
 
@@ -111,6 +150,15 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         return renderer != null;
     }
 
+    /** The displays this client knows now (a live view). */
+    public java.util.Collection<Entry> entries() {
+        return displays.values();
+    }
+
+    public Entry get(int id) {
+        return displays.get(id);
+    }
+
     /** Displays this client knows now. */
     public int count() {
         return displays.size();
@@ -137,19 +185,24 @@ public final class DisplayClient implements IResourceManagerReloadListener {
      */
     public void onJoinGame(NetHandlerPlayClient handler) {
         displays.clear();
+        DeckClient.INSTANCE.reset();
         if (renderer == null) {
             return;
         }
         handler.addToSendQueue(
             new C17PacketCustomPayload(
                 "REGISTER",
-                // the second channel only says this client draws scale, hidden bones and blends (API 9)
-                (DisplayWire.CHANNEL + "\0" + DisplayWire.CHANNEL_V2).getBytes(StandardCharsets.UTF_8)));
+                // the second channel only says this client draws scale, hidden bones and blends (API 9); the third,
+                // that its player walks on displays (API 12)
+                (DisplayWire.CHANNEL + "\0"
+                    + DisplayWire.CHANNEL_V2
+                    + (DeckClient.disabled() ? "" : "\0" + DisplayWire.CHANNEL_V3)).getBytes(StandardCharsets.UTF_8)));
     }
 
     /** Respawn or dimension change: the server shows them again where they apply. */
     public void clear() {
         displays.clear();
+        DeckClient.INSTANCE.reset();
     }
 
     /** A message on the display channel. */
@@ -213,6 +266,32 @@ public final class DisplayClient implements IResourceManagerReloadListener {
                 Entry e = displays.get(m.id);
                 if (e != null) {
                     e.bones = m.bones;
+                }
+                break;
+            }
+            case DisplayWire.POSE: {
+                Entry e = displays.get(m.id);
+                if (e != null && (e.turns.size() < DisplayWire.MAX_POSES || e.turns.containsKey(m.bone))) {
+                    BoneTurn t = e.turns.get(m.bone);
+                    if (t == null) {
+                        t = new BoneTurn();
+                        e.turns.put(m.bone, t);
+                    }
+                    t.set(m.turn, m.ticks);
+                }
+                break;
+            }
+            case DisplayWire.VARIANT: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.variant = m.variant;
+                }
+                break;
+            }
+            case DisplayWire.DECK: {
+                Entry e = displays.get(m.id);
+                if (e != null) {
+                    e.deck = m.deck;
                 }
                 break;
             }
@@ -289,13 +368,20 @@ public final class DisplayClient implements IResourceManagerReloadListener {
 
     // ---- ticking and drawing ------------------------------------------------------------------------------------
 
+    /**
+     * At the start of the client tick, before the world's: a player standing on a display (API 12) is moved, at the
+     * end of its own tick, to where the display is now, so both are drawn together between this tick and the next.
+     */
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && !Minecraft.getMinecraft()
+        if (event.phase == TickEvent.Phase.START && !Minecraft.getMinecraft()
             .isGamePaused()) {
             clock++;
             for (Entry e : displays.values()) {
                 e.motion.tick();
+                for (BoneTurn t : e.turns.values()) {
+                    t.tick();
+                }
             }
         }
     }

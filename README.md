@@ -52,6 +52,13 @@ For action combat on 1.7.10 (the Overkill plugin): **`KunftigInput`** gives the 
 3D held model can start the next attack of a combo on the click (`ao_atacar`), confirmed by the server without
 restarting. See [docs/API.md](docs/API.md), sections 13 and 16 to 20 (Portuguese).
 
+## Feature 9: walking on displays (API 12)
+
+A display can carry **solid boxes** (`Display#setCollision`): players walk on them, are stopped by the tall ones and
+are carried along while the display moves, turns, pitches and rolls. It is the deck of the ships of the Expeditions
+plugin. It runs on each player's client, against the pose the client draws. See [docs/API.md](docs/API.md),
+section 21 (Portuguese).
+
 ## Mods that get in the way on Crucible
 
 **PlayerContainerFix (BQ3-Thermos-patch): remove it on Crucible.** It fixes BetterQuesting's `ClassCastException` in

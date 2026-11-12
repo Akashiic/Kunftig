@@ -78,6 +78,12 @@ recomeçar. Veja [docs/API.md](docs/API.md), seções 14 a 17.
 **Plugins em outros repositórios** usam tudo isso pelo artefato `kunftig-api` (`compileOnly`): veja
 [docs/API.md](docs/API.md).
 
+## Recurso 9: andar em exibições (API 12)
+
+Uma exibição pode ter **caixas sólidas** (`Display#setCollision`): o jogador anda em cima delas, esbarra nas mais altas
+e é levado junto enquanto a exibição se move, gira, caturra e balança. É o convés dos navios do plugin Expeditions.
+Roda no cliente de cada jogador, contra a pose que ele desenha. Veja a seção 21 de [docs/API.md](docs/API.md).
+
 ## Instalação
 
 | Onde | Jar | Requisitos |

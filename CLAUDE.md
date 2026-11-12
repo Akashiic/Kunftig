@@ -7,7 +7,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
 
 ## Where things are
 
-* **API** (`api/`, `KunftigApi.API_VERSION`, now **11**):
+* **API** (`api/`, `KunftigApi.API_VERSION`, now **13**):
 
   | API | Feature |
   |---|---|
@@ -21,6 +21,8 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   | 9 | displays: model and per-display scale, hidden bones, state blends, glides (`drawsExtendedDisplays`, channel `kunftig:display2`); flight lock (`KunftigPlayers.setFlightLocked`, channel `kunftig:flight`, `flight/FlightLock` + `FlightEnvelope`) |
   | 10 | hook range (`ModernFishHook#setMaxDistance`, a `@ModifyConstant` on vanilla's 32-block check) |
   | 11 | Overkill's combat: client keys (`KunftigInput`, channel `kunftig:input`), screen HUD and camera lock-on (`KunftigHud`, `KunftigCamera`), displays that fly and turn on every axis (`Display#moveTo`, `setMotion`, `setRotation`, display op `MOTION` = 7), attack prediction (`ao_atacar`), SlashBlade-style blades and effects (`KunftigBlades`, `KunftigEffects`), `KunftigPlayers.pushVelocity` |
+  | 12 | displays players walk on (`Display#setCollision`, `KunftigDisplays.walksOnDisplays`, display op `DECK` = 8, channel `kunftig:display3`): solid boxes in the display's frame, the local player carried and kept on them by `client/display/DeckClient` with the pure `display/DeckWalker` (Expeditions' ship decks); `Display#setVariant` (display op `VARIANT` = 9) |
+  | 13 | bones turned by the server (`Display#setBoneRotation`, display op `POSE` = 10): degrees added to a bone's rotation, glided on the client and applied in `DisplayRenderer#renderRecursively` (Expeditions' doors and gangplank) |
 
   API 9 and 11 were built at the same time on two branches (AkashicFishing's boss and Overkill), which both called
   their additions "API 9"; they were merged as 9 and 11, with one display wire (see `DisplayWire`). A client or server
@@ -30,8 +32,8 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   3D Futura Engine (`futura3d`), on branch `main` of [Akashiic/YesSteveModel](https://github.com/Akashiic/YesSteveModel).
 
   The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14, the hook range in
-  15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20). Raise the version and update the version
-  asserts in the API tests when adding to it.
+  15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20, walking on displays in 21, server-turned bones in 22). Raise the
+  version and update the version asserts in the API tests when adding to it.
 * **Wire protocols** are raw plugin messages:
   * `kunftig:holo`, `kunftig:rod`, `kunftig:display`, `kunftig:flight`, and Overkill's `kunftig:input`, `kunftig:hud`,
     `kunftig:camera`, `kunftig:blade` and `kunftig:effect`;
