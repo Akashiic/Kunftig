@@ -838,6 +838,9 @@ navio.moveTo(origem, 2);
   `-Dkunftig.decks.disable=true`.
 * Classes sem Minecraft, com testes: `display/DeckShape` (as caixas), `DeckPose` (a pose, como o renderizador gira),
   `DeckWalker` (um jogador contra um convés, um tick por vez).
+* **Teleporte:** um deslocamento de mais de 4 blocos num tick não é um passo: o jogador foi posto em outro lugar
+  (`/tp`, um plugin). O cliente esquece onde ele estava e ele pousa onde cair, no teto de uma câmara ou dentro dela
+  (visto no jogo: antes, um teleporte para cima de uma câmara era tratado como cabeçada no teto).
 * **Trocar o que há no convés sem recriar a exibição:** recriar joga quem está a bordo (a nova nasce onde o servidor
   está, e o cliente ainda desenha a antiga 2 ou 3 ticks atrás: visto no jogo, 23 cm de diferença na proa com mar de
   2,5 m). Para um navio que muda de nível, use na mesma exibição `setVariant` (a textura, API 12), `setBoneVisible`

@@ -21,6 +21,8 @@ public final class DeckWalker {
     /** A wall is slid along, not snagged on, when leaving it sideways takes this little. */
     private static final double SLIP = 0.15;
     private static final double EPS = 1e-4;
+    /** Farther than this in one tick is not a move: the player was put somewhere else. */
+    private static final double TELEPORT = 4;
     /** Past this tilt (the world's up almost in the deck's plane) nobody stands. */
     private static final double MIN_UP = 0.35;
 
@@ -86,6 +88,18 @@ public final class DeckWalker {
         double[] c = prev.toLocal(px, py, pz);
         if (!tracked) {
             tracked = true;
+            aboard = false;
+            grounded = false;
+            air = 0;
+            ax = c[0];
+            ay = c[1];
+            az = c[2];
+        }
+        double jx = c[0] - ax;
+        double jy = c[1] - ay;
+        double jz = c[2] - az;
+        if (jx * jx + jy * jy + jz * jz > TELEPORT * TELEPORT) {
+            // moved by something else (a teleport, a respawn): nothing of where it was says where it may be now
             aboard = false;
             grounded = false;
             air = 0;

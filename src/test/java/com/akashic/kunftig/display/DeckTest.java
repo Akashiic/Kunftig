@@ -395,6 +395,46 @@ class DeckTest {
         assertTrue(s.walker.grounded());
     }
 
+    /** A room: floor at 4, a roof slab at 6.25..6.5 over z -10..-6, open in front. */
+    private static DeckShape roofed() {
+        return DeckShape
+            .of(DeckShape.pack(new double[][] { { -4, 3.5, -10, 4, 4, 10 }, { -4, 6.25, -10, 4, 6.5, -6 } }));
+    }
+
+    @Test
+    void aTeleportLandsWhereItPutsThePlayer() {
+        DeckShape shape = roofed();
+        // from the open deck to above the roof: lands on the roof, not held under it as by a ceiling
+        Sim s = standing(shape, still(), 0, 5);
+        s.z -= 13;
+        s.y += 4;
+        for (int i = 0; i < 20; i++) {
+            s.tick(0, 0, false, still());
+        }
+        assertTrue(s.walker.grounded());
+        assertEquals(6.5, s.local()[1], 1e-9);
+        // back to the open deck, then into the room under the roof: lands on the room's floor
+        s.z += 13;
+        for (int i = 0; i < 30; i++) {
+            s.tick(0, 0, false, still());
+        }
+        assertEquals(4, s.local()[1], 1e-9);
+        s.z -= 13;
+        s.y += 0.3;
+        for (int i = 0; i < 20; i++) {
+            s.tick(0, 0, false, still());
+        }
+        assertTrue(s.walker.grounded());
+        assertEquals(4, s.local()[1], 1e-9);
+        // and a jump in the room still meets the roof
+        double top = 0;
+        for (int i = 0; i < 20; i++) {
+            s.tick(0, 0, i == 0, still());
+            top = Math.max(top, s.local()[1] + H);
+        }
+        assertEquals(6.25, top, 1e-9);
+    }
+
     @Test
     void walkingOffTheShipLetsGo() {
         DeckShape shape = DeckShape.of(DeckShape.pack(new double[][] { { -2, 3.5, -2, 2, 4, 2 } }));
