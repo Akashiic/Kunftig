@@ -26,6 +26,11 @@ import java.util.Map;
  * SCALE  (5): int id, float sx, sy, sz                                                        (API 9)
  * BONES  (6): int id, bones                                                                   (API 9)
  * MOTION (7): int id, double x, y, z, double vx, vy, vz                                       (API 11)
+ * DECK   (8): int id, unsigned short count, then per box six shorts of 1/32 block:            (API 12)
+ *             min x, y, z, max x, y, z in the display's frame ({@link DeckShape}); count 0 takes the deck away
+ * VARIANT (9): int id, UTF variant                                                           (API 12)
+ * POSE   (10): int id, UTF bone, float x, y, z, unsigned short ticks                         (API 13)
+ *             degrees added to the bone's own rotation, as the model file writes them; reached over {@code ticks}
  * items:      byte count, then per item: unsigned short length (0: empty bone), bytes
  * bones:      unsigned short count, then per bone: UTF name, boolean visible (the bones whose visibility the server
  *             set; every other bone keeps the manifest's default)
@@ -52,6 +57,11 @@ public final class DisplayWire {
      * Nothing is sent on it: it only tells the server what the client can draw.
      */
     public static final String CHANNEL_V2 = "kunftig:display2";
+    /**
+     * Registered, besides the other two, by clients whose player walks on displays ({@link #DECK}, API 12). Nothing
+     * is sent on it.
+     */
+    public static final String CHANNEL_V3 = "kunftig:display3";
 
     public static final byte SHOW = 0;
     public static final byte STATE = 1;
@@ -61,6 +71,11 @@ public final class DisplayWire {
     public static final byte SCALE = 5;
     public static final byte BONES = 6;
     public static final byte MOTION = 7;
+    public static final byte DECK = 8;
+    public static final byte VARIANT = 9;
+    public static final byte POSE = 10;
+    /** Bones turned by the server per display. */
+    public static final int MAX_POSES = 64;
 
     public static final int MAX_ITEMS = 8;
     public static final int MAX_ITEM_BYTES = 0xFFFF;
@@ -108,6 +123,11 @@ public final class DisplayWire {
         public double vx;
         public double vy;
         public double vz;
+        /** POSE (API 13): the bone and the degrees added to its rotation, {x, y, z}. */
+        public String bone;
+        public float[] turn;
+        /** DECK (API 12): the boxes, never null on a DECK message. */
+        public DeckShape deck;
 
         Message(byte op, int id, double x, double y, double z, float yaw, String model, String variant, String state,
             int elapsed, List<byte[]> items, float[] scale, Map<String, Boolean> bones, int ticks) {
@@ -264,6 +284,53 @@ public final class DisplayWire {
         return bytes.toByteArray();
     }
 
+    /** DECK (API 12): the boxes of {@link DeckShape#pack} (null or empty: no deck). */
+    public static byte[] deck(int id, short[] packed) {
+        short[] boxes = packed == null ? new short[0] : packed;
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(7 + boxes.length * 2);
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(DECK);
+            out.writeInt(id);
+            out.writeShort(boxes.length / 6);
+            for (int i = 0; i < boxes.length / 6 * 6; i++) {
+                out.writeShort(boxes[i]);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
+    /** POSE (API 13): a bone turns to {@code x, y, z} degrees (added to its own rotation) over {@code ticks}. */
+    public static byte[] pose(int id, String bone, float x, float y, float z, int ticks) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(POSE);
+            out.writeInt(id);
+            out.writeUTF(cut(bone));
+            out.writeFloat(finite(x));
+            out.writeFloat(finite(y));
+            out.writeFloat(finite(z));
+            out.writeShort(Math.max(0, Math.min(MAX_MOVE_TICKS, ticks)));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
+    /** VARIANT (API 12): the display takes another texture variant where it stands ({@code ""}: the default). */
+    public static byte[] variant(int id, String variant) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(VARIANT);
+            out.writeInt(id);
+            out.writeUTF(cut(variant));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
     public static byte[] hide(int id) {
         return write(HIDE, id, 0, 0, 0, 0, null, null, null, 0, null, null, null, 0);
     }
@@ -400,10 +467,82 @@ public final class DisplayWire {
         }
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(data))) {
             byte op = in.readByte();
-            if (op < SHOW || op > MOTION) {
+            if (op < SHOW || op > POSE) {
                 return null;
             }
             int id = in.readInt();
+            if (op == POSE) {
+                String bone = cut(in.readUTF());
+                float[] turn = { in.readFloat(), in.readFloat(), in.readFloat() };
+                int ticks = Math.min(MAX_MOVE_TICKS, in.readUnsignedShort());
+                if (bone.isEmpty() || !Float.isFinite(turn[0])
+                    || !Float.isFinite(turn[1])
+                    || !Float.isFinite(turn[2])) {
+                    return null;
+                }
+                Message m = new Message(
+                    op,
+                    id,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null,
+                    0,
+                    Collections.emptyList(),
+                    NO_SCALE.clone(),
+                    Collections.emptyMap(),
+                    ticks);
+                m.bone = bone;
+                m.turn = turn;
+                return m;
+            }
+            if (op == VARIANT) {
+                return new Message(
+                    op,
+                    id,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    cut(in.readUTF()),
+                    null,
+                    0,
+                    Collections.emptyList(),
+                    NO_SCALE.clone(),
+                    Collections.emptyMap(),
+                    0);
+            }
+            if (op == DECK) {
+                int n = in.readUnsignedShort();
+                if (n > DeckShape.MAX_BOXES || in.available() < n * 12) {
+                    return null;
+                }
+                short[] boxes = new short[n * 6];
+                for (int i = 0; i < boxes.length; i++) {
+                    boxes[i] = in.readShort();
+                }
+                Message m = new Message(
+                    op,
+                    id,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null,
+                    0,
+                    Collections.emptyList(),
+                    NO_SCALE.clone(),
+                    Collections.emptyMap(),
+                    0);
+                m.deck = DeckShape.of(boxes);
+                return m.deck == null ? null : m;
+            }
             if (op == MOTION) {
                 double[] v = new double[6];
                 for (int i = 0; i < 6; i++) {

@@ -30,6 +30,33 @@ public interface Display {
     /** The texture variant ({@code variantes} of the manifest), or {@code ""} for the default texture. */
     String getVariant();
 
+    /**
+     * Turns a bone of the model, and everything under it, about the bone's pivot: a door opening, a gangplank
+     * lowered, a wheel put over. The degrees are added to the bone's own rotation (and to what the animation of the
+     * state gives it), in the axes and signs of the model file, as Blockbench shows them; viewers see the bone get
+     * there over {@code glideTicks} ticks (0: at once, up to 255). {@code 0, 0, 0} puts it back. A bone turned on more
+     * than one axis, or that already has a rotation of its own on another axis, turns in the order the model format
+     * applies them (Z, then Y, then X). At most 64 bones turned per display. Viewers with an older Kunftig see the
+     * bone where the model has it.
+     *
+     * @param bone a bone name of the model's geometry (unknown names do nothing on the client)
+     * @since API 13
+     */
+    void setBoneRotation(String bone, float x, float y, float z, int glideTicks);
+
+    /** The degrees set by {@link #setBoneRotation}, {@code {x, y, z}}; zeros when never set. @since API 13 */
+    float[] getBoneRotation(String bone);
+
+    /**
+     * Gives the display another texture variant where it stands, with no flicker and without moving anything on it: a
+     * ship painted on an upgrade, a chest changing rarity. Viewers with an older Kunftig keep the texture it was
+     * spawned with.
+     *
+     * @param variant a variant of the manifest ({@code variantes}), or null / {@code ""} for the default texture
+     * @since API 12
+     */
+    void setVariant(String variant);
+
     /** The state playing (a name of the manifest's {@code estados}). */
     String getState();
 
@@ -125,6 +152,29 @@ public interface Display {
 
     /** Blocks per tick (zero when it does not fly). @since API 11 */
     org.bukkit.util.Vector getMotion();
+
+    /**
+     * What players walk on and bump into on this display: a ship's deck, a platform that moves. Each box is solid, in
+     * the display's own frame ({@link DisplayBox}); the top of a box is a floor. A player who comes down on a floor
+     * (or steps onto one from the ground beside it) stands on it and is carried along: when the display moves, turns,
+     * pitches or rolls ({@link #moveTo}, {@link #setRotation}), the player stays on the same spot of it, and walks,
+     * jumps, takes steps up to 0.6 block and is stopped by the higher boxes as by walls. Someone swimming or flying
+     * by passes through.
+     * <p>
+     * It happens on each player's own client, tick by tick, against the pose the client draws: move the display with
+     * glides ({@code moveTo(location, n)} every {@code n} ticks), not jumps, or players are thrown about. The server
+     * sees the players standing in the air over the display, so it must allow flight ({@code allow-flight=true});
+     * fall damage is still the server's, from what the client reports. At most 2048 boxes, each within
+     * {@link DisplayBox#MAX_REACH} blocks of the origin; the coordinates travel rounded to 1/32 block. A client
+     * without this ({@link KunftigDisplays#walksOnDisplays}) falls through.
+     *
+     * @param boxes the boxes (null or empty: nothing to walk on); replaces the earlier ones
+     * @since API 12
+     */
+    void setCollision(List<DisplayBox> boxes);
+
+    /** The boxes set by {@link #setCollision} (as they travel, rounded to 1/32 block). @since API 12 */
+    List<DisplayBox> getCollision();
 
     /** Blocks around the model within which players see it. */
     double getViewRange();

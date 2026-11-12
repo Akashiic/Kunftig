@@ -74,7 +74,7 @@ class HologramApiTest {
                 IllegalArgumentException.class,
                 () -> KunftigHolograms.create(new Location(null, 0, 0, 0), Arrays.asList("c")));
             assertTrue(KunftigHolograms.drawsHolograms(stub(Player.class)));
-            assertEquals(11, KunftigApi.apiVersion());
+            assertEquals(13, KunftigApi.apiVersion());
         } finally {
             KunftigHolograms.install(null);
         }

@@ -64,7 +64,8 @@ public final class DisplayTracker<C> {
         final int id;
         final double range;
         final String model;
-        final String variant;
+        String variant;
+        boolean variantChanged;
         String world;
         double x;
         double y;
@@ -88,6 +89,12 @@ public final class DisplayTracker<C> {
         boolean motionChanged;
         boolean scaleChanged;
         boolean bonesChanged;
+        /** API 13: the bones the server turned (bone -> degrees x, y, z) and the ones to send, with their ticks. */
+        final Map<String, float[]> poses = new LinkedHashMap<>();
+        final Map<String, Integer> posed = new LinkedHashMap<>();
+        /** API 12: the boxes players walk on ({@link DeckShape#pack}); empty for none. */
+        short[] deck = new short[0];
+        boolean deckChanged;
         final Set<C> shown = Collections.newSetFromMap(new IdentityHashMap<>());
 
         State(int id, String world, double x, double y, double z, float yaw, String model, String variant, String state,
@@ -114,8 +121,17 @@ public final class DisplayTracker<C> {
             return model;
         }
 
-        public String variant() {
+        public synchronized String variant() {
             return variant;
+        }
+
+        /** Another texture variant where it stands (API 12); {@code ""} for the default texture. */
+        public synchronized void setVariant(String newVariant) {
+            String v = newVariant == null ? "" : newVariant;
+            if (!v.equals(variant)) {
+                variant = v;
+                variantChanged = true;
+            }
         }
 
         public synchronized String state() {
@@ -214,6 +230,47 @@ public final class DisplayTracker<C> {
 
         public synchronized Map<String, Boolean> bones() {
             return Collections.unmodifiableMap(new LinkedHashMap<>(bones));
+        }
+
+        /**
+         * Turns a bone to {@code x, y, z} degrees, added to its own rotation, over {@code ticks} (API 13). Zero on all
+         * three puts it back.
+         */
+        public synchronized void setPose(String bone, float x, float y, float z, int ticks) {
+            float[] old = poses.get(bone);
+            if (old != null && old[0] == x && old[1] == y && old[2] == z) {
+                return;
+            }
+            if (old == null && x == 0 && y == 0 && z == 0) {
+                return;
+            }
+            if (old == null && poses.size() >= DisplayWire.MAX_POSES) {
+                throw new IllegalStateException("at most " + DisplayWire.MAX_POSES + " bones turned per display");
+            }
+            poses.put(bone, new float[] { x, y, z });
+            posed.put(bone, Math.max(0, Math.min(DisplayWire.MAX_MOVE_TICKS, ticks)));
+        }
+
+        /** Degrees {x, y, z} set by {@link #setPose}; zeros when never set. */
+        public synchronized float[] pose(String bone) {
+            float[] p = poses.get(bone);
+            return p == null ? new float[3] : p.clone();
+        }
+
+        /** The boxes players walk on (API 12), as {@link DeckShape#pack} gives them; null or empty for none. */
+        public synchronized void setDeck(short[] packed) {
+            short[] next = packed == null ? new short[0] : packed.clone();
+            if (DeckShape.of(next) == null) {
+                throw new IllegalArgumentException("malformed deck boxes");
+            }
+            if (!java.util.Arrays.equals(next, deck)) {
+                deck = next;
+                deckChanged = true;
+            }
+        }
+
+        public synchronized short[] deck() {
+            return deck.clone();
         }
 
         /** Flies from where it is, {@code vx, vy, vz} blocks per tick, on the server and on every client (0: stops). */
@@ -323,6 +380,16 @@ public final class DisplayTracker<C> {
                     if (d.bonesChanged) {
                         out.add(new Out<>(c, DisplayWire.bones(d.id, d.bones)));
                     }
+                    for (Map.Entry<String, Integer> e : d.posed.entrySet()) {
+                        float[] p = d.poses.get(e.getKey());
+                        out.add(new Out<>(c, DisplayWire.pose(d.id, e.getKey(), p[0], p[1], p[2], e.getValue())));
+                    }
+                    if (d.variantChanged) {
+                        out.add(new Out<>(c, DisplayWire.variant(d.id, d.variant)));
+                    }
+                    if (d.deckChanged) {
+                        out.add(new Out<>(c, DisplayWire.deck(d.id, d.deck)));
+                    }
                     if (d.itemsChanged) {
                         out.add(new Out<>(c, DisplayWire.items(d.id, d.items)));
                     }
@@ -334,6 +401,9 @@ public final class DisplayTracker<C> {
                 d.motionChanged = false;
                 d.scaleChanged = false;
                 d.bonesChanged = false;
+                d.deckChanged = false;
+                d.variantChanged = false;
+                d.posed.clear();
                 d.glide = 0;
                 d.itemsChanged = false;
                 d.stateChanged = false;
@@ -360,6 +430,13 @@ public final class DisplayTracker<C> {
                                     d.items,
                                     d.scale,
                                     d.bones)));
+                        if (d.deck.length > 0) {
+                            out.add(new Out<>(v.connection, DisplayWire.deck(d.id, d.deck)));
+                        }
+                        for (Map.Entry<String, float[]> e : d.poses.entrySet()) {
+                            float[] p = e.getValue();
+                            out.add(new Out<>(v.connection, DisplayWire.pose(d.id, e.getKey(), p[0], p[1], p[2], 0)));
+                        }
                         d.shown.add(v.connection);
                     }
                 }

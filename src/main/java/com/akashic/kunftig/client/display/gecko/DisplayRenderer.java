@@ -292,12 +292,29 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         if (currentEntry != null && currentDef != null && !currentEntry.boneVisible(bone.getName(), currentDef)) {
             return; // hidden by the manifest or the server: the bone and everything under it (API 9)
         }
+        // API 13: what the server turned this bone by, on top of the animation. The model file's degrees: GeckoLib
+        // keeps X and Y negated.
+        DisplayClient.BoneTurn turn = currentEntry == null ? null : currentEntry.turns.get(bone.getName());
+        float rx = bone.getRotationX();
+        float ry = bone.getRotationY();
+        float rz = bone.getRotationZ();
+        if (turn != null) {
+            float t = DisplayClient.INSTANCE.partialTicks();
+            bone.setRotationX(rx - (float) Math.toRadians(turn.get(0, t)));
+            bone.setRotationY(ry - (float) Math.toRadians(turn.get(1, t)));
+            bone.setRotationZ(rz + (float) Math.toRadians(turn.get(2, t)));
+        }
         MATRIX_STACK.push();
         MATRIX_STACK.translate(bone);
         MATRIX_STACK.moveToPivot(bone);
         MATRIX_STACK.rotate(bone);
         MATRIX_STACK.scale(bone);
         MATRIX_STACK.moveBackFromPivot(bone);
+        if (turn != null) {
+            bone.setRotationX(rx);
+            bone.setRotationY(ry);
+            bone.setRotationZ(rz);
+        }
         if (pass == Pass.OPAQUE && itemBones != null) {
             Integer i = itemBones.get(bone.getName());
             if (i != null) {

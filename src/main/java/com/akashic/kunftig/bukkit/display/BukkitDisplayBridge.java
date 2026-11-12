@@ -26,8 +26,10 @@ import org.bukkit.inventory.ItemStack;
 
 import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.api.bukkit.display.Display;
+import com.akashic.kunftig.api.bukkit.display.DisplayBox;
 import com.akashic.kunftig.api.bukkit.display.KunftigDisplays;
 import com.akashic.kunftig.bukkit.fishing.CraftBridge;
+import com.akashic.kunftig.display.DeckShape;
 import com.akashic.kunftig.display.DisplayTracker;
 import com.akashic.kunftig.display.DisplayWire;
 
@@ -95,6 +97,12 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
     public boolean drawsExtendedDisplays(Player player) {
         return drawsDisplays(player) && player.getListeningPluginChannels()
             .contains(DisplayWire.CHANNEL_V2);
+    }
+
+    @Override
+    public boolean walksOnDisplays(Player player) {
+        return drawsExtendedDisplays(player) && player.getListeningPluginChannels()
+            .contains(DisplayWire.CHANNEL_V3);
     }
 
     @SubscribeEvent
@@ -369,6 +377,62 @@ public final class BukkitDisplayBridge implements KunftigDisplays.Provider {
         public org.bukkit.util.Vector getMotion() {
             double[] v = state.motion();
             return new org.bukkit.util.Vector(v[0], v[1], v[2]);
+        }
+
+        @Override
+        public void setBoneRotation(String bone, float x, float y, float z, int glideTicks) {
+            if (bone == null || bone.isEmpty() || bone.length() > DisplayWire.MAX_NAME) {
+                throw new IllegalArgumentException("bone name required (at most " + DisplayWire.MAX_NAME + " chars)");
+            }
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
+                throw new IllegalArgumentException("rotation must be finite");
+            }
+            state.setPose(bone, x, y, z, glideTicks);
+        }
+
+        @Override
+        public float[] getBoneRotation(String bone) {
+            return state.pose(bone);
+        }
+
+        @Override
+        public void setVariant(String variant) {
+            if (variant != null && !variant.isEmpty()
+                && !KunftigDisplays.STATE_NAME.matcher(variant)
+                    .matches()) {
+                throw new IllegalArgumentException("variant must match " + KunftigDisplays.STATE_NAME + ": " + variant);
+            }
+            state.setVariant(variant);
+        }
+
+        @Override
+        public void setCollision(List<DisplayBox> boxes) {
+            double[][] raw = new double[boxes == null ? 0 : boxes.size()][];
+            for (int i = 0; i < raw.length; i++) {
+                DisplayBox b = boxes.get(i);
+                if (b == null) {
+                    throw new IllegalArgumentException("null box");
+                }
+                raw[i] = new double[] { b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ };
+            }
+            state.setDeck(DeckShape.pack(raw));
+        }
+
+        @Override
+        public List<DisplayBox> getCollision() {
+            short[] p = state.deck();
+            List<DisplayBox> out = new ArrayList<>(p.length / 6);
+            for (int i = 0; i < p.length; i += 6) {
+                out.add(
+                    new DisplayBox(
+                        p[i] / DeckShape.UNITS,
+                        p[i + 1] / DeckShape.UNITS,
+                        p[i + 2] / DeckShape.UNITS,
+                        p[i + 3] / DeckShape.UNITS,
+                        p[i + 4] / DeckShape.UNITS,
+                        p[i + 5] / DeckShape.UNITS));
+            }
+            return out;
         }
 
         @Override
