@@ -60,8 +60,10 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   It is then pinned in AkashicFishing's `libs/`.
 * **Dev harness** (`com.akashic.kunftig.dev`, enabled with `-Dkunftig.devHarness=true` and a `kunftig-rod-harness`
   file in the client's run directory: `caixa`, `skins`, `boss`, `overkill`, `blades`, `sb`, `models`, `modelcombos`,
-  `server`, `observer`, `fish`, `cells`, `edge`, `perf`, `navio [model]`: what a big display costs per frame, single
-  player, with the pack that declares it among the client's resource packs):
+  `server`, `observer`, `fish`, `cells`, `edge`, `perf`, `navio [model] [first case]`: what a big display costs
+  per frame, single player, with the pack that declares it among the client's resource packs; the model is the
+  display id, `expeditions:fragata`, and the headless dev client has left the world about 105 s after joining in
+  every run of this harness, cause not found, so the later cases are run by naming the first one):
   * it is **never in the release jar**: `shadowJar` excludes it;
   * for a test jar, comment out that exclude, build, then `git checkout build.gradle.kts`.
 * Work on the branch named in the session; no force-push; a merged PR is not reused (merge `main` into the branch and

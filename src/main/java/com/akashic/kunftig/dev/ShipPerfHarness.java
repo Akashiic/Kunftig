@@ -51,9 +51,17 @@ public final class ShipPerfHarness {
     private static final Object[][] CASES = { { "aquecimento", 1, 0.5, 14.0, 0.5, 0f, 12f, false },
         { "um-de-traves", 1, 0.5, 14.0, 0.5, 0f, 12f, false }, { "tres", 3, 0.5, 30.0, -14.5, 0f, 22f, false },
         { "popa", 1, 34.5, 14.0, 30.5, 62f, 8f, false }, { "leme-e-porta", 1, 34.5, 14.0, 30.5, 62f, 8f, true },
-        { "de-re", 1, 42.5, 14.2, 46.5, 90f, 4f, false }, { "nenhum", 0, 0.5, 14.0, 0.5, 0f, 12f, false } };
+        { "de-re", 1, 42.5, 14.2, 46.5, 90f, 4f, false }, { "nenhum", 0, 0.5, 14.0, 0.5, 0f, 12f, false },
+        // a ship with its masts (Expeditions' fragata, 39 blocks from keel to truck): the whole rig from abeam and
+        // from the bow, the view from the main top forward and aft, the top from outside, the shrouds from the deck
+        { "mastros", 1, 0.5, 22.0, -14.5, 0f, -2f, false }, { "amura", 1, -52.0, 26.0, 8.0, -54f, 2f, false },
+        { "vigia", 1, 1.0, 28.76, 45.4, 90f, 14f, false }, { "vigia-re", 1, 3.6, 28.76, 45.2, -90f, 16f, false },
+        { "cesto-de-fora", 1, 9.5, 31.9, 37.0, 40f, 21f, false },
+        { "enxarcias", 1, -5.5, 16.4, 33.0, -52f, 7f, false } };
 
     private final String model;
+    /** The case run after the warm-up (the ones before it are skipped). */
+    private final int first;
     private boolean launched;
     private int menuTicks;
     private int index = -1;
@@ -66,14 +74,22 @@ public final class ShipPerfHarness {
     private final List<Long> frames = new ArrayList<>();
     private long startAlloc;
 
-    private ShipPerfHarness(String model) {
+    private ShipPerfHarness(String model, int first) {
         this.model = model;
+        this.first = Math.max(1, Math.min(CASES.length - 1, first));
     }
 
-    static void install(String model) {
+    /** @param first the name of the case to start from after the warm-up, or null for all of them */
+    static void install(String model, String first) {
+        int from = 1;
+        for (int i = 1; first != null && i < CASES.length; i++) {
+            if (CASES[i][0].equals(first)) {
+                from = i;
+            }
+        }
         FMLCommonHandler.instance()
             .bus()
-            .register(new ShipPerfHarness(model));
+            .register(new ShipPerfHarness(model, from));
         Kunftig.LOG.warn("Kunftig DEV SHIP PERF HARNESS enabled: this client will measure {} and quit", model);
     }
 
@@ -169,7 +185,7 @@ public final class ShipPerfHarness {
                 mc.shutdown();
                 return;
             }
-            begin(mc, p, index + 1);
+            begin(mc, p, index == 0 ? first : index + 1);
         }
     }
 
