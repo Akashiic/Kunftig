@@ -51,7 +51,7 @@ public final class ShipPerfHarness {
     private static final Object[][] CASES = { { "aquecimento", 1, 0.5, 14.0, 0.5, 0f, 12f, false },
         { "um-de-traves", 1, 0.5, 14.0, 0.5, 0f, 12f, false }, { "tres", 3, 0.5, 30.0, -14.5, 0f, 22f, false },
         { "popa", 1, 34.5, 14.0, 30.5, 62f, 8f, false }, { "leme-e-porta", 1, 34.5, 14.0, 30.5, 62f, 8f, true },
-        { "nenhum", 0, 0.5, 14.0, 0.5, 0f, 12f, false } };
+        { "de-re", 1, 42.5, 14.2, 46.5, 90f, 4f, false }, { "nenhum", 0, 0.5, 14.0, 0.5, 0f, 12f, false } };
 
     private final String model;
     private boolean launched;
