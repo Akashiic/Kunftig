@@ -465,6 +465,24 @@ if (KunftigApi.apiVersion() >= 8 && KunftigApi.isDisplaysAvailable()) {
 * Thread principal. Isole as chamadas numa classe só, chamada depois de conferir `apiVersion() >= 8`: um Kunftig
   mais antigo não tem essas classes.
 * `-Dkunftig.displays.disable=true` no cliente desliga as exibições (o cliente nem registra o canal).
+* **Como o cliente desenha (e quanto custa).** Os ossos que nunca se mexem são transformados uma vez e guardados num
+  buffer de vértices (um por modelo e por conjunto de ossos visíveis, compartilhado entre as exibições iguais); a
+  cada quadro o cliente desenha esse buffer com uma chamada por passe e só percorre os ossos que se mexem: os que
+  têm trilha em alguma animação do arquivo, os que o servidor girou alguma vez (API 13), os ossos de item, e o que
+  estiver pendurado neles. Por isso o custo de uma exibição grande quase não depende do número de cubos, desde que
+  as peças móveis fiquem em ossos próprios e pequenos (o leme, uma porta, uma bandeira), não no osso do casco.
+  Um osso com um cubo sem espessura continua no caminho antigo (o GeckoLib o desenha com deslocamento de polígono).
+  Medido no cliente de desenvolvimento, sem placa de vídeo (Mesa por software), com o harness `navio`:
+
+  | Modelo | Cubos | Antes, 1 exibição | Depois | Antes, 3 exibições | Depois | Memória alocada por quadro |
+  |---|---|---|---|---|---|---|
+  | `expeditions:fragata` | 4.542 | 16,7 ms | 6,6 ms | 49,7 ms | 17,8 ms | de 9,2 MB para 0,13 MB |
+  | `expeditions:galeao` (com bandeiras animadas) | 3.123 | 17,1 ms | 7,9 ms | 38,8 ms | 13,4 ms | de 8,9 MB para 0,17 MB |
+
+  As capturas dos dois modos são iguais. O que sobra no "depois" é o desenho por software desta máquina; numa placa
+  de vídeo, e no cliente TEOF com o Angelica, **a verificar**. `-Dkunftig.displayMesh=false` volta ao caminho antigo
+  (cada cubo, a cada quadro), e o cliente volta sozinho a ele, com um aviso no log, se não conseguir montar um
+  buffer. O tempo gasto nas exibições aparece no gráfico de depuração (F3 com Shift) como `kunftigDisplays`.
 
 ### Escala, ossos, transição e deslize (API 9)
 

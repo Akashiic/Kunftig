@@ -41,6 +41,12 @@ of both projects (open PRs, merge order, what is still to be checked on the real
     (`drawsDisplays`, `drawsRodModels`...).
 * **Client rendering** of rods and displays goes through GeckoLib Unofficial 1.0.4, loaded reflectively; without it,
   nothing breaks.
+* **Displays are drawn from a compiled mesh**: `client/display/gecko/DisplayRenderer` transforms the bones that never
+  move once into a vertex buffer (the pure split is `display/StaticBones`) and walks only the moving ones each frame
+  (animated, turned by the server, item bones). A still bone is compiled in its rest pose (GeckoLib's first animated
+  frame leaves garbage in the bones without a track). `-Dkunftig.displayMesh=false` is the old path. Seen in the dev
+  client with the `navio` harness (same pictures, about 2.5 times faster on software GL); on a GPU and under
+  Angelica it is still to be checked.
 
 ## Build and rules
 
@@ -54,7 +60,8 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   It is then pinned in AkashicFishing's `libs/`.
 * **Dev harness** (`com.akashic.kunftig.dev`, enabled with `-Dkunftig.devHarness=true` and a `kunftig-rod-harness`
   file in the client's run directory: `caixa`, `skins`, `boss`, `overkill`, `blades`, `sb`, `models`, `modelcombos`,
-  `server`, `observer`, `fish`, `cells`, `edge`, `perf`):
+  `server`, `observer`, `fish`, `cells`, `edge`, `perf`, `navio [model]`: what a big display costs per frame, single
+  player, with the pack that declares it among the client's resource packs):
   * it is **never in the release jar**: `shadowJar` excludes it;
   * for a test jar, comment out that exclude, build, then `git checkout build.gradle.kts`.
 * Work on the branch named in the session; no force-push; a merged PR is not reused (merge `main` into the branch and

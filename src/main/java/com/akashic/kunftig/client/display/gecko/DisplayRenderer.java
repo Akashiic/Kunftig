@@ -2,8 +2,11 @@ package com.akashic.kunftig.client.display.gecko;
 
 import java.nio.FloatBuffer;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.geckominecraft.client.renderer.GlStateManager;
 import net.minecraft.client.Minecraft;
@@ -21,15 +24,25 @@ import net.minecraft.util.ResourceLocation;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GLContext;
 
+import com.akashic.kunftig.Kunftig;
 import com.akashic.kunftig.client.display.DisplayClient;
 import com.akashic.kunftig.display.DisplayModelIndex;
+import com.akashic.kunftig.display.StaticBones;
 
+import software.bernie.geckolib3.core.builder.Animation;
+import software.bernie.geckolib3.core.keyframe.BoneAnimation;
+import software.bernie.geckolib3.core.snapshot.BoneSnapshot;
+import software.bernie.geckolib3.file.AnimationFile;
 import software.bernie.geckolib3.file.AnimationFileLoader;
 import software.bernie.geckolib3.file.GeoModelLoader;
 import software.bernie.geckolib3.geo.render.built.GeoBone;
 import software.bernie.geckolib3.geo.render.built.GeoCube;
 import software.bernie.geckolib3.geo.render.built.GeoModel;
+import software.bernie.geckolib3.geo.render.built.GeoQuad;
+import software.bernie.geckolib3.geo.render.built.GeoVertex;
 import software.bernie.geckolib3.model.provider.GeoModelProvider;
 import software.bernie.geckolib3.molang.MolangRegistrar;
 import software.bernie.geckolib3.renderers.geo.IGeoRenderer;
@@ -40,6 +53,11 @@ import software.bernie.geckolib3.resource.GeckoLibCache;
  * the light where it stands, in four passes (opaque, full bright, translucent, translucent full bright: the bones the
  * manifest lists in {@code luz} and {@code translucido}), and then each item stack at its item bone, through the bone's
  * matrix (its animation moves, turns and scales the item), drawn like the item in an item frame.
+ * <p>
+ * The bones that never move are compiled once into a vertex buffer ({@link Mesh}): a ship has thousands of cubes,
+ * and transforming each of their vertices on the CPU every frame, four times over, is what a display costs.
+ * Only the bones that move (animated, turned by the server, item bones, and what hangs on them) are still walked
+ * and tessellated each frame; see {@link StaticBones}. {@code -Dkunftig.displayMesh=false} turns this off.
  */
 final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<DisplayAnimatable> {
 
@@ -51,6 +69,104 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         TRANSLUCENT,
         TRANSLUCENT_LIGHT
     }
+
+    /** How a walk of the bones treats their cubes. */
+    private enum Walk {
+        /** Every visible bone is drawn (no compiled mesh). */
+        ALL,
+        /** Compiling: only the bones that stand still. */
+        STILL,
+        /** Per frame, beside a compiled mesh: only the bones that move, reached through the still bones above them. */
+        MOVING
+    }
+
+    /**
+     * The compiled still bones of one model as one display shows it: one vertex buffer (texture, normal, position
+     * per vertex, the quads of each pass one after the other), built once and drawn with a single call per pass.
+     */
+    private static final class Mesh {
+
+        final StaticBones<GeoBone> plan;
+        int buffer;
+        /** Per pass: where its quads start in the buffer and how many vertices they are (0: no still cube in it). */
+        final int[] first = new int[Pass.values().length];
+        final int[] count = new int[Pass.values().length];
+        /** Per pass: the cubes the per-frame walk drew, or -1 before its first walk. */
+        final int[] movingCubes = { -1, -1, -1, -1 };
+        int stillCubes;
+
+        Mesh(StaticBones<GeoBone> plan) {
+            this.plan = plan;
+        }
+
+        void free() {
+            if (buffer != 0) {
+                GL15.glDeleteBuffers(buffer);
+                buffer = 0;
+            }
+        }
+    }
+
+    /**
+     * What a mesh depends on: the model (its bones and cubes), which bones this display shows (API 9: a ship's level)
+     * and how many bones of the model the server has turned so far (API 13: see {@link #turnedBones}). The texture
+     * variant is not part of it: the cubes keep their UV.
+     */
+    private static final class MeshKey {
+
+        final GeoModel model;
+        final Map<String, Boolean> bones;
+        final int turned;
+
+        MeshKey(GeoModel model, Map<String, Boolean> bones, int turned) {
+            this.model = model;
+            this.bones = bones;
+            this.turned = turned;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof MeshKey)) {
+                return false;
+            }
+            MeshKey k = (MeshKey) o;
+            return k.model == model && k.turned == turned && k.bones.equals(bones);
+        }
+
+        @Override
+        public int hashCode() {
+            return (System.identityHashCode(model) * 31 + bones.hashCode()) * 31 + turned;
+        }
+    }
+
+    /** At most this many meshes are kept (displays of one model at one level share theirs). */
+    private static final int MESHES = 24;
+    private static boolean meshesOn = !"false".equalsIgnoreCase(System.getProperty("kunftig.displayMesh"));
+    private final LinkedHashMap<MeshKey, Mesh> meshes = new LinkedHashMap<MeshKey, Mesh>(16, 0.75f, true) {
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<MeshKey, Mesh> eldest) {
+            if (size() > MESHES) {
+                eldest.getValue()
+                    .free(); // only ever called while drawing, on the render thread
+                return true;
+            }
+            return false;
+        }
+    };
+    /** Set by {@link #reset} (which may run off the render thread): the buffers are freed at the next draw. */
+    private volatile boolean dropMeshes;
+    /**
+     * Per model id: every bone the server has turned on some display of the model. They move on all of them from then
+     * on: a ship's rudder, wheel and doors are learnt the first time each turns (one new mesh each time), instead of
+     * every ship keeping a mesh for its own set of open doors.
+     */
+    private final Map<String, Set<String>> turnedBones = new HashMap<>();
+    /** Per model id: the bones its animation file has a track for. */
+    private final Map<String, Set<String>> animatedBones = new HashMap<>();
+    private Walk walk = Walk.ALL;
+    private StaticBones<GeoBone> plan;
+    private int drawnCubes;
 
     private final Map<String, DisplayAnimatable> animatables = new HashMap<>();
     private final Map<String, Map<String, Pass>> passMaps = new HashMap<>();
@@ -77,6 +193,259 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
     public void reset() {
         animatables.clear();
         passMaps.clear();
+        animatedBones.clear();
+        turnedBones.clear();
+        flatBones.clear();
+        dropMeshes = true;
+    }
+
+    /** The bones some animation of the model's file moves: they are never compiled. */
+    private Set<String> animatedBones(DisplayModelIndex.Model def, DisplayGeoModel model) {
+        Set<String> names = animatedBones.get(def.id);
+        if (names == null) {
+            names = new HashSet<>();
+            AnimationFile file = GeckoLibCache.getInstance()
+                .getAnimations()
+                .get(model.animations);
+            if (file != null) {
+                for (Animation animation : file.getAllAnimations()) {
+                    for (BoneAnimation track : animation.boneAnimations) {
+                        names.add(track.boneName);
+                    }
+                }
+            }
+            animatedBones.put(def.id, names);
+        }
+        return names;
+    }
+
+    /**
+     * The compiled mesh of this display's still bones, built the first time a display needs it. Null when meshes are
+     * off or one could not be compiled: the display is then drawn the old way, every cube every frame.
+     */
+    private Mesh mesh(DisplayClient.Entry e, DisplayModelIndex.Model def, DisplayAnimatable a, GeoModel model) {
+        if (dropMeshes) {
+            dropMeshes = false;
+            for (Mesh m : meshes.values()) {
+                m.free();
+            }
+            meshes.clear();
+        }
+        if (!meshesOn) {
+            return null;
+        }
+        Set<String> turnedNow = turnedBones.get(def.id);
+        if (turnedNow == null) {
+            turnedNow = new HashSet<>();
+            turnedBones.put(def.id, turnedNow);
+        }
+        if (!e.turns.isEmpty() && turnedNow.addAll(e.turns.keySet())) {
+            // a bone turned for the first time: the meshes that have it compiled are of no use any more
+            for (java.util.Iterator<Map.Entry<MeshKey, Mesh>> it = meshes.entrySet()
+                .iterator(); it.hasNext();) {
+                Map.Entry<MeshKey, Mesh> old = it.next();
+                if (old.getKey().model == model) {
+                    old.getValue()
+                        .free();
+                    it.remove();
+                }
+            }
+        }
+        MeshKey key = new MeshKey(model, e.bones, turnedNow.size());
+        Mesh mesh = meshes.get(key);
+        if (mesh != null) {
+            return mesh;
+        }
+        Set<String> animated = animatedBones(def, a.model);
+        Set<String> flat = flatBones(def, model);
+        Set<String> turned = turnedNow;
+        mesh = new Mesh(
+            StaticBones.plan(
+                model.topLevelBones,
+                b -> b.childBones,
+                GeoBone::getName,
+                n -> animated.contains(n) || turned.contains(n) || flat.contains(n) || def.itemBones.contains(n),
+                n -> e.boneVisible(n, def)));
+        if (!compile(mesh, model, a)) {
+            mesh.free();
+            meshesOn = false;
+            Kunftig.LOG
+                .warn("Kunftig displays: could not compile {}; drawing every cube each frame from now on", def.id);
+            return null;
+        }
+        meshes.put(key, mesh);
+        Kunftig.LOG.info(
+            "Kunftig displays: {} compiled: {} cubes in {} still bones, {} bones walked each frame",
+            def.id,
+            mesh.stillCubes,
+            mesh.plan.stillBones(),
+            mesh.plan.movingBones());
+        return mesh;
+    }
+
+    /** The vertices being collected for a mesh: 8 floats each (u, v, normal, position). */
+    private float[] sink = new float[1 << 16];
+    private int sunk;
+    private final javax.vecmath.Vector3f normal = new javax.vecmath.Vector3f();
+    private final javax.vecmath.Vector4f corner = new javax.vecmath.Vector4f();
+
+    /** Transforms the still bones' cubes once, pass by pass, into one vertex buffer. */
+    private boolean compile(Mesh mesh, GeoModel model, DisplayAnimatable a) {
+        if (!GLContext.getCapabilities().OpenGL15) {
+            return false;
+        }
+        Pass before = pass;
+        plan = mesh.plan;
+        walk = Walk.STILL;
+        sunk = 0;
+        try {
+            for (Pass p : Pass.values()) {
+                pass = p;
+                drawnCubes = 0;
+                mesh.first[p.ordinal()] = sunk / 8;
+                for (GeoBone bone : model.topLevelBones) {
+                    renderRecursively(null, a, bone, 1, 1, 1, 1);
+                }
+                mesh.count[p.ordinal()] = sunk / 8 - mesh.first[p.ordinal()];
+                mesh.stillCubes += drawnCubes;
+            }
+        } catch (RuntimeException ex) {
+            Kunftig.LOG.warn("Kunftig displays: compiling a mesh failed", ex);
+            return false;
+        } finally {
+            pass = before;
+            walk = Walk.ALL;
+            plan = null;
+        }
+        if (sunk == 0) {
+            return true; // every bone moves: nothing to keep
+        }
+        for (int i = 0; i < sunk; i++) {
+            if (Float.isNaN(sink[i]) || Float.isInfinite(sink[i])) {
+                Kunftig.LOG.warn("Kunftig displays: a mesh came out with a vertex that is not a number");
+                return false;
+            }
+        }
+        FloatBuffer data = BufferUtils.createFloatBuffer(sunk);
+        data.put(sink, 0, sunk)
+            .flip();
+        while (GL11.glGetError() != GL11.GL_NO_ERROR) {
+            // someone else's errors are not ours
+        }
+        mesh.buffer = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, mesh.buffer);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STATIC_DRAW);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        return mesh.buffer != 0 && GL11.glGetError() == GL11.GL_NO_ERROR;
+    }
+
+    /**
+     * One cube into the mesh: what {@link IGeoRenderer#renderCube} hands the tessellator (the cube's own rotation,
+     * each quad's normal through the normal matrix and each corner through the model matrix), kept instead of drawn.
+     * A cube with no thickness never comes here ({@link #flatBones}): GeckoLib draws those with a polygon offset.
+     */
+    private void sinkCube(GeoCube cube) {
+        MATRIX_STACK.moveToPivot(cube);
+        MATRIX_STACK.rotate(cube);
+        MATRIX_STACK.moveBackFromPivot(cube);
+        for (GeoQuad quad : cube.quads) {
+            if (quad == null) {
+                continue;
+            }
+            normal.set(quad.normal.getX(), quad.normal.getY(), quad.normal.getZ());
+            MATRIX_STACK.getNormalMatrix()
+                .transform(normal);
+            for (GeoVertex vertex : quad.vertices) {
+                corner.set(vertex.position.x, vertex.position.y, vertex.position.z, 1);
+                MATRIX_STACK.getModelMatrix()
+                    .transform(corner);
+                if (sunk + 8 > sink.length) {
+                    sink = java.util.Arrays.copyOf(sink, sink.length * 2);
+                }
+                sink[sunk++] = vertex.textureU;
+                sink[sunk++] = vertex.textureV;
+                sink[sunk++] = normal.x;
+                sink[sunk++] = normal.y;
+                sink[sunk++] = normal.z;
+                sink[sunk++] = corner.x;
+                sink[sunk++] = corner.y;
+                sink[sunk++] = corner.z;
+            }
+        }
+    }
+
+    /** Per model id: the bones with a cube of no thickness (drawn the old way, with GeckoLib's polygon offset). */
+    private final Map<String, Set<String>> flatBones = new HashMap<>();
+
+    private Set<String> flatBones(DisplayModelIndex.Model def, GeoModel model) {
+        Set<String> names = flatBones.get(def.id);
+        if (names == null) {
+            names = new HashSet<>();
+            for (GeoBone bone : model.topLevelBones) {
+                collectFlat(bone, names);
+            }
+            flatBones.put(def.id, names);
+        }
+        return names;
+    }
+
+    private static void collectFlat(GeoBone bone, Set<String> names) {
+        for (GeoCube cube : bone.childCubes) {
+            if (cube.size.x == 0 || cube.size.y == 0 || cube.size.z == 0) {
+                names.add(bone.getName());
+                break;
+            }
+        }
+        for (GeoBone child : bone.childBones) {
+            collectFlat(child, names);
+        }
+    }
+
+    /**
+     * One pass of a display with a mesh: the buffer of its still bones, then a walk of the ones that move, inside the
+     * state {@link IGeoRenderer#render} sets around its cubes.
+     */
+    private void drawPass(GeoModel model, DisplayAnimatable a, Mesh mesh) {
+        int i = pass.ordinal();
+        boolean walkNow = mesh.movingCubes[i] != 0 || pass == Pass.OPAQUE && !itemBones.isEmpty();
+        if (mesh.count[i] == 0 && !walkNow) {
+            return;
+        }
+        GlStateManager.disableCull();
+        GlStateManager.enableRescaleNormal();
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.enableBlend();
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        if (mesh.count[i] != 0) {
+            // texture, normal, position from the buffer; the colour and the light map are the current ones
+            OpenGlHelper.setClientActiveTexture(OpenGlHelper.defaultTexUnit);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, mesh.buffer);
+            GL11.glInterleavedArrays(GL11.GL_T2F_N3F_V3F, 0, 0L);
+            GL11.glDrawArrays(GL11.GL_QUADS, mesh.first[i], mesh.count[i]);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+            GL11.glDisableClientState(GL11.GL_VERTEX_ARRAY);
+            GL11.glDisableClientState(GL11.GL_NORMAL_ARRAY);
+            GL11.glDisableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
+        }
+        if (walkNow) {
+            Tessellator tess = Tessellator.instance;
+            plan = mesh.plan;
+            walk = Walk.MOVING;
+            drawnCubes = 0;
+            tess.startDrawingQuads();
+            try {
+                for (GeoBone bone : model.topLevelBones) {
+                    renderRecursively(tess, a, bone, 1, 1, 1, 1);
+                }
+            } finally {
+                tess.draw();
+                walk = Walk.ALL;
+                plan = null;
+            }
+            mesh.movingCubes[i] = drawnCubes;
+        }
+        GlStateManager.disableBlend();
+        GlStateManager.enableCull();
     }
 
     private DisplayAnimatable animatable(DisplayModelIndex.Model def) {
@@ -141,6 +510,7 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
             itemBones.put(def.itemBones.get(i), i);
             itemVisible[i] = false;
         }
+        Mesh mesh = mesh(e, def, a, model);
         boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -179,7 +549,11 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
                 }
                 GL11.glDepthMask(!translucent);
                 pass = p;
-                render(model, a, partialTicks, 1, 1, 1, 1);
+                if (mesh != null) {
+                    drawPass(model, a, mesh);
+                } else {
+                    render(model, a, partialTicks, 1, 1, 1, 1);
+                }
             }
             GL11.glDepthMask(true);
             OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lx, ly);
@@ -187,6 +561,8 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
             drawItems(e.items, def.itemScale, mc);
         } finally {
             pass = Pass.OPAQUE;
+            walk = Walk.ALL;
+            plan = null;
             current = null;
             currentEntry = null;
             currentDef = null;
@@ -292,9 +668,13 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         if (currentEntry != null && currentDef != null && !currentEntry.boneVisible(bone.getName(), currentDef)) {
             return; // hidden by the manifest or the server: the bone and everything under it (API 9)
         }
+        if (walk == Walk.MOVING && !plan.walk(bone) || walk == Walk.STILL && !plan.still(bone)) {
+            return; // beside a mesh: nothing under here moves; compiling one: this bone and all under it move
+        }
         // API 13: what the server turned this bone by, on top of the animation. The model file's degrees: GeckoLib
         // keeps X and Y negated.
-        DisplayClient.BoneTurn turn = currentEntry == null ? null : currentEntry.turns.get(bone.getName());
+        DisplayClient.BoneTurn turn = currentEntry == null || walk == Walk.STILL ? null
+            : currentEntry.turns.get(bone.getName());
         float rx = bone.getRotationX();
         float ry = bone.getRotationY();
         float rz = bone.getRotationZ();
@@ -304,18 +684,49 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
             bone.setRotationY(ry - (float) Math.toRadians(turn.get(1, t)));
             bone.setRotationZ(rz + (float) Math.toRadians(turn.get(2, t)));
         }
+        // A still bone is in its rest pose by definition, and that is what the mesh and the walk beside it use:
+        // not what the animation processor happens to have left in it this frame (on the first frame a display is
+        // animated, GeckoLib's reset of the bones without a track divides by its reset speed, which is 0 here).
+        boolean rest = walk != Walk.ALL && plan.still(bone);
+        float px = 0, py = 0, pz = 0, sx = 1, sy = 1, sz = 1;
+        if (rest) {
+            BoneSnapshot pose = bone.getInitialSnapshot();
+            px = bone.getPositionX();
+            py = bone.getPositionY();
+            pz = bone.getPositionZ();
+            sx = bone.getScaleX();
+            sy = bone.getScaleY();
+            sz = bone.getScaleZ();
+            bone.setRotationX(pose.rotationValueX);
+            bone.setRotationY(pose.rotationValueY);
+            bone.setRotationZ(pose.rotationValueZ);
+            bone.setPositionX(pose.positionOffsetX);
+            bone.setPositionY(pose.positionOffsetY);
+            bone.setPositionZ(pose.positionOffsetZ);
+            bone.setScaleX(pose.scaleValueX);
+            bone.setScaleY(pose.scaleValueY);
+            bone.setScaleZ(pose.scaleValueZ);
+        }
         MATRIX_STACK.push();
         MATRIX_STACK.translate(bone);
         MATRIX_STACK.moveToPivot(bone);
         MATRIX_STACK.rotate(bone);
         MATRIX_STACK.scale(bone);
         MATRIX_STACK.moveBackFromPivot(bone);
-        if (turn != null) {
+        if (turn != null || rest) {
             bone.setRotationX(rx);
             bone.setRotationY(ry);
             bone.setRotationZ(rz);
         }
-        if (pass == Pass.OPAQUE && itemBones != null) {
+        if (rest) {
+            bone.setPositionX(px);
+            bone.setPositionY(py);
+            bone.setPositionZ(pz);
+            bone.setScaleX(sx);
+            bone.setScaleY(sy);
+            bone.setScaleZ(sz);
+        }
+        if (pass == Pass.OPAQUE && itemBones != null && walk != Walk.STILL) {
             Integer i = itemBones.get(bone.getName());
             if (i != null) {
                 // the item sits at the bone's pivot, in the bone's frame
@@ -326,12 +737,17 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
                 MATRIX_STACK.pop();
             }
         }
-        if (!bone.isHidden()
+        if (!bone.isHidden() && (walk != Walk.MOVING || !plan.still(bone))
             && (passes == null ? Pass.OPAQUE : passes.getOrDefault(bone.getName(), Pass.OPAQUE)) == pass) {
+            drawnCubes += bone.childCubes.size();
             for (GeoCube cube : bone.childCubes) {
                 MATRIX_STACK.push();
                 try {
-                    renderCube(tess, cube, red, green, blue, alpha);
+                    if (walk == Walk.STILL) {
+                        sinkCube(cube);
+                    } else {
+                        renderCube(tess, cube, red, green, blue, alpha);
+                    }
                 } finally {
                     MATRIX_STACK.pop();
                 }
