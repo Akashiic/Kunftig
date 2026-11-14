@@ -55,9 +55,13 @@ public final class ShipPerfHarness {
         // a ship with its masts (Expeditions' fragata, 39 blocks from keel to truck): the whole rig from abeam and
         // from the bow, the view from the main top forward and aft, the top from outside, the shrouds from the deck
         { "mastros", 1, 0.5, 22.0, -14.5, 0f, -2f, false }, { "amura", 1, -52.0, 26.0, 8.0, -54f, 2f, false },
-        { "vigia", 1, 1.0, 28.76, 45.4, 90f, 14f, false }, { "vigia-re", 1, 3.6, 28.76, 45.2, -90f, 16f, false },
-        { "cesto-de-fora", 1, 9.5, 31.9, 37.0, 40f, 21f, false },
-        { "enxarcias", 1, -5.5, 16.4, 33.0, -52f, 7f, false } };
+        { "vigia", 1, 1.0, 28.76, 45.4, 90f, 2f, false }, { "vigia-re", 1, 3.6, 28.76, 45.2, -90f, 6f, false },
+        { "cesto-de-fora", 1, 9.5, 31.9, 37.0, 40f, 21f, false }, { "enxarcias", 1, -5.5, 16.4, 33.0, -52f, 7f, false },
+        // inside the same ship: at the wheel, on the gun deck, at a gun, in front of the brig, the galley, the cabin
+        { "ao-leme", 1, 13.1, 17.88, 46.0, 90f, 3f, false }, { "coberta", 1, 11.5, 9.38, 46.0, 90f, 4f, false },
+        { "canhao", 1, 6.1, 9.38, 44.9, 150f, 12f, false }, { "celas", 1, -10.5, 9.38, 46.0, 90f, 3f, false },
+        { "rancho", 1, -7.1, 9.38, 45.5, 38f, 12f, false }, { "camara", 1, 14.6, 13.5, 43.4, -71f, 6f, false },
+        { "cama", 1, 21.75, 13.5, 47.9, 151f, 10f, false }, { "castelo", 1, -11.4, 17.63, 44.1, 58f, 12f, false } };
 
     private final String model;
     /** The case run after the warm-up (the ones before it are skipped). */
