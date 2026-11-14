@@ -46,7 +46,10 @@ public final class ShipPerfHarness {
 
     /**
      * {name, ships, player x, y, z, yaw, pitch, whether the rudder and the first door keep turning}. The ships lie
-     * broadside to the player, one behind the other.
+     * broadside to the player, one behind the other. A point of the first ship's model (x across, positive on the left
+     * of
+     * someone facing the bow; y up; z to the bow; in 1/16 block) is at world x = 0.5 - z / 16, y = 6 + y / 16,
+     * z = 46 + x / 16; yaw 90 looks at the bow.
      */
     private static final Object[][] CASES = { { "aquecimento", 1, 0.5, 14.0, 0.5, 0f, 12f, false },
         { "um-de-traves", 1, 0.5, 14.0, 0.5, 0f, 12f, false }, { "tres", 3, 0.5, 30.0, -14.5, 0f, 22f, false },
@@ -61,7 +64,19 @@ public final class ShipPerfHarness {
         { "ao-leme", 1, 13.1, 17.88, 46.0, 90f, 3f, false }, { "coberta", 1, 11.5, 9.38, 46.0, 90f, 4f, false },
         { "canhao", 1, 6.1, 9.38, 44.9, 150f, 12f, false }, { "celas", 1, -10.5, 9.38, 46.0, 90f, 3f, false },
         { "rancho", 1, -7.1, 9.38, 45.5, 38f, 12f, false }, { "camara", 1, 14.6, 13.5, 43.4, -71f, 6f, false },
-        { "cama", 1, 21.75, 13.5, 47.9, 151f, 10f, false }, { "castelo", 1, -11.4, 17.63, 44.1, 58f, 12f, false } };
+        { "castelo", 1, -11.4, 17.63, 44.1, 58f, 12f, false },
+        // the five pieces redone with care: the beakhead in profile, close and from ahead (the figurehead); a gun
+        // and its breeching; the hammocks; the bed, and the cabin with no mast in it; the capstan on the quarterdeck
+        { "proa-perfil", 1, -21.5, 13.92, 72.0, 175.6f, 0f, false },
+        { "beque", 1, -25.5, 15.42, 59.0, -177.8f, 2.2f, false }, { "leao", 1, -31.5, 17.42, 51.0, -135f, 9.6f, false },
+        { "canhao-perto", 1, 5.9, 9.62, 47.3, 19.7f, 13.6f, false },
+        { "braga", 1, 1.4, 9.42, 50.3, -79f, 13.4f, false }, { "redes", 1, 12.0, 9.82, 46.0, 71.3f, -5.8f, false },
+        { "redes-perto", 1, 8.7, 9.38, 44.8, 18.8f, -13.8f, false },
+        { "cama", 1, 15.7, 13.5, 44.4, -35.4f, 6.2f, false }, { "cama-perto", 1, 19.1, 13.5, 45.4, 6f, 4.5f, false },
+        { "camara-antepara", 1, 23.1, 13.5, 44.8, 73.5f, 3.6f, false },
+        { "cabrestante", 1, 25.7, 19.0, 47.2, 105.1f, 23.5f, false },
+        { "cabrestante-lado", 1, 23.1, 17.88, 50.2, 156.2f, 5.7f, false },
+        { "tombadilho", 1, 6.5, 19.32, 46.0, -90f, 9.7f, false } };
 
     private final String model;
     /** The case run after the warm-up (the ones before it are skipped). */

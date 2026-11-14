@@ -480,6 +480,7 @@ if (KunftigApi.apiVersion() >= 8 && KunftigApi.isDisplaysAvailable()) {
   | `expeditions:galeao` (com bandeiras animadas) | 3.123 | 17,1 ms | 7,9 ms | 38,8 ms | 13,4 ms | de 8,9 MB para 0,17 MB |
   | `expeditions:fragata` com os mastros e as velas (duas bandeiras animadas) | 6.555 | 26,0 ms | 9,0 ms | não medido | não medido | de 18,3 MB para 0,17 MB |
   | `expeditions:fragata` completa (canhões, redes, celas, adereços) | 10.793 | 33,4 ms | 12,2 ms | não medido | não medido | de 19,5 MB para 0,15 MB |
+  | `expeditions:fragata` depois do refino (beque, canhões e redes refeitos) | 13.116 | 36,6 ms | 13,5 ms | 113,2 ms | 42,4 ms | de 35,3 MB para 0,12 MB |
 
   As capturas dos dois modos são iguais. O que sobra no "depois" é o desenho por software desta máquina; numa placa
   de vídeo, e no cliente TEOF com o Angelica, **a verificar**. `-Dkunftig.displayMesh=false` volta ao caminho antigo
