@@ -91,6 +91,11 @@ public final class RodRenderHarness {
                 RodPerfHarness.install();
                 return;
             }
+            if (mode[0].equals("navio")) {
+                ShipPerfHarness
+                    .install(mode.length > 1 ? mode[1] : "expeditions:fragata", mode.length > 2 ? mode[2] : null);
+                return;
+            }
             if (mode.length == 1 && mode[0].equals("cells")) {
                 RodRenderHarness h = new RodRenderHarness();
                 h.planCells();

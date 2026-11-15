@@ -406,6 +406,31 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         double cy = view.lastTickPosY + (view.posY - view.lastTickPosY) * t;
         double cz = view.lastTickPosZ + (view.posZ - view.lastTickPosZ) * t;
         DisplayModelIndex idx = index;
+        long began = System.nanoTime();
+        mc.mcProfiler.startSection("kunftigDisplays"); // shows in the debug pie (F3 + Shift) under "root.render"
+        try {
+            drawAll(r, idx, cx, cy, cz, t);
+        } finally {
+            mc.mcProfiler.endSection();
+            drawNanos += System.nanoTime() - began;
+            drawFrames++;
+        }
+    }
+
+    /** What drawing the displays has cost since the last {@link #resetDrawCost}: {nanoseconds, frames}. */
+    public long[] drawCost() {
+        return new long[] { drawNanos, drawFrames };
+    }
+
+    public void resetDrawCost() {
+        drawNanos = 0;
+        drawFrames = 0;
+    }
+
+    private long drawNanos;
+    private long drawFrames;
+
+    private void drawAll(Renderer r, DisplayModelIndex idx, double cx, double cy, double cz, float t) {
         for (Entry e : displays.values()) {
             DisplayModelIndex.Model model = idx.models()
                 .get(e.model);
