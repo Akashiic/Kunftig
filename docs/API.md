@@ -838,17 +838,32 @@ navio.moveTo(origem, 2);
   pés é parede (até lá é degrau, que se sobe e se desce andando). Uma caixa acima da cabeça é teto. Para uma escada,
   uma caixa por degrau; para um convés elevado, uma caixa maciça desde o convés de baixo (a frente dela vira a
   antepara).
-* **Quem está a bordo:** o convés só existe para quem pisa nele. Cair em cima de um chão (ou dar um passo para ele a
-  partir do chão ao lado) põe o jogador a bordo; a partir daí ele fica no mesmo ponto da exibição por mais que ela se
-  mexa, anda, pula (o pulo também é levado) e é parado pelas paredes. Quem nada ou voa por perto atravessa. Sai de
-  bordo quem pisa num bloco do mundo, voa, monta em algo ou fica mais de 2 s no ar.
+* **Quem está a bordo:** cair em cima de um chão (ou dar um passo para ele a partir do chão ao lado) põe o jogador a
+  bordo; a partir daí ele fica no mesmo ponto da exibição por mais que ela se mexa, anda, pula (o pulo também é
+  levado) e é parado pelas paredes. Sai de bordo quem pisa num bloco do mundo, voa, monta em algo ou fica mais de
+  2 s no ar.
+* **As caixas são sólidas de todos os lados e para todos:** quem não está de pé num chão da exibição (pulando,
+  caindo, voando, nadando, chegando a pé pelo chão ao lado) é levado pelo próprio movimento, primeiro na vertical e
+  depois em cada eixo horizontal, e para na primeira face que encontra: chão, parede ou teto. Quem voa e desce
+  sobre um chão pousa nele (o cliente passa a dizer "no chão", e o voo do criativo acaba como acaba num bloco). Uma
+  exibição que se move contra um jogador o empurra. Só quem é posto fundo dentro de uma caixa (um teletransporte,
+  caixas trocadas com ele ali: mais de 0,6 bloco para qualquer lado) sai livre. Por isso **feche o que não é para
+  entrar**: um casco só com as caixas dos conveses deixa entrar por baixo.
+* **Descer:** os pés acompanham um piso que baixa até **0,75 bloco** num tick (mais que o degrau de subir: uma
+  escada íngreme descida correndo, com as caixas arredondadas a 1/32 de bloco, não deixa o jogador no ar entre dois
+  degraus). Abaixo disso ele cai, e pousa no que houver embaixo.
+* As duas regras acima (sólido de todos os lados, descer 0,75 bloco) e o `onGround` dos outros jogadores estão
+  conferidos nos testes do `DeckWalker` (`DeckTest`) e, do lado do Expeditions, na auditoria da fragata com uma cópia
+  dele; **no jogo, a verificar**.
 * **Sem escorregar:** o chão é procurado na vertical do mundo, então o jogador parado num convés inclinado não
   desliza; ele continua em pé (a caixa do Minecraft não inclina), com os pés na tábua.
 * **Onde acontece:** no cliente de cada jogador, no fim do tick dele, contra a pose que o cliente desenha (a
   exibição avança no começo do tick; jogador e exibição são interpolados no mesmo intervalo e não tremem um contra o
   outro). **Mova com planeios** (`moveTo(local, n)` a cada `n` ticks): um salto (`teleport`) joga o jogador junto.
 * **Os outros jogadores** chegam do servidor alguns ticks atrasados: quem está a até 0,4 bloco de um chão é desenhado
-  nele.
+  nele, e a entidade dele fica com `onGround` verdadeiro. Um cliente 1.7.10 nunca põe esse campo num outro jogador;
+  é por ele que quem anima jogadores (o 3D Futura Engine) sabe que este pisa em algo, embora não haja bloco embaixo
+  (sem isso, o modelo de quem está parado no convés é desenhado voando).
 * **O servidor** vê os jogadores parados no ar sobre a exibição: precisa de `allow-flight=true` no
   `server.properties` (o TEOF tem), senão expulsa por voo. O dano de queda continua sendo do servidor, pelo que o
   cliente informa (no convés ele informa "no chão"). Um plugin de anticheat veria voo: **a verificar** no servidor de

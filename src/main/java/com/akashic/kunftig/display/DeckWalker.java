@@ -6,16 +6,27 @@ package com.akashic.kunftig.display;
  * holds it on the highest floor under its feet, takes steps up and down, stops it at walls and under ceilings.
  * <p>
  * The player is an upright point with a radius and a height in the display's frame (the boxes grow by the radius);
- * floors are found along the world's vertical, so a player standing on a tilted deck does not slide. The deck only
- * exists for a player once it stands on it: someone swimming or flying by passes through, and lands only by coming
- * down on a floor from above (or stepping onto one from the ground beside it).
+ * floors are found along the world's vertical, so a player standing on a tilted deck does not slide.
+ * <p>
+ * The boxes are solid from every side and for everyone: a player who is not standing on the display (jumping,
+ * falling, flying, swimming, arriving from the ground beside it) is swept through its own move in the display's
+ * frame and stopped at the first face it meets, floor, wall or ceiling, and lands on a floor it comes down on. A
+ * display that moves into a player pushes it out. Only a player found deep inside a box (put there by a teleport,
+ * or by a deck that changed) is let out freely.
  * <p>
  * No Minecraft classes; one instance per player, client thread.
  */
 public final class DeckWalker {
 
-    /** The highest step taken up, and the farthest the feet follow a floor down, in blocks. */
+    /** The highest step taken up, in blocks. */
     public static final double STEP = 0.6;
+    /**
+     * The farthest the feet follow a floor down in one tick, in blocks: more than a step, so a steep stair taken at a
+     * run (and boxes that travel rounded to 1/32 block) does not leave the player in the air between two treads.
+     */
+    public static final double DROP = 0.75;
+    /** The deepest a box may be inside the player and still push it out; deeper, the player is let out freely. */
+    private static final double PUSH = 0.6;
     /** Ticks in the air (a jump, a fall off an edge) before the display stops carrying the player. */
     public static final int MAX_AIR_TICKS = 40;
     /** A wall is slid along, not snagged on, when leaving it sideways takes this little. */
@@ -33,6 +44,10 @@ public final class DeckWalker {
     private double ax;
     private double ay;
     private double az;
+    /** Boxes the player is deep inside this tick: they do not stop it. */
+    private boolean[] deep = new boolean[0];
+    private boolean landed;
+    private boolean touched;
 
     /** After {@link #step}: whether the player must be put at {@link #x}, {@link #y}, {@link #z}. */
     public boolean moved;
@@ -77,6 +92,17 @@ public final class DeckWalker {
      */
     public void step(DeckShape shape, DeckPose prev, DeckPose now, double px, double py, double pz, double radius,
         double height, boolean worldGround) {
+        step(shape, prev, now, px, py, pz, radius, height, worldGround, false);
+    }
+
+    /**
+     * One tick.
+     *
+     * @param flying whether the player flies (creative flight and the like): it is stopped by the boxes and lands
+     *               on a floor it comes down on, but is not carried through the air by the display
+     */
+    public void step(DeckShape shape, DeckPose prev, DeckPose now, double px, double py, double pz, double radius,
+        double height, boolean worldGround, boolean flying) {
         moved = false;
         turned = 0;
         bumped = false;
@@ -118,7 +144,7 @@ public final class DeckWalker {
             double hx = c[0] + s * up[0];
             double hz = c[2] + s * up[2];
             double[] free = pushOut(shape, hx, hz, ay + STEP, ay + height, radius, ax, az, Double.NaN, height);
-            int floor = floorAt(shape, free[0], free[1], ay - STEP, ay + STEP, radius);
+            int floor = floorAt(shape, free[0], free[1], ay - DROP, ay + STEP, radius);
             if (floor >= 0) {
                 double top = shape.maxY[floor];
                 double s2 = (top - c[1]) / up[1];
@@ -139,57 +165,50 @@ public final class DeckWalker {
                 lz = c[2] + (free[1] - hz);
             }
         } else {
+            // not standing on it: the boxes are solid from every side
             grounded = false;
-            lx = c[0];
-            ly = c[1];
-            lz = c[2];
-            int floor = rise <= EPS ? landing(shape, lx, ly, lz, radius, height) : -1;
-            if (floor >= 0) {
-                double top = shape.maxY[floor];
-                double s = (top - ly) / up[1];
-                double fx = lx + s * up[0];
-                double fz = lz + s * up[2];
-                if (!inside(shape, floor, fx, fz, radius)) {
-                    fx = lx;
-                    fz = lz;
-                }
-                double[] free = pushOut(shape, fx, fz, top + STEP, top + height, radius, ax, az, Double.NaN, height);
-                lx = free[0];
-                ly = top;
-                lz = free[1];
+            double[] p = { ax, ay, az };
+            sweep(shape, p, c[0] - ax, c[1] - ay, c[2] - az, radius, height, worldGround && !flying);
+            lx = p[0];
+            ly = p[1];
+            lz = p[2];
+            if (landed) {
                 aboard = true;
                 grounded = true;
                 air = 0;
-            } else if (aboard) {
-                for (int i = 0; i < shape.size; i++) {
-                    // a ceiling: the head was under it and would now be in it
-                    if (ay + height <= shape.minY[i] + EPS && ly + height > shape.minY[i]
-                        && inside(shape, i, lx, lz, radius)) {
-                        ly = shape.minY[i] - height;
-                        bumped = true;
-                    }
-                }
-                double[] free = pushOut(shape, lx, lz, ly + EPS, ly + height, radius, ax, az, ay, height);
-                lx = free[0];
-                lz = free[1];
             }
         }
-        if (aboard && !grounded && (worldGround || ++air > MAX_AIR_TICKS)) {
+        boolean touch = !grounded && touched;
+        if (aboard && !grounded && (worldGround || flying || ++air > MAX_AIR_TICKS)) {
             aboard = false;
         }
-        if (aboard) {
+        if (aboard || touch) {
+            // carried by the display, or held against one of its faces this tick
             double[] w = now.toWorld(lx, ly, lz);
             moved = true;
             x = w[0];
             y = w[1];
             z = w[2];
-            turned = DisplayMotion.wrap(now.yaw - prev.yaw);
+            turned = aboard ? DisplayMotion.wrap(now.yaw - prev.yaw) : 0;
             ax = lx;
             ay = ly;
             az = lz;
         } else {
-            // not carried: next tick the display has moved under it
+            // not carried: the display has moved, maybe into the player
             double[] a = now.toLocal(px, py, pz);
+            settle(shape, a, radius, height);
+            if (touched) {
+                double[] w = now.toWorld(a[0], a[1], a[2]);
+                moved = true;
+                x = w[0];
+                y = w[1];
+                z = w[2];
+                if (landed) {
+                    aboard = true;
+                    grounded = true;
+                    air = 0;
+                }
+            }
             ax = a[0];
             ay = a[1];
             az = a[2];
@@ -236,23 +255,152 @@ public final class DeckWalker {
         return best;
     }
 
-    /** The floor a falling player lands on this tick, or -1. */
-    private int landing(DeckShape s, double x, double y, double z, double r, double height) {
-        int best = -1;
-        for (int i = 0; i < s.size; i++) {
-            double top = s.maxY[i];
-            if (y > top || (best >= 0 && top <= s.maxY[best]) || !inside(s, i, x, z, r)) {
-                continue;
+    private static boolean over(DeckShape s, int i, double x, double z, double r) {
+        return x + r > s.minX[i] + EPS && x - r < s.maxX[i] - EPS && z + r > s.minZ[i] + EPS && z - r < s.maxZ[i] - EPS;
+    }
+
+    private static boolean level(DeckShape s, int i, double feet, double height) {
+        return feet + height > s.minY[i] + EPS && feet < s.maxY[i] - EPS;
+    }
+
+    /**
+     * Pushes {@code p} (the feet) out of the boxes it is a little inside, least way out first: a display that moved
+     * into the player, a floor come up under it. The boxes it is deep inside are marked in {@link #deep} and left
+     * alone. Sets {@link #landed}, {@link #bumped} and {@link #touched}.
+     */
+    private void settle(DeckShape s, double[] p, double r, double height) {
+        landed = false;
+        touched = false;
+        if (deep.length < s.size) {
+            deep = new boolean[s.size];
+        }
+        java.util.Arrays.fill(deep, 0, s.size, false);
+        for (int pass = 0; pass < 3; pass++) {
+            boolean again = false;
+            for (int i = 0; i < s.size; i++) {
+                if (deep[i] || !over(s, i, p[0], p[2], r) || !level(s, i, p[1], height)) {
+                    continue;
+                }
+                double[] d = { s.maxY[i] - p[1], p[1] + height - s.minY[i], p[0] + r - s.minX[i],
+                    s.maxX[i] - (p[0] - r), p[2] + r - s.minZ[i], s.maxZ[i] - (p[2] - r) };
+                int k = 0;
+                for (int j = 1; j < 6; j++) {
+                    if (d[j] < d[k]) {
+                        k = j;
+                    }
+                }
+                if (d[k] > PUSH) {
+                    deep[i] = true;
+                    continue;
+                }
+                if (k == 0) {
+                    p[1] = s.maxY[i];
+                    landed = true;
+                } else if (k == 1) {
+                    p[1] = s.minY[i] - height;
+                    bumped = true;
+                } else if (k == 2) {
+                    p[0] = s.minX[i] - r - EPS;
+                } else if (k == 3) {
+                    p[0] = s.maxX[i] + r + EPS;
+                } else if (k == 4) {
+                    p[2] = s.minZ[i] - r - EPS;
+                } else {
+                    p[2] = s.maxZ[i] + r + EPS;
+                }
+                touched = true;
+                again = true;
             }
-            boolean crossed = ay >= top - EPS;
-            // feet a little into a floor (a step up from the ground beside it, a deck that changed): only where
-            // the player fits
-            boolean shallow = top - y <= STEP && !blocked(s, x, z, top, r, height);
-            if (crossed || shallow) {
-                best = i;
+            if (!again) {
+                break;
             }
         }
-        return best;
+    }
+
+    /**
+     * A free body against the boxes, in the display's frame: {@code p} (the feet, where the player was) is first
+     * pushed out of the boxes the display moved into it, then taken through its move, down or up first and then
+     * along each horizontal axis, stopping at the first face in the way. Sets {@link #landed} (it came to rest on a
+     * floor), {@link #bumped} (the head met a ceiling) and {@link #touched} (any face held it).
+     *
+     * @param stepUp whether a low box met sideways is stepped onto (a player walking in from the ground beside)
+     */
+    private void sweep(DeckShape s, double[] p, double dx, double dy, double dz, double r, double height,
+        boolean stepUp) {
+        settle(s, p, r, height);
+        // down or up
+        if (dy < 0) {
+            double to = p[1] + dy;
+            for (int i = 0; i < s.size; i++) {
+                if (!deep[i] && s.maxY[i] <= p[1] + EPS && s.maxY[i] > to && over(s, i, p[0], p[2], r)) {
+                    to = s.maxY[i];
+                    landed = true;
+                    touched = true;
+                }
+            }
+            p[1] = to;
+        } else if (dy > 0) {
+            landed = false;
+            double to = p[1] + dy;
+            for (int i = 0; i < s.size; i++) {
+                if (!deep[i] && s.minY[i] >= p[1] + height - EPS
+                    && s.minY[i] - height < to
+                    && over(s, i, p[0], p[2], r)) {
+                    to = s.minY[i] - height;
+                    bumped = true;
+                    touched = true;
+                }
+            }
+            p[1] = to;
+        }
+        // along each horizontal axis
+        for (int axis = 0; axis < 4; axis += 2) {
+            double d = axis == 0 ? dx : dz;
+            if (d == 0) {
+                continue;
+            }
+            double[] lo = axis == 0 ? s.minX : s.minZ;
+            double[] hi = axis == 0 ? s.maxX : s.maxZ;
+            double from = p[axis];
+            double to = from + d;
+            int hit = -1;
+            for (int i = 0; i < s.size; i++) {
+                if (deep[i] || !level(s, i, p[1], height)) {
+                    continue;
+                }
+                boolean beside = axis == 0 ? p[2] + r > s.minZ[i] + EPS && p[2] - r < s.maxZ[i] - EPS
+                    : p[0] + r > s.minX[i] + EPS && p[0] - r < s.maxX[i] - EPS;
+                if (!beside) {
+                    continue;
+                }
+                if (d > 0 && lo[i] - r >= from - EPS && lo[i] - r - EPS < to) {
+                    to = lo[i] - r - EPS;
+                    hit = i;
+                } else if (d < 0 && hi[i] + r <= from + EPS && hi[i] + r + EPS > to) {
+                    to = hi[i] + r + EPS;
+                    hit = i;
+                }
+            }
+            if (hit >= 0 && stepUp && s.maxY[hit] - p[1] <= STEP) {
+                // a low box met on foot: stepped onto, where the player fits
+                double top = s.maxY[hit];
+                double nx = axis == 0 ? from + d : p[0];
+                double nz = axis == 0 ? p[2] : from + d;
+                boolean fits = true;
+                for (int i = 0; i < s.size && fits; i++) {
+                    fits = deep[i] || !over(s, i, nx, nz, r) || !level(s, i, top, height);
+                }
+                if (fits) {
+                    p[1] = top;
+                    to = from + d;
+                    landed = true;
+                }
+            }
+            if (hit >= 0) {
+                touched = true;
+            }
+            p[axis] = to;
+        }
     }
 
     /** Whether a player standing at this height would be inside a box too high to step on. */

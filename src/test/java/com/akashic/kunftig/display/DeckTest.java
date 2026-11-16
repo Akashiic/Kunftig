@@ -85,6 +85,34 @@ class DeckTest {
             pose = next;
         }
 
+        /** One tick of a player that moves itself freely (flying, swimming): no gravity. */
+        void fly(double dx, double dy, double dz, DeckPose next) {
+            x += dx;
+            y += dy;
+            z += dz;
+            walker.step(shape, pose, next, x, y, z, R, H, false, true);
+            if (walker.moved) {
+                x = walker.x;
+                y = walker.y;
+                z = walker.z;
+            }
+            ground = walker.grounded();
+            pose = next;
+        }
+
+        /** One tick of a player walking on the world's ground beside the display. */
+        void walk(double dx, double dz) {
+            x += dx;
+            z += dz;
+            walker.step(shape, pose, pose, x, y, z, R, H, !walker.grounded(), false);
+            if (walker.moved) {
+                x = walker.x;
+                y = walker.y;
+                z = walker.z;
+            }
+            ground = walker.grounded();
+        }
+
         double[] local() {
             return pose.toLocal(x, y, z);
         }
@@ -288,6 +316,128 @@ class DeckTest {
         }
         assertFalse(beside.walker.aboard());
         assertTrue(beside.y < 60);
+    }
+
+    @Test
+    void theBoxesAreSolidForWhoFliesOrSwims() {
+        DeckShape shape = ship();
+        // rising under the floor (swimming up inside the hull): the head stops at its underside
+        Sim under = new Sim(shape, still(), new double[] { 0, 1, 5 });
+        for (int i = 0; i < 30; i++) {
+            under.fly(0, 0.1, 0, still());
+        }
+        assertEquals(3.5 - H, under.local()[1], 1e-9);
+        assertTrue(under.walker.bumped);
+        assertFalse(under.walker.aboard());
+        // flying into the side from outside: stops at the bulwark, and slides along it
+        Sim beside = new Sim(shape, still(), new double[] { -6, 4.2, 5 });
+        for (int i = 0; i < 30; i++) {
+            beside.fly(0.2, 0, 0.05, still());
+        }
+        assertEquals(-4 - R, beside.local()[0], 1e-3);
+        assertEquals(5 + 30 * 0.05, beside.local()[2], 1e-9);
+        assertFalse(beside.walker.aboard());
+        // flying down onto the deck: lands, and stands
+        Sim above = new Sim(shape, still(), new double[] { 0, 7, 5 });
+        for (int i = 0; i < 30; i++) {
+            above.fly(0, -0.2, 0, still());
+        }
+        assertTrue(above.walker.grounded());
+        assertEquals(4, above.local()[1], 1e-9);
+        // flying up from the deck: let go at once, not carried through the air
+        above.fly(0, 0.3, 0, still());
+        above.fly(0, 0.3, 0, new DeckPose(105, 60, -40, 0, 0, 0));
+        assertFalse(above.walker.aboard());
+        assertEquals(4.6, above.local()[1] + 0, 1e-9);
+        assertEquals(-5, above.local()[0], 1e-9);
+        // at a run through the air, faster than a box is thick: no tunnelling
+        Sim fast = new Sim(shape, still(), new double[] { -8, 4.2, 5 });
+        for (int i = 0; i < 6; i++) {
+            fast.fly(1.1, 0, 0, still());
+        }
+        assertEquals(-4 - R, fast.local()[0], 1e-3);
+    }
+
+    @Test
+    void aDisplayThatMovesIntoAPlayerPushesIt() {
+        DeckShape shape = ship();
+        // hovering over the deck while it comes up: lifted with it, then standing on it
+        Sim s = new Sim(shape, still(), new double[] { 0, 4.3, 5 });
+        DeckPose p = still();
+        for (int i = 0; i < 20; i++) {
+            p = new DeckPose(100, p.y + 0.1, -40, 0, 0, 0);
+            s.fly(0, 0, 0, p);
+        }
+        assertTrue(s.walker.grounded());
+        assertEquals(4, s.local()[1], 1e-9);
+        // hovering beside the hull while it sails sideways into the player: pushed along, not swallowed
+        Sim b = new Sim(shape, still(), new double[] { -4.8, 3.6, 5 });
+        p = still();
+        for (int i = 0; i < 30; i++) {
+            p = new DeckPose(p.x - 0.1, 60, -40, 0, 0, 0);
+            b.fly(0, 0, 0, p);
+        }
+        assertEquals(-4 - R, b.local()[0], 1e-3);
+    }
+
+    @Test
+    void aPlayerDeepInsideABoxIsLetOut() {
+        DeckShape shape = ship();
+        // put inside the raised deck (a teleport, a deck that changed): moves freely while deep in it, is pushed
+        // out the near side once close to it, and then the boxes hold again
+        Sim s = new Sim(shape, still(), new double[] { 0, 4.5, -8 });
+        for (int i = 0; i < 10; i++) {
+            s.fly(0, 0, 0.1, still());
+        }
+        assertEquals(-7, s.local()[2], 1e-9);
+        for (int i = 0; i < 30; i++) {
+            s.fly(0, 0, 0.1, still());
+        }
+        assertTrue(s.local()[2] > -6 + R, "out of the box");
+        for (int i = 0; i < 40; i++) {
+            s.fly(0, 0, -0.1, still());
+        }
+        assertEquals(-6 + R, s.local()[2], 1e-3);
+    }
+
+    @Test
+    void stepsOnFromTheGroundBeside() {
+        // a gangplank's end, 0.4 over the ground a player walks on
+        DeckShape shape = DeckShape.of(DeckShape.pack(new double[][] { { -2, 3.5, -2, 2, 4, 2 } }));
+        Sim s = new Sim(shape, still(), new double[] { -3, 3.6, 0 });
+        for (int i = 0; i < 20; i++) {
+            s.walk(0.1, 0);
+        }
+        assertTrue(s.walker.grounded());
+        assertEquals(4, s.local()[1], 1e-9);
+        assertEquals(-1, s.local()[0], 1e-9);
+        // a box too high to step on stops whoever walks into it
+        DeckShape wall = DeckShape.of(DeckShape.pack(new double[][] { { -2, 3.5, -2, 2, 5, 2 } }));
+        Sim w = new Sim(wall, still(), new double[] { -3, 3.6, 0 });
+        for (int i = 0; i < 20; i++) {
+            w.walk(0.1, 0);
+        }
+        assertFalse(w.walker.grounded());
+        assertEquals(-2 - R, w.local()[0], 1e-3);
+    }
+
+    @Test
+    void followsAFloorDownMoreThanAStep() {
+        // a drop of 11/16 block (more than a step up, less than DROP): followed, not fallen
+        DeckShape shape = DeckShape
+            .of(DeckShape.pack(new double[][] { { -2, 3.5, -4, 2, 4, 0 }, { -2, 2.8125, 0, 2, 3.3125, 4 } }));
+        Sim s = standing(shape, still(), 0, -2);
+        for (int i = 0; i < 40; i++) {
+            s.tick(0, 0.1, false, still());
+            assertTrue(s.walker.grounded(), "tick " + i);
+        }
+        assertEquals(3.3125, s.local()[1], 1e-9);
+        // and back: it is too high to step up
+        for (int i = 0; i < 40; i++) {
+            s.tick(0, -0.1, false, still());
+        }
+        assertEquals(3.3125, s.local()[1], 1e-9);
+        assertEquals(R, s.local()[2], 1e-3);
     }
 
     @Test

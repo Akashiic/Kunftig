@@ -19,11 +19,14 @@ import cpw.mods.fml.relauncher.Side;
 /**
  * Walking on displays (API 12): at the end of the local player's tick, after it moved against the world and before
  * its position goes to the server, the {@link DeckWalker} carries it with the display it stands on and keeps it on
- * the deck. The displays' poses advance at the start of the client tick ({@link DisplayClient}), so the player ends
+ * the deck, and stops it at the display's boxes from every side, whether it walks, jumps, swims or flies. The displays'
+ * poses advance at the start of the client tick ({@link DisplayClient}), so the player ends
  * the tick where the display is, and both are drawn interpolated over the same interval: no trembling between them.
  * <p>
  * The other players come from the server a few ticks late, while the display is already where it is: one who stands
- * within a short reach of a floor is drawn on it.
+ * within a short reach of a floor is drawn on it, and its entity says so through {@code onGround}, which a 1.7.10
+ * client never sets for another player: whoever animates players (3D Futura Engine) reads there that this one stands
+ * on something, though no block is under it.
  * <p>
  * Disabled with {@code -Dkunftig.decks.disable=true}. Client thread.
  */
@@ -100,10 +103,7 @@ public final class DeckClient {
     }
 
     private void local(EntityPlayer player) {
-        if (player.capabilities.isFlying || player.ridingEntity != null
-            || player.isDead
-            || player.isPlayerSleeping()
-            || player.noClip) {
+        if (player.ridingEntity != null || player.isDead || player.isPlayerSleeping() || player.noClip) {
             reset();
             return;
         }
@@ -150,7 +150,8 @@ public final class DeckClient {
             fz,
             player.width / 2,
             player.height,
-            player.onGround);
+            player.onGround,
+            player.capabilities.isFlying);
         if (walker.aboard() != wasAboard) {
             wasAboard = walker.aboard();
             if (DEBUG) {
@@ -203,9 +204,12 @@ public final class DeckClient {
             if (!Double.isNaN(y)) {
                 remoteOnDeck.put(player, Boolean.TRUE);
                 player.setPosition(player.posX, player.posY + (y - fy), player.posZ);
+                player.onGround = true;
                 return;
             }
         }
-        remoteOnDeck.remove(player);
+        if (remoteOnDeck.remove(player) != null) {
+            player.onGround = false;
+        }
     }
 }
