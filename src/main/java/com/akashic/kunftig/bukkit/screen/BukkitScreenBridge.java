@@ -41,6 +41,7 @@ public final class BukkitScreenBridge implements KunftigHud.Provider, KunftigCam
         NetHandlerPlayServer connection;
         final Map<String, byte[]> hud = new LinkedHashMap<>();
         Entity target;
+        float zoom = 1;
     }
 
     private final Map<UUID, Screen> screens = new HashMap<>();
@@ -174,6 +175,26 @@ public final class BukkitScreenBridge implements KunftigHud.Provider, KunftigCam
         if (followsLockOn(player)) {
             send(s, CameraWire.CHANNEL, CameraWire.unlock());
         }
+    }
+
+    @Override
+    public void setZoom(Player player, float factor) {
+        mainThread();
+        Screen s = screen(player);
+        if (s == null) {
+            return;
+        }
+        float z = CameraWire.zoom(factor);
+        if (z != s.zoom && followsLockOn(player)) {
+            send(s, CameraWire.CHANNEL, CameraWire.zoomTo(z));
+        }
+        s.zoom = z;
+    }
+
+    @Override
+    public float getZoom(Player player) {
+        Screen s = screens.get(player.getUniqueId());
+        return s == null ? 1 : s.zoom;
     }
 
     @Override

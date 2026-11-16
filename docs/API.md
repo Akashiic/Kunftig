@@ -982,3 +982,22 @@ if (KunftigApi.apiVersion() >= 15 && KunftigPlayers.drawsPostures(jogador)) {
 * Um cliente sem Kunftig (`drawsPostures` falso) não é segurado nem desenhado: não o sente.
 * Canal `kunftig:pose`. `-Dkunftig.postures.disable=true` desliga no cliente.
 * **No jogo, a verificar** (nada disto foi visto: nem o bípede, nem os modelos, nem outro jogador de fora).
+
+## 24. Luneta: o zoom da câmera (API 16)
+
+`KunftigCamera.setZoom(jogador, fator)` estreita o campo de visão do jogador `fator` vezes: uma luneta. `1` devolve a
+visão dele; o máximo é `10` (o Minecraft não estreita além disso).
+
+```java
+if (KunftigApi.apiVersion() >= 16 && KunftigCamera.followsLockOn(jogador)) {
+    KunftigCamera.setZoom(jogador, 6);   // seis vezes mais perto
+    KunftigCamera.setZoom(jogador, 1);   // de volta
+}
+```
+
+* O cliente entra e sai do zoom em poucos ticks, como faz ao correr: o fator entra onde o Minecraft calcula o
+  multiplicador do campo de visão (`FOVUpdateEvent`).
+* O zoom é esquecido ao renascer e numa conexão nova: peça de novo. `getZoom(jogador)` devolve o que foi pedido.
+* A sensibilidade do mouse não muda: com zoom alto a mira anda depressa.
+* Mensagem `ZOOM` (2) no canal `kunftig:camera`; um cliente anterior à API 16 a ignora.
+* **No jogo, a verificar.**

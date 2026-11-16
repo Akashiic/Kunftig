@@ -29,6 +29,7 @@ public abstract class NetHandlerPlayClientScreenMixin {
     private void kunftig$screenJoinGame(S01PacketJoinGame packet, CallbackInfo ci) {
         HudClient.INSTANCE.clear();
         CameraClient.INSTANCE.release();
+        CameraClient.INSTANCE.resetZoom();
         NetHandlerPlayClient self = (NetHandlerPlayClient) (Object) this;
         self.addToSendQueue(
             new C17PacketCustomPayload(
@@ -39,6 +40,7 @@ public abstract class NetHandlerPlayClientScreenMixin {
     @Inject(method = "handleRespawn", at = @At("HEAD"))
     private void kunftig$screenRespawn(S07PacketRespawn packet, CallbackInfo ci) {
         CameraClient.INSTANCE.release();
+        CameraClient.INSTANCE.resetZoom();
     }
 
     @Inject(method = "handleCustomPayload", at = @At("HEAD"), cancellable = true)

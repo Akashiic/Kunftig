@@ -28,6 +28,16 @@ public final class KunftigCamera {
         Entity getTarget(Player player);
 
         boolean followsLockOn(Player player);
+
+        /** See {@link KunftigCamera#setZoom}. */
+        default void setZoom(Player player, float factor) {
+            throw new UnsupportedOperationException("This Kunftig has no zoom (API 16)");
+        }
+
+        /** See {@link KunftigCamera#getZoom}. */
+        default float getZoom(Player player) {
+            return 1;
+        }
     }
 
     private static volatile Provider provider;
@@ -79,6 +89,26 @@ public final class KunftigCamera {
     /** Whether this player's client follows a lock-on (Kunftig 9 or newer). */
     public static boolean followsLockOn(Player player) {
         return provider().followsLockOn(player);
+    }
+
+    /**
+     * Narrows the player's field of view {@code factor} times (API 16): a spyglass. 1 gives his own view back; the
+     * most is 10 (vanilla does not narrow further). The client eases into it over a few ticks, as it does when
+     * sprinting, and forgets it on respawn and on a new connection (set it again). A client older than API 16
+     * ignores it; one without Kunftig ({@link #followsLockOn} false) is not told. Main thread only.
+     *
+     * @since API 16
+     */
+    public static void setZoom(Player player, float factor) {
+        if (player == null) {
+            throw new IllegalArgumentException("player required");
+        }
+        provider().setZoom(player, factor);
+    }
+
+    /** The zoom {@link #setZoom} asked for (1: none). @since API 16 */
+    public static float getZoom(Player player) {
+        return provider().getZoom(player);
     }
 
     /** Internal: called by the mod. */

@@ -7,7 +7,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
 
 ## Where things are
 
-* **API** (`api/`, `KunftigApi.API_VERSION`, now **15**):
+* **API** (`api/`, `KunftigApi.API_VERSION`, now **16**):
 
   | API | Feature |
   |---|---|
@@ -25,6 +25,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   | 13 | bones turned by the server (`Display#setBoneRotation`, display op `POSE` = 10): degrees added to a bone's rotation, glided on the client and applied in `DisplayRenderer#renderRecursively` (Expeditions' doors and gangplank) |
   | 14 | stations (`KunftigInput.STATION`, bound with `KEYS`): at a ship's helm the movement keys stop moving the player, the hotbar is not drawn and the mouse wheel and the hotbar keys come as key bits (`KEY_SCROLL_UP`, `slotKey(n)`); nothing of the inventory is touched (`client/input/InputClient`, `StationInput`). To be checked in game |
   | 15 | postures (`KunftigPlayers.setPosture`, `Posture`, channel `kunftig:pose`, `posture/PostureWire` + `PostureServer`): a player sat or laid down at a point of the world or of a display's frame, held there each tick by `client/posture/PostureClient` (movement keys off, `DeckClient` skips him), the biped posed by `ModelBipedPostureMixin` and laid down by `RenderPlayerPostureMixin`, 3D Futura Engine's models through its `posture` state (futura3d API 7). To be checked in game |
+  | 16 | zoom (`KunftigCamera.setZoom`, camera op `ZOOM` = 2): the field of view narrowed up to 10 times, through `FOVUpdateEvent` in `client/screen/CameraClient` (a spyglass; Expeditions' lookout). To be checked in game |
 
   API 9 and 11 were built at the same time on two branches (AkashicFishing's boss and Overkill), which both called
   their additions "API 9"; they were merged as 9 and 11, with one display wire (see `DisplayWire`). A client or server
@@ -34,7 +35,7 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   3D Futura Engine (`futura3d`), on branch `main` of [Akashiic/YesSteveModel](https://github.com/Akashiic/YesSteveModel).
 
   The guide is in `docs/API.md` (Portuguese; the displays are in section 13, the flight lock in 14, the hook range in
-  15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20, walking on displays in 21, server-turned bones in 22, postures in 23). Raise the
+  15, Overkill's keys, HUD, camera, attack prediction and blades in 16 to 20, walking on displays in 21, server-turned bones in 22, postures in 23, zoom in 24). Raise the
   version and update the version asserts in the API tests when adding to it.
 * **Wire protocols** are raw plugin messages:
   * `kunftig:holo`, `kunftig:rod`, `kunftig:display`, `kunftig:flight`, and Overkill's `kunftig:input`, `kunftig:hud`,

@@ -39,9 +39,9 @@ public final class KunftigApi {
      * ({@code Display#setCollision}, {@code KunftigDisplays#walksOnDisplays}) and a display's texture variant changed
      * in place ({@code Display#setVariant}). 13: bones turned by the server ({@code Display#setBoneRotation}). 14:
      * stations ({@code KunftigInput#STATION}). 15: postures ({@code KunftigPlayers#setPosture}): players sat or laid
-     * down at a point of the world or of a display.
+     * down at a point of the world or of a display. 16: zoom ({@code KunftigCamera#setZoom}): a spyglass.
      */
-    private static final int API_VERSION = 15;
+    private static final int API_VERSION = 16;
 
     private KunftigApi() {}
 

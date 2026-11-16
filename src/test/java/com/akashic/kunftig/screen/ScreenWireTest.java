@@ -118,4 +118,17 @@ class ScreenWireTest {
         assertEquals(atTicks, atFrames, 1e-2);
         assertFalse(CameraWire.step(10, 0.5F, 0) != 0, "no time, no turn");
     }
+
+    /** The zoom (API 16): between the player's own view and 10 times; an old client ignores the operation. */
+    @Test
+    void zoomIsReadAndBounded() {
+        CameraWire.Message m = CameraWire.read(CameraWire.zoomTo(6));
+        assertEquals(CameraWire.ZOOM, m.op);
+        assertEquals(6f, m.zoom, 0);
+        assertEquals(1f, CameraWire.read(CameraWire.zoomTo(0.2f)).zoom, 0);
+        assertEquals(CameraWire.MAX_ZOOM, CameraWire.read(CameraWire.zoomTo(99)).zoom, 0);
+        assertEquals(1f, CameraWire.read(CameraWire.zoomTo(Float.NaN)).zoom, 0);
+        assertEquals(null, CameraWire.read(new byte[] { CameraWire.ZOOM, 1 }));
+        assertEquals(1f, CameraWire.read(CameraWire.unlock()).zoom, 0);
+    }
 }

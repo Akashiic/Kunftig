@@ -56,7 +56,7 @@ class RodApiTest {
         });
         try {
             assertTrue(KunftigApi.isRodsAvailable());
-            assertEquals(15, KunftigApi.apiVersion());
+            assertEquals(16, KunftigApi.apiVersion());
             KunftigRods.setState(p, KunftigRods.FIGHT);
             KunftigRods.setState(p, "danca_da_chuva");
             KunftigRods.setTension(p, 2);

@@ -83,7 +83,7 @@ class InputApiTest {
         });
         try {
             assertTrue(KunftigApi.isInputAvailable());
-            assertEquals(15, KunftigApi.apiVersion());
+            assertEquals(16, KunftigApi.apiVersion());
             KunftigInput.register(stub(Plugin.class));
             KunftigInput.bind(p, KunftigInput.SPECIAL, KunftigInput.LOCK_ON, KunftigInput.SPECIAL);
             KunftigInput.bind(p);

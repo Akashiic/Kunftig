@@ -39,6 +39,31 @@ public final class CameraClient {
         target = Integer.MIN_VALUE;
     }
 
+    /** The zoom the server asked for (API 16): 1 is the player's own field of view. */
+    private volatile float zoom = 1;
+
+    /** A fresh connection or a respawn: the player's own field of view. */
+    public void resetZoom() {
+        zoom = 1;
+    }
+
+    public float zoom() {
+        return zoom;
+    }
+
+    /**
+     * The zoom (API 16), where vanilla computes the field of view's multiplier (sprinting, the bow): divided by the
+     * factor. Vanilla eases the view toward it over a few ticks and never lets it under 0.1, so a spyglass opens
+     * smoothly and stops at 10 times.
+     */
+    @SubscribeEvent
+    public void onFov(net.minecraftforge.client.event.FOVUpdateEvent event) {
+        float z = zoom;
+        if (z > 1) {
+            event.newfov = event.newfov / z;
+        }
+    }
+
     public void onPayload(byte[] data) {
         CameraWire.Message m = CameraWire.read(data);
         if (m == null) {
@@ -46,6 +71,10 @@ public final class CameraClient {
         }
         if (m.op == CameraWire.UNLOCK) {
             release();
+            return;
+        }
+        if (m.op == CameraWire.ZOOM) {
+            zoom = m.zoom;
             return;
         }
         target = m.entityId;

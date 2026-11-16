@@ -13,6 +13,7 @@ import java.io.IOException;
  * <pre>
  * LOCK   (0): int entityId, float strength (0..1), float maxDistance (blocks), boolean marker
  * UNLOCK (1): (nothing)
+ * ZOOM   (2): float factor (1: the player's own field of view; up to 10: that many times narrower)   [API 16]
  * </pre>
  *
  * {@code strength}: how much of the way to the target the view turns per tick (1: snaps). The client lets go on its own
@@ -24,6 +25,10 @@ public final class CameraWire {
 
     public static final byte LOCK = 0;
     public static final byte UNLOCK = 1;
+    public static final byte ZOOM = 2;
+
+    /** The narrowest view: vanilla keeps the field of view's multiplier at 0.1 or more. */
+    public static final float MAX_ZOOM = 10;
 
     public static final float MAX_DISTANCE = 64;
 
@@ -37,6 +42,8 @@ public final class CameraWire {
         public final float strength;
         public final float maxDistance;
         public final boolean marker;
+        /** For ZOOM: the factor. */
+        public float zoom = 1;
 
         Message(byte op, int entityId, float strength, float maxDistance, boolean marker) {
             this.op = op;
@@ -74,12 +81,38 @@ public final class CameraWire {
         return new byte[] { UNLOCK };
     }
 
+    /** A zoom factor within 1..{@link #MAX_ZOOM} (not a number: 1, no zoom). */
+    public static float zoom(float factor) {
+        return Float.isNaN(factor) ? 1 : Math.max(1, Math.min(MAX_ZOOM, factor));
+    }
+
+    public static byte[] zoomTo(float factor) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeByte(ZOOM);
+            out.writeFloat(zoom(factor));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bytes.toByteArray();
+    }
+
     public static Message read(byte[] data) {
         if (data == null || data.length < 1) {
             return null;
         }
         if (data[0] == UNLOCK) {
             return new Message(UNLOCK, 0, 0, 0, false);
+        }
+        if (data[0] == ZOOM) {
+            if (data.length < 5) {
+                return null;
+            }
+            Message m = new Message(ZOOM, 0, 0, 0, false);
+            m.zoom = zoom(
+                java.nio.ByteBuffer.wrap(data, 1, 4)
+                    .getFloat());
+            return m;
         }
         if (data[0] != LOCK) {
             return null;
