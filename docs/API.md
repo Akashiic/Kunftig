@@ -662,6 +662,35 @@ public void onTeclas(KunftigKeysEvent e) {
   e as quatro teclas do Kunftig (especial, habilidade, esquiva, travar).
 * Mesmo limite e mesma sequência das ações (o cliente nunca é confiado). Desligar `KEYS` zera as teclas.
 
+### O posto de comando (API 14)
+
+Para o jogador que assume um posto (o leme de um navio, uma peça de artilharia), o plugin liga a pseudo-ação
+`KunftigInput.STATION` ("posto") junto com `KEYS`:
+
+```java
+KunftigInput.bind(jogador, KunftigInput.KEYS, KunftigInput.STATION);   // ao assumir o posto
+KunftigInput.bind(jogador);                                            // ao sair dele
+
+@EventHandler
+public void onTeclas(KunftigKeysEvent e) {
+    if (e.pressed(KunftigInput.KEY_SCROLL_UP)) { /* um dente da roda do mouse */ }
+    if (e.pressed(KunftigInput.slotKey(3))) { /* a tecla 3 da barra de itens */ }
+    boolean leme = (e.getKeys() & KunftigInput.KEY_LEFT) != 0;          // A segurado
+}
+```
+
+* **As pernas param:** as teclas de movimento, o pulo e o Sneak continuam a ser lidos e mandados (`KEY_FORWARD`,
+  `KEY_JUMP`, `KEY_SNEAK`...), mas não movem o jogador. Ele continua a olhar com o mouse.
+* **A barra de itens some** e a roda do mouse e as teclas 1 a 9 deixam de trocar o item da mão: a roda vem como
+  `KEY_SCROLL_UP` / `KEY_SCROLL_DOWN` (um dente por mensagem, com uma mensagem sem ele no meio: conte os `pressed`),
+  e as teclas de número como `slotKey(1)` a `slotKey(9)`, seguradas enquanto a tecla está. Desenhe os comandos do
+  posto no lugar da barra com o `KunftigHud` (âncora `BOTTOM`).
+* **O inventário não é tocado:** nada sai dele nem entra; o item da mão continua o mesmo, só não se vê a barra.
+* Com uma tela aberta nada é mandado, como nas outras teclas. Um cliente anterior à API 14 ignora o `STATION` (o
+  jogador anda e a barra continua lá): dê outro caminho a ele.
+* No cliente: `client/input/InputClient` (a roda é o `MouseEvent` do Forge; a barra, o `RenderGameOverlayEvent.Pre`
+  de `HOTBAR`; as pernas, um `MovementInput` que guarda as teclas e zera o movimento). **No jogo, a verificar.**
+
 ## 17. HUD na tela (API 11)
 
 Elementos na tela de um jogador, desenhados depois do HUD do vanilla: texto (com `§` e quebras de linha), uma barra e

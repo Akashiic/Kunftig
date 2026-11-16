@@ -70,8 +70,24 @@ public final class InputWire {
     public static final int KEY_SKILL = 1 << 11;
     public static final int KEY_DODGE = 1 << 12;
     public static final int KEY_LOCK_ON = 1 << 13;
-    public static final int KEYS_MASK = (1 << 14) - 1;
-    public static final int KEY_COUNT = 14;
+    /** API 14, only while {@link #STATION_ACTION} is bound: one notch of the mouse wheel, held for one message. */
+    public static final int KEY_SCROLL_UP = 1 << 14;
+    public static final int KEY_SCROLL_DOWN = 1 << 15;
+    /** API 14, only while {@link #STATION_ACTION} is bound: the hotbar keys, 1 to 9 ({@link #slot}). */
+    public static final int KEY_SLOT_1 = 1 << 16;
+    public static final int KEYS_MASK = (1 << 25) - 1;
+    public static final int KEY_COUNT = 25;
+    /**
+     * Not a key (API 14): bound, the player is at a station (a ship's helm, a turret). The movement keys no longer
+     * move him, the hotbar is not drawn and the mouse wheel and the hotbar keys no longer change the held item:
+     * all of them go to the server with the held keys ({@link #KEYS_ACTION}, to be bound with it).
+     */
+    public static final String STATION_ACTION = "posto";
+
+    /** The bit of hotbar key {@code n} (1 to 9). */
+    public static int slot(int n) {
+        return KEY_SLOT_1 << (n - 1);
+    }
 
     /** Movement keys held when the action key changed. */
     public static final int FORWARD = 1;
@@ -89,7 +105,7 @@ public final class InputWire {
 
     /** Whether a name is one of {@link #ACTIONS} or {@link #KEYS_ACTION} (what can be bound). */
     public static boolean isAction(String name) {
-        return name != null && (ACTIONS.contains(name) || KEYS_ACTION.equals(name));
+        return name != null && (ACTIONS.contains(name) || KEYS_ACTION.equals(name) || STATION_ACTION.equals(name));
     }
 
     /** A decoded KEYS message. */

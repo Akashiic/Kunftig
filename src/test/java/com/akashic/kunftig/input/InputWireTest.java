@@ -110,4 +110,19 @@ class InputWireTest {
         org.junit.jupiter.api.Assertions.assertNull(InputWire.readKeys(bad));
         org.junit.jupiter.api.Assertions.assertTrue(InputWire.isAction(InputWire.KEYS_ACTION));
     }
+
+    @Test
+    void theStationBindsAndItsKeysTravel() {
+        // API 14: the station is bound like the keys, and the wheel and the hotbar keys are bits of the held keys
+        assertTrue(InputWire.isAction(InputWire.STATION_ACTION));
+        java.util.Set<String> bound = InputWire
+            .readBind(InputWire.bind(java.util.Arrays.asList(InputWire.KEYS_ACTION, InputWire.STATION_ACTION)));
+        assertTrue(bound.contains(InputWire.STATION_ACTION) && bound.contains(InputWire.KEYS_ACTION));
+        int keys = InputWire.KEY_LEFT | InputWire.KEY_SCROLL_UP | InputWire.slot(1) | InputWire.slot(9);
+        InputWire.Keys read = InputWire.readKeys(InputWire.keys(new InputWire.Keys(7, 99, keys)));
+        assertEquals(keys, read.keys);
+        assertEquals(InputWire.KEY_SLOT_1 << 8, InputWire.slot(9));
+        assertEquals(0, InputWire.slot(9) & ~InputWire.KEYS_MASK);
+        assertEquals(InputWire.KEYS_MASK + 1, InputWire.slot(9) << 1);
+    }
 }

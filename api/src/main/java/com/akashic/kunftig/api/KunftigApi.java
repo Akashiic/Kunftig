@@ -39,7 +39,7 @@ public final class KunftigApi {
      * ({@code Display#setCollision}, {@code KunftigDisplays#walksOnDisplays}) and a display's texture variant changed
      * in place ({@code Display#setVariant}). 13: bones turned by the server ({@code Display#setBoneRotation}).
      */
-    private static final int API_VERSION = 13;
+    private static final int API_VERSION = 14;
 
     private KunftigApi() {}
 

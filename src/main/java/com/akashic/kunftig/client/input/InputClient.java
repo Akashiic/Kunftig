@@ -39,6 +39,9 @@ public final class InputClient {
     private int sequence;
     private int clientTick;
     private int sentKeys;
+    /** At a station (API 14): the mouse wheel notches not yet sent (positive: up), and the slot the hotbar keeps. */
+    private int wheel;
+    private int heldSlot = -1;
 
     private InputClient() {}
 
@@ -71,6 +74,8 @@ public final class InputClient {
         bound = Collections.emptySet();
         sequence = 0;
         sentKeys = 0;
+        wheel = 0;
+        heldSlot = -1;
         for (Map.Entry<String, Boolean> e : down.entrySet()) {
             e.setValue(Boolean.FALSE);
         }
@@ -126,8 +131,12 @@ public final class InputClient {
                 send(player, action, now);
             }
         }
+        station(mc, player, playing);
         if (bound.contains(InputWire.KEYS_ACTION)) {
             int k = playing ? keys(mc, player) : 0;
+            if (playing && atStation()) {
+                k |= stationKeys(mc);
+            }
             if (k != sentKeys && player != null && player.sendQueue != null) {
                 sentKeys = k;
                 player.sendQueue.addToSendQueue(
@@ -137,6 +146,74 @@ public final class InputClient {
             }
         } else {
             sentKeys = 0;
+        }
+    }
+
+    /** Whether the server put the player at a station (API 14). */
+    public boolean atStation() {
+        return bound.contains(InputWire.STATION_ACTION);
+    }
+
+    /**
+     * At a station the movement keys do not move the player ({@link StationInput}) and the hotbar keys do not change
+     * the held item (it is put back at the end of the tick, before the client tells the server).
+     */
+    private void station(Minecraft mc, EntityClientPlayerMP player, boolean playing) {
+        if (player == null) {
+            heldSlot = -1;
+            wheel = 0;
+            return;
+        }
+        boolean on = atStation();
+        if (on && !(player.movementInput instanceof StationInput) && player.movementInput != null) {
+            player.movementInput = new StationInput(player.movementInput);
+        } else if (!on && player.movementInput instanceof StationInput) {
+            player.movementInput = ((StationInput) player.movementInput).real;
+        }
+        if (!on) {
+            heldSlot = -1;
+            wheel = 0;
+        } else if (heldSlot < 0 || !playing) {
+            heldSlot = player.inventory.currentItem;
+        } else if (player.inventory.currentItem != heldSlot) {
+            player.inventory.currentItem = heldSlot;
+        }
+    }
+
+    /** The wheel and the hotbar keys: one notch per message, with a message without it in between. */
+    private int stationKeys(Minecraft mc) {
+        int k = 0;
+        boolean pulsed = (sentKeys & (InputWire.KEY_SCROLL_UP | InputWire.KEY_SCROLL_DOWN)) != 0;
+        if (!pulsed && wheel > 0) {
+            wheel--;
+            k |= InputWire.KEY_SCROLL_UP;
+        } else if (!pulsed && wheel < 0) {
+            wheel++;
+            k |= InputWire.KEY_SCROLL_DOWN;
+        }
+        for (int i = 0; i < 9 && i < mc.gameSettings.keyBindsHotbar.length; i++) {
+            if (mc.gameSettings.keyBindsHotbar[i].getIsKeyPressed()) {
+                k |= InputWire.slot(i + 1);
+            }
+        }
+        return k;
+    }
+
+    /** The mouse wheel at a station goes to the server, not to the hotbar. */
+    @SubscribeEvent
+    public void onMouse(net.minecraftforge.client.event.MouseEvent event) {
+        if (event.dwheel == 0 || !atStation() || Minecraft.getMinecraft().currentScreen != null) {
+            return;
+        }
+        wheel = Math.max(-8, Math.min(8, wheel + (event.dwheel > 0 ? 1 : -1)));
+        event.setCanceled(true);
+    }
+
+    /** At a station the hotbar is not drawn: the plugin draws the station's controls in its place. */
+    @SubscribeEvent
+    public void onOverlay(net.minecraftforge.client.event.RenderGameOverlayEvent.Pre event) {
+        if (event.type == net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.HOTBAR && atStation()) {
+            event.setCanceled(true);
         }
     }
 
@@ -186,21 +263,25 @@ public final class InputClient {
     private static int movement(EntityClientPlayerMP player) {
         int bits = 0;
         if (player.movementInput != null) {
-            if (player.movementInput.moveForward > 0) {
+            // at a station the keys are held back from the legs: what was pressed is what counts
+            StationInput s = player.movementInput instanceof StationInput ? (StationInput) player.movementInput : null;
+            float forward = s != null ? s.forward : player.movementInput.moveForward;
+            float strafe = s != null ? s.strafe : player.movementInput.moveStrafe;
+            if (forward > 0) {
                 bits |= InputWire.FORWARD;
-            } else if (player.movementInput.moveForward < 0) {
+            } else if (forward < 0) {
                 bits |= InputWire.BACK;
             }
             // Minecraft's strafe is positive to the left
-            if (player.movementInput.moveStrafe > 0) {
+            if (strafe > 0) {
                 bits |= InputWire.LEFT;
-            } else if (player.movementInput.moveStrafe < 0) {
+            } else if (strafe < 0) {
                 bits |= InputWire.RIGHT;
             }
-            if (player.movementInput.jump) {
+            if (s != null ? s.jumping : player.movementInput.jump) {
                 bits |= InputWire.JUMP;
             }
-            if (player.movementInput.sneak) {
+            if (s != null ? s.sneaking : player.movementInput.sneak) {
                 bits |= InputWire.SNEAK;
             }
         }

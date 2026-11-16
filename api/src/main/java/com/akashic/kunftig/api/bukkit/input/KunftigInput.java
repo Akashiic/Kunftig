@@ -66,6 +66,29 @@ public final class KunftigInput {
     public static final int KEY_DODGE = 1 << 12;
     public static final int KEY_LOCK_ON = 1 << 13;
 
+    /**
+     * Not a key (API 14): bound together with {@link #KEYS}, the player is at a station (a ship's helm, a turret).
+     * His movement keys no longer move him, the hotbar is not drawn (draw the station's own controls there with
+     * {@code KunftigHud}), and the mouse wheel and the hotbar keys no longer change the held item: all of them come
+     * with the held keys ({@link #KEY_FORWARD} ... {@link #KEY_SCROLL_UP}, {@link #slotKey}). Nothing of his
+     * inventory is touched. Unbind it ({@code bind(player)}) when he leaves the station. A client older than API 14
+     * ignores it.
+     */
+    public static final String STATION = "posto";
+    /** One notch of the mouse wheel, up (away from the player) or down; only at a {@link #STATION}. */
+    public static final int KEY_SCROLL_UP = 1 << 14;
+    public static final int KEY_SCROLL_DOWN = 1 << 15;
+    /** Hotbar key 1; see {@link #slotKey}. Only at a {@link #STATION}. */
+    public static final int KEY_SLOT_1 = 1 << 16;
+
+    /** The bit of hotbar key {@code n} (1 to 9), held while the key is; only at a {@link #STATION}. */
+    public static int slotKey(int n) {
+        if (n < 1 || n > 9) {
+            throw new IllegalArgumentException("hotbar keys are 1 to 9: " + n);
+        }
+        return KEY_SLOT_1 << (n - 1);
+    }
+
     /** Every action a Kunftig client has a key for. */
     public static final List<String> ACTIONS = Collections
         .unmodifiableList(Arrays.asList(SPECIAL, SKILL, DODGE, LOCK_ON));

@@ -72,6 +72,8 @@ public final class ClientProxy extends CommonProxy {
             FMLCommonHandler.instance()
                 .bus()
                 .register(com.akashic.kunftig.client.input.InputClient.INSTANCE);
+            // (the station, API 14: the mouse wheel and the hotbar's drawing are Forge events)
+            MinecraftForge.EVENT_BUS.register(com.akashic.kunftig.client.input.InputClient.INSTANCE);
         }
         if (!Boolean.getBoolean("kunftig.screen.disable")) {
             // The screen HUD and the lock-on (API 9).
