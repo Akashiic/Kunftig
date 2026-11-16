@@ -103,7 +103,10 @@ public final class DeckClient {
     }
 
     private void local(EntityPlayer player) {
-        if (player.ridingEntity != null || player.isDead || player.isPlayerSleeping() || player.noClip) {
+        if (player.ridingEntity != null || player.isDead
+            || player.isPlayerSleeping()
+            || player.noClip
+            || com.akashic.kunftig.client.posture.PostureClient.INSTANCE.local()) { // sat or laid down: held there
             reset();
             return;
         }

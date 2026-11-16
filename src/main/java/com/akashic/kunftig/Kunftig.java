@@ -42,6 +42,10 @@ public final class Kunftig {
         cpw.mods.fml.common.FMLCommonHandler.instance()
             .bus()
             .register(com.akashic.kunftig.flight.FlightLock.INSTANCE);
+        // Postures (API 15): who sits or lies, told to whoever joins and dropped with the player's entity.
+        cpw.mods.fml.common.FMLCommonHandler.instance()
+            .bus()
+            .register(com.akashic.kunftig.posture.PostureServer.INSTANCE);
         if (Boolean.getBoolean("kunftig.devHarness")) {
             install("com.akashic.kunftig.dev.FishingHarness"); // development only, absent from release jars
         }

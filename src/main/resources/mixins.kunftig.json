@@ -34,7 +34,10 @@
     "screen.NetHandlerPlayClientScreenMixin",
     "blade.NetHandlerPlayClientBladeMixin",
     "blade.ModelBipedBladePoseMixin",
-    "blade.RenderPlayerBladeMixin"
+    "blade.RenderPlayerBladeMixin",
+    "posture.NetHandlerPlayClientPostureMixin",
+    "posture.ModelBipedPostureMixin",
+    "posture.RenderPlayerPostureMixin"
   ],
   "server": []
 }

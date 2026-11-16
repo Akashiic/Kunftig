@@ -17,6 +17,21 @@ public final class KunftigPlayers {
 
         boolean isFlightLocked(Player player);
 
+        /** See {@link KunftigPlayers#setPosture}. */
+        default void setPosture(Player player, Posture posture) {
+            throw new UnsupportedOperationException("This Kunftig has no postures (API 15)");
+        }
+
+        /** See {@link KunftigPlayers#getPosture}. */
+        default Posture getPosture(Player player) {
+            return null;
+        }
+
+        /** See {@link KunftigPlayers#drawsPostures}. */
+        default boolean drawsPostures(Player player) {
+            return false;
+        }
+
         /** See {@link KunftigPlayers#pushVelocity}. */
         default void pushVelocity(Player player, double x, double y, double z) {
             player.setVelocity(new org.bukkit.util.Vector(x, y, z));
@@ -100,6 +115,41 @@ public final class KunftigPlayers {
             && previousSlot < HOTBAR_SIZE
             && newSlot >= 0
             && newSlot < HOTBAR_SIZE;
+    }
+
+    /**
+     * Sits or lays the player down at a point (API 15), or stands him up ({@code null}). Every Kunftig client holds
+     * him there each tick and draws him so: the vanilla biped in vanilla's riding pose or laid down as a sleeper, a
+     * model of 3D Futura Engine (API 7) with its {@code sit} or {@code sleep}. With a display, the point and the yaw
+     * are of the display's frame and he goes wherever it goes (a ship's chair, bunk, hammock) without trembling; his
+     * own client does the holding, so the server sees him there as it sees one who walks. His movement keys do
+     * nothing meanwhile; sneaking still reaches the server ({@code PlayerToggleSneakEvent}): stand him up on it.
+     * <p>
+     * The posture ends when set to null, or when the player leaves, respawns or changes dimension. Where he stands
+     * afterwards is the plugin's (teleport him out of the furniture). A client without Kunftig ({@link
+     * #drawsPostures} false) is not held: do not seat it. Main thread only.
+     *
+     * @throws IllegalArgumentException if the player is not an online player of this server
+     * @since API 15
+     */
+    public static void setPosture(Player player, Posture posture) {
+        Provider current = provider;
+        if (current == null) {
+            throw new IllegalStateException("KunftigPlayers is not available on this server");
+        }
+        current.setPosture(player, posture);
+    }
+
+    /** The posture {@link #setPosture} gave the player, or null when he stands. @since API 15 */
+    public static Posture getPosture(Player player) {
+        Provider current = provider;
+        return current == null ? null : current.getPosture(player);
+    }
+
+    /** Whether the player's client holds and draws postures (it registered the channel). @since API 15 */
+    public static boolean drawsPostures(Player player) {
+        Provider current = provider;
+        return current != null && current.drawsPostures(player);
     }
 
     /** Internal: called by the mod. */

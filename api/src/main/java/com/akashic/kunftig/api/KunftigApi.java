@@ -37,9 +37,11 @@ public final class KunftigApi {
      * camera lock-on ({@code KunftigCamera}), SlashBlade-style blades ({@code KunftigBlades}), effects
      * ({@code KunftigEffects}) and {@code KunftigPlayers#pushVelocity}. 12: displays players walk on
      * ({@code Display#setCollision}, {@code KunftigDisplays#walksOnDisplays}) and a display's texture variant changed
-     * in place ({@code Display#setVariant}). 13: bones turned by the server ({@code Display#setBoneRotation}).
+     * in place ({@code Display#setVariant}). 13: bones turned by the server ({@code Display#setBoneRotation}). 14:
+     * stations ({@code KunftigInput#STATION}). 15: postures ({@code KunftigPlayers#setPosture}): players sat or laid
+     * down at a point of the world or of a display.
      */
-    private static final int API_VERSION = 14;
+    private static final int API_VERSION = 15;
 
     private KunftigApi() {}
 

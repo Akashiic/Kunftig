@@ -66,6 +66,12 @@ public final class ClientProxy extends CommonProxy {
                 .register(RodModels.INSTANCE);
             MinecraftForge.EVENT_BUS.register(RodModels.INSTANCE);
         }
+        if (!com.akashic.kunftig.client.posture.PostureClient.disabled()) {
+            // Postures (API 15): players the server sat or laid down are held at their point each tick.
+            FMLCommonHandler.instance()
+                .bus()
+                .register(com.akashic.kunftig.client.posture.PostureClient.INSTANCE);
+        }
         if (!com.akashic.kunftig.client.input.InputClient.disabled()) {
             // The input keys (API 9): in Controls, category Kunftig; reported only when a server binds them.
             com.akashic.kunftig.client.input.InputClient.INSTANCE.registerKeys();

@@ -950,3 +950,35 @@ if (KunftigApi.apiVersion() >= 13) {
 * **Visto no jogo** (navios do Expeditions): a porta da sala do capitão abre e fecha em 8 ticks, e a prancha de
   embarque desce 23,8° até um cais, com o jogador passando por uma e subindo pela outra.
 
+
+## 23. Sentar e deitar: posturas (API 15)
+
+`KunftigPlayers.setPosture(jogador, postura)` senta ou deita um jogador num ponto, do mundo ou **de uma exibição**
+(a cadeira, a cama e as redes de um navio). Montar numa entidade invisível não serve num navio que anda: a entidade
+viria atrás do navio a cada tick. Aqui quem segura o jogador no ponto é o cliente, no mesmo intervalo em que a
+exibição é desenhada, e ele não treme.
+
+```java
+if (KunftigApi.apiVersion() >= 15 && KunftigPlayers.drawsPostures(jogador)) {
+    // sentado: o ponto são os pés (o assento fica uns 0,6 bloco acima); o yaw é para onde ele olha
+    KunftigPlayers.setPosture(jogador, Posture.sit(x, y, z, yaw).on(navio));
+    // deitado: o ponto é o meio do corpo, na superfície; o yaw é para onde aponta a cabeça
+    KunftigPlayers.setPosture(jogador, Posture.lie(x, y, z, yaw).on(navio).eyes(0.45f));
+    KunftigPlayers.setPosture(jogador, null);   // de pé
+}
+```
+
+* Com `.on(exibição)`, o ponto é do referencial da exibição (blocos a partir da origem dela, como as caixas de
+  `setCollision`) e o yaw soma ao dela. Sem, são os do mundo. O yaw é o do Minecraft (0 olha para +z, 90 para -x).
+* **O que o cliente faz**, a cada tick: põe o jogador no ponto, zera a velocidade dele, vira o corpo; no jogador
+  local as teclas de andar e pular não fazem nada (agachar continua chegando ao servidor: é o jeito de levantar, pelo
+  `PlayerToggleSneakEvent`), o convés não o empurra para fora do móvel, e a vista gira com o navio. Deitado, o
+  jogador local é baixado até os olhos ficarem `eyes` acima do ponto, e o modelo dele é desenhado essa mesma altura
+  acima.
+* **O desenho:** o bípede do Minecraft senta com a pose de montaria e deita como quem dorme numa cama; um modelo do
+  3D Futura Engine (API 7 dele) toca o `sit` e o `sleep` do próprio modelo.
+* A postura acaba com `null`, ou quando o jogador sai, renasce ou troca de dimensão. Onde ele fica de pé depois é com
+  o plugin (teleporte para fora do móvel). `getPosture(jogador)` devolve a que ele tem.
+* Um cliente sem Kunftig (`drawsPostures` falso) não é segurado nem desenhado: não o sente.
+* Canal `kunftig:pose`. `-Dkunftig.postures.disable=true` desliga no cliente.
+* **No jogo, a verificar** (nada disto foi visto: nem o bípede, nem os modelos, nem outro jogador de fora).
