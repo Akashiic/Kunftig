@@ -6,8 +6,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 tmp = os.path.join(HERE, ".tmp")
 INFO = [
     ("noel_vtaper", "Noel V-Taper", "Alto, em V, com metralhadoras",
-     "Seis blocos de altura, ombros duas vezes mais largos que a cintura, peito nu cruzado por cartucheiras e óculos escuros. Atira do quadril com uma metralhadora giratória em cada mão (canos com anéis de bengala doce, caixa de munição verde) e leva um saco de munição no cinto.",
-     ["Rajada contínua girando a cintura: varre a arena em leque", "Para, aquece os canos e solta uma rajada longa e reta (dá tempo de se esconder)", "Pose de fisiculturista que dá um empurrão em volta (onda de choque)"]),
+     "Oito blocos de altura, ombros 3,4 vezes mais largos que a cintura. Sobrancelhas em V sobre um visor tático rachado, com um olho cibernético vermelho brilhando atrás; charuto aceso num rosnado; barba trançada com anéis de aço. Cicatrizes, uma caveira de gorro tatuada no ombro e a lista dos malvados nas costas, com nomes riscados. Ombreira com marcas de abates, cartucheiras em X e um canhão giratório de sete canos em cada mão, alimentado por um tambor embrulhado de presente.",
+     ["Rajada contínua girando a cintura: varre a arena em leque", "Para, aquece os canos (as bocas acendem) e solta uma rajada longa e reta", "Arranca a granada do gorro e joga", "Pose de fisiculturista: onda de choque que empurra quem está perto"]),
     ("noel_brutamontes", "Noel Brutamontes", "O lutador",
      "Casaco aberto, barba enorme e punhos do tamanho de um baú, com socos-ingleses de ouro. Carrega um saco de carvão nas costas e uma granada-presente no cinto.",
      ["Sequência de socos com avanço curto", "Pancada no chão que levanta neve em anel", "Arremessa a granada-presente (explode em fitas)"]),
@@ -29,15 +29,19 @@ with open(os.path.join(tmp, "steve.json")) as f:
     steve = json.load(f)
 
 
-def stats(m):
+def stats(m, ident):
+    from PIL import Image as _I
+
+    pw, ph = _I.open(os.path.join(HERE, "..", "modelos", ident + ".png")).size
+    scale = pw // m["tex_w"]
     cubes = sum(len(b["cubes"]) for b in m["bones"])
     lo = min(c["frm"][1] for b in m["bones"] for c in b["cubes"])
     hi = max(c["frm"][1] + c["size"][1] for b in m["bones"] for c in b["cubes"])
-    return dict(cubes=cubes, bones=len(m["bones"]), tex="%dx%d" % (m["tex_w"], m["tex_h"]),
+    return dict(cubes=cubes, bones=len(m["bones"]), tex="%dx%d" % (pw, ph) + (" (%d px/un.)" % scale if scale > 1 else ""),
                 height=round((hi - lo) / 16, 1))
 
 
-data = [dict(id=i, name=n, role=r, desc=d, ideas=ideas, stats=stats(models[i])) for i, n, r, d, ideas in INFO]
+data = [dict(id=i, name=n, role=r, desc=d, ideas=ideas, stats=stats(models[i], i)) for i, n, r, d, ideas in INFO]
 viewer_js = open(os.path.join(HERE, "viewer.js")).read().replace("export function", "function")
 
 html = """<title>Bosses de Natal</title>
@@ -103,7 +107,7 @@ ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   <header>
     <span class="eyebrow">TEOF · Natal 2026 · esboços</span>
     <h1>Bosses de Natal</h1>
-    <p class="lede">Esboço de Papai Noel chefe, montado em cubos no formato do Blockbench (entidade Bedrock, lida pelo GeckoLib das exibições do Kunftig). Arraste para girar, use a roda ou pinça para aproximar.</p>
+    <p class="lede">Papai Noel chefe, montado em cubos no formato do Blockbench (entidade Bedrock, lida pelo GeckoLib das exibições do Kunftig). Arraste para girar, use a roda ou pinça para aproximar.</p>
   </header>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="main">

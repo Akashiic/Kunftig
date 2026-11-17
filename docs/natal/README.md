@@ -2,14 +2,45 @@
 
 Papai Noel chefe para o Natal do TEOF. São esboços: modelo, textura e pose parada, sem animações.
 
-## Noel V-Taper (o escolhido em andamento)
+## Noel V-Taper (versão 2, a atual)
 
 ![Noel V-Taper](previas/noel_vtaper_folha.png)
 
-`noel_vtaper`: cerca de 6 blocos de altura (três jogadores), ombros duas vezes mais largos que a cintura, peito nu
-com duas cartucheiras em X, óculos escuros, barba e gorro. Atira do quadril com uma metralhadora giratória em cada
-mão: seis canos, anéis de bengala doce, caixa de munição verde com a fita de balas caindo. Saco de munição no cinto.
-Ossos próprios: `metralhadora_d`, `metralhadora_e` (filhos de `mao_d`/`mao_e`), `saco`.
+`noel_vtaper`: cerca de 8 blocos até a ponta do gorro (quatro jogadores), ombros 3,4 vezes mais largos que a
+cintura, trapézio subindo até o pescoço, cabeça baixa.
+
+* **Rosto:** sobrancelhas em V (dois cubos inclinados), visor tático com a lente direita rachada e um olho cibernético
+  vermelho, cicatriz cortando a sobrancelha, rosnado com dentes, charuto aceso, bigode de guidão, barba penteada e
+  trançada com anéis de aço; cabeça raspada com o cabelo branco só atrás.
+* **Corpo:** peitoral, oito gomos, serrátil, oblíquos, dorsais e coluna em relevo; cicatriz de corte no peito e marcas de
+  bala; caveira de gorro tatuada no ombro esquerdo, arame farpado no bíceps e a lista dos malvados nas costas, com
+  nomes riscados em vermelho; duas cartucheiras em X, na frente e atrás.
+* **Equipamento:** ombreira de três lâminas com espinhos e marcas de abates, braçadeiras vermelhas com pelo, luvas sem
+  dedos, cinto com fivela de caveira, bolsas e granada, faca de bengala doce, bolso de carga, joelheiras, coturnos com
+  biqueira de aço e cadarço, gorro furado de bala com uma granada pendurada na ponta.
+* **Armas:** um canhão giratório de sete canos em cada mão: canos azulados pelo calor e com fuligem na boca, luva de
+  bengala doce, "HO HO HO" gravado em ouro, mira de ponto vermelho, tambor de munição embrulhado de presente e a fita
+  de balas caindo em U até a entrada.
+
+Ossos próprios: `ombreira`, `espinho_0..2`, `granada` (pendurada, desfaz a rotação do gorro), `metralhadora_d/e`
+(niveladas com o mundo, filhas de `mao_d/e`), `granada_cinto`, `canela_d/e`.
+
+### Texturas (motor novo, `gerador/pintura.py` e `gerador/materiais.py`)
+
+* Textura com o **dobro da densidade** (512×1024 numa grade UV de 256×512, ou seja, 2 pixels por unidade).
+* **Luz embutida:** bordas arredondadas por cubo, relevo por mapa de altura (músculos, trama do tecido, tufos de pelo,
+  mechas penteadas, rebites, gravações) e escurecimento nos sulcos.
+* **Oclusão ambiente calculada:** raios contra os outros cubos do modelo na pose (sombra sob a barba, o gorro e os
+  braços), mais rampas de cor feitas à mão (sombra fria, luz quente).
+* O Blockbench web abre o `.bbmodel` com a textura 512×1024 no lugar certo (conferido).
+* **A verificar:** a oclusão foi calculada nesta pose, então numa animação com os braços muito longe dela a sombra fica
+  onde estava. Também falta ver no jogo se o GeckoLib do Kunftig respeita a textura com o dobro da resolução: ele
+  normaliza pela `texture_width` do `.geo.json`, que é 256, e deveria funcionar. A fita de balas está presa ao
+  `metralhadora_*` e acompanha a arma.
+
+## V-Taper versão 1 (substituída)
+
+A primeira versão (cubos maiores, textura de 1 pixel por unidade) está no histórico do git.
 
 ## Primeira rodada (descartada)
 
@@ -54,7 +85,8 @@ python3 folhas.py [ids]                     # folhas de apresentação
 python3 pagina.py [ids]                     # visualizador.html (padrão: noel_vtaper)
 ```
 
-Precisa de Python 3 com numpy e Pillow, Node e Playwright com Chromium.
+Precisa de Python 3 com numpy e Pillow, Node e Playwright com Chromium. O V-Taper leva uns 30 s (oclusão).
+Para prévias maiores: `RW=1100 RH=1400 node render.mjs ...`; vistas de perto com `VIEWS='[{"name":"z","yaw":20,"pitch":6,"focus":[x,y,meia_altura]}]'`.
 
 ## A verificar
 

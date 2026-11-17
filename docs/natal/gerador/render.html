@@ -27,15 +27,16 @@ window.renderViews = async (model, views, size, steve) => {
     await new Promise(r => setTimeout(r, 150));
     shadeScene(THREE, pivot);
     const box = new THREE.Box3().setFromObject(pivot);
-    const cy = (box.min.y + box.max.y) / 2;
     const aspect = size[0] / size[1];
-    const hh = Math.max((box.max.y - box.min.y) / 2, (box.max.x - box.min.x) / 2 / aspect) * 1.08;
+    let hh = Math.max((box.max.y - box.min.y) / 2, (box.max.x - box.min.x) / 2 / aspect) * 1.08;
+    let cy = (box.min.y + box.max.y) / 2;
+    if (v.focus) { cy = v.focus[1]; hh = v.focus[2]; }
     const cam = new THREE.OrthographicCamera(-hh * aspect, hh * aspect, hh, -hh, -1000, 1000);
     const el = v.pitch * Math.PI / 180;
     cam.position.set(0, cy + Math.sin(el) * 200, -Math.cos(el) * 200);
     cam.lookAt(0, cy, 0);
-    const cx = (box.min.x + box.max.x) / 2;
-    cam.position.x += cx; 
+    const cx = v.focus ? v.focus[0] : (box.min.x + box.max.x) / 2;
+    cam.position.x += cx;
     renderer.render(scene, cam);
     out.push(renderer.domElement.toDataURL('image/png'));
   }

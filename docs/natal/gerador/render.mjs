@@ -22,14 +22,15 @@ await page.goto(`http://localhost:${port}/render.html`);
 await page.waitForFunction(() => window.ready);
 const model = JSON.parse(fs.readFileSync(modelPath));
 const steve = stevePath ? JSON.parse(fs.readFileSync(stevePath)) : null;
-const views = [
+const views = process.env.VIEWS ? JSON.parse(process.env.VIEWS) : [
   { name: 'frente34', yaw: 35, pitch: 8 },
   { name: 'frente', yaw: 0, pitch: 4 },
   { name: 'lado', yaw: 90, pitch: 4 },
   { name: 'costas34', yaw: 215, pitch: 8 },
   { name: 'escala', yaw: 25, pitch: 6, steve: -34 },
 ];
-const shots = await page.evaluate(([m, v, s]) => window.renderViews(m, v, [700, 900], s), [model, views, steve]);
+const W = +(process.env.RW || 700), H = +(process.env.RH || 900);
+const shots = await page.evaluate(([m, v, s, W, H]) => window.renderViews(m, v, [W, H], s), [model, views, steve, W, H]);
 shots.forEach((d, i) => fs.writeFileSync(`${outPrefix}_${views[i].name}.png`, Buffer.from(d.split(',')[1], 'base64')));
 await browser.close();
 server.close();

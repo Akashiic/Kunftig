@@ -91,7 +91,8 @@ class Face:
 
 
 class Model:
-    def __init__(self, name, seed=1, tex_w=256):
+    def __init__(self, name, seed=1, tex_w=256, tex_scale=1):
+        self.tex_scale = tex_scale  # texture pixels per UV unit (2 = twice the usual Minecraft density)
         self.name = name
         self.rng = random.Random(seed)
         self.bones = {}
@@ -265,8 +266,8 @@ class Model:
                     "folder": "",
                     "namespace": "",
                     "id": "0",
-                    "width": self.tex_w,
-                    "height": self.tex_h,
+                    "width": self.tex_w * self.tex_scale,
+                    "height": self.tex_h * self.tex_scale,
                     "uv_width": self.tex_w,
                     "uv_height": self.tex_h,
                     "particle": False,

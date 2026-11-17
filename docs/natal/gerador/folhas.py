@@ -5,7 +5,7 @@ P = "../previas/"
 FONT = "/usr/share/fonts/opentype/inter/Inter-Bold.otf"
 FONT_R = "/usr/share/fonts/opentype/inter/Inter-Regular.otf"
 BOSSES = [
-    ("noel_vtaper", "Noel V-Taper", "Alto, ombros duas vezes mais largos que a cintura, peito nu com cartucheiras, óculos escuros e uma metralhadora giratória em cada mão."),
+    ("noel_vtaper", "Noel V-Taper", "8 blocos, ombros 3,4 vezes a cintura, visor rachado com olho cibernético, charuto, a lista dos malvados tatuada nas costas e dois canhões giratórios."),
     ("noel_brutamontes", "Noel Brutamontes", "O lutador: casaco aberto, socos-ingleses de ouro, saco de carvão nas costas e granada-presente no cinto."),
     ("noel_sombrio", "Noel Sombrio", "O corrompido: chifres furando o gorro, olhos que brilham, correntes com sinos, foice de bengala doce e saco em brasa."),
     ("noel_gelo_eterno", "Noel do Gelo Eterno", "O gigante congelado: coroa de gelo, barba de pingentes, cristais nos ombros, martelo-presente e orbe de gelo."),
@@ -54,6 +54,22 @@ for ident, title, desc in BOSSES:
         lab = LABELS[k]
         tw = d.textlength(lab, font=font(FONT_R, 18))
         d.text((20 + k * cell_w + (cell_w - tw) / 2, 140 + cell_h - 34), lab, font=font(FONT_R, 18), fill=MUTED)
+    import os
+    zs = [P + f"{ident}_z_{n}.png" for n in ("cabeca", "peito", "costas", "arma")]
+    if all(os.path.exists(z) for z in zs):
+        zl = ["rosto: sobrancelhas em V, visor rachado", "peito: relevo, cicatrizes, cartucheiras", "costas: a lista dos malvados", "canhão: tambor-presente e fita de balas"]
+        zw = (W - 40 - 3 * 16) // 4
+        s2 = Image.new("RGB", (W, H + zw + 60), BG)
+        s2.paste(s, (0, 0))
+        d2 = ImageDraw.Draw(s2)
+        for k, z in enumerate(zs):
+            im = Image.open(z).convert("RGBA").resize((zw, zw), Image.LANCZOS)
+            x0 = 20 + k * (zw + 16)
+            tile = Image.new("RGB", (zw, zw), (232, 227, 220))
+            tile.paste(im, (0, 0), im)
+            s2.paste(tile, (x0, H - 10))
+            d2.text((x0, H - 10 + zw + 12), zl[k], font=font(FONT_R, 18), fill=MUTED)
+        s = s2
     s.save(P + f"{ident}_folha.png", optimize=True)
 
 if WANT:
