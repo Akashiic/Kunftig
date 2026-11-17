@@ -5,6 +5,9 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 tmp = os.path.join(HERE, ".tmp")
 INFO = [
+    ("noel_vtaper", "Noel V-Taper", "Alto, em V, com metralhadoras",
+     "Seis blocos de altura, ombros duas vezes mais largos que a cintura, peito nu cruzado por cartucheiras e óculos escuros. Atira do quadril com uma metralhadora giratória em cada mão (canos com anéis de bengala doce, caixa de munição verde) e leva um saco de munição no cinto.",
+     ["Rajada contínua girando a cintura: varre a arena em leque", "Para, aquece os canos e solta uma rajada longa e reta (dá tempo de se esconder)", "Pose de fisiculturista que dá um empurrão em volta (onda de choque)"]),
     ("noel_brutamontes", "Noel Brutamontes", "O lutador",
      "Casaco aberto, barba enorme e punhos do tamanho de um baú, com socos-ingleses de ouro. Carrega um saco de carvão nas costas e uma granada-presente no cinto.",
      ["Sequência de socos com avanço curto", "Pancada no chão que levanta neve em anel", "Arremessa a granada-presente (explode em fitas)"]),
@@ -16,6 +19,9 @@ INFO = [
      ["Martelada que congela o chão em volta", "Orbe que dispara estilhaços de gelo", "Chuva de pingentes do teto da arena"]),
 ]
 models = {}
+import sys
+SHOW = sys.argv[1:] or ["noel_vtaper"]
+INFO = [i for i in INFO if i[0] in SHOW]
 for ident, *_ in INFO:
     with open(os.path.join(tmp, ident + ".json")) as f:
         models[ident] = json.load(f)
@@ -97,7 +103,7 @@ ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   <header>
     <span class="eyebrow">TEOF · Natal 2026 · esboços</span>
     <h1>Bosses de Natal</h1>
-    <p class="lede">Três conceitos de Papai Noel chefe, montados em cubos no formato do Blockbench (entidade Bedrock, lida pelo GeckoLib das exibições do Kunftig). Arraste para girar, use a roda ou pinça para aproximar.</p>
+    <p class="lede">Esboço de Papai Noel chefe, montado em cubos no formato do Blockbench (entidade Bedrock, lida pelo GeckoLib das exibições do Kunftig). Arraste para girar, use a roda ou pinça para aproximar.</p>
   </header>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="main">
@@ -171,6 +177,7 @@ function load(id) {
   document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.id === id ? 'true' : 'false'));
 }
 const tabs = document.getElementById('tabs');
+if (INFO.length < 2) tabs.hidden = true;
 for (const i of INFO) {
   const b = document.createElement('button');
   b.className = 'tab'; b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.id = i.id; b.textContent = i.name; b.id = 'tab-' + i.id;

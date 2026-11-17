@@ -1,7 +1,17 @@
 # Bosses de Natal: esboços
 
-Três conceitos de Papai Noel chefe para o Natal do TEOF, para olhar e escolher. São esboços: modelo, textura e pose
-parada, sem animações.
+Papai Noel chefe para o Natal do TEOF. São esboços: modelo, textura e pose parada, sem animações.
+
+## Noel V-Taper (o escolhido em andamento)
+
+![Noel V-Taper](previas/noel_vtaper_folha.png)
+
+`noel_vtaper`: cerca de 6 blocos de altura (três jogadores), ombros duas vezes mais largos que a cintura, peito nu
+com duas cartucheiras em X, óculos escuros, barba e gorro. Atira do quadril com uma metralhadora giratória em cada
+mão: seis canos, anéis de bengala doce, caixa de munição verde com a fita de balas caindo. Saco de munição no cinto.
+Ossos próprios: `metralhadora_d`, `metralhadora_e` (filhos de `mao_d`/`mao_e`), `saco`.
+
+## Primeira rodada (descartada)
 
 ![Os três](previas/natal_bosses.png)
 
@@ -40,14 +50,14 @@ Foram feitos em tamanho de 4 a 5 blocos; no manifesto de exibição dá para aum
 cd docs/natal/gerador
 npm install three@0.160.0
 THREE_ROOT=$PWD python3 gerar.py            # modelos e prévias (todos, ou passe os ids)
-python3 folhas.py                           # folhas de apresentação
-python3 pagina.py                           # visualizador.html
+python3 folhas.py [ids]                     # folhas de apresentação
+python3 pagina.py [ids]                     # visualizador.html (padrão: noel_vtaper)
 ```
 
 Precisa de Python 3 com numpy e Pillow, Node e Playwright com Chromium.
 
 ## A verificar
 
-* No jogo, como exibição do Kunftig: nenhum dos três foi carregado no cliente ainda.
+* No jogo, como exibição do Kunftig: nenhum foi carregado no cliente ainda.
 * As partes recortadas (bainha rasgada, gaiola do orbe, pontas da barba) usam transparência por recorte; conferir que
   o desenho das exibições respeita o alfa.
