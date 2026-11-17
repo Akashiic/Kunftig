@@ -255,8 +255,9 @@ def fur_layer(ctx, dirt):
     L.alb += (vnoise(P, (1.4, 0.6, 1.4), ctx.seed + 42) - 0.5) * 0.5
     g = fbm(P, 0.22, 3, ctx.seed + 43)
     L.alb -= dirt * np.clip(g - 0.5, 0, 1) * 7
-    soot = g > 0.8
-    L.rid[soot] = L.use(SOOT)
+    if dirt > 0.2:
+        soot = g > 0.8
+        L.rid[soot] = L.use(SOOT)
     return L
 
 

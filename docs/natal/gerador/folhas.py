@@ -5,6 +5,7 @@ P = "../previas/"
 FONT = "/usr/share/fonts/opentype/inter/Inter-Bold.otf"
 FONT_R = "/usr/share/fonts/opentype/inter/Inter-Regular.otf"
 BOSSES = [
+    ("noel_arsenal", "Noel do Arsenal", "8 blocos, casaco aberto, óculos escuros, metralhadora na mão e o saco de presentes com o arsenal: bazuca, lança-chamas, laser de prótons e mais uma metralhadora."),
     ("noel_vtaper", "Noel V-Taper", "8 blocos, ombros 3,4 vezes a cintura, visor rachado com olho cibernético, charuto, a lista dos malvados tatuada nas costas e dois canhões giratórios."),
     ("noel_brutamontes", "Noel Brutamontes", "O lutador: casaco aberto, socos-ingleses de ouro, saco de carvão nas costas e granada-presente no cinto."),
     ("noel_sombrio", "Noel Sombrio", "O corrompido: chifres furando o gorro, olhos que brilham, correntes com sinos, foice de bengala doce e saco em brasa."),
@@ -57,7 +58,8 @@ for ident, title, desc in BOSSES:
     import os
     zs = [P + f"{ident}_z_{n}.png" for n in ("cabeca", "peito", "costas", "arma")]
     if all(os.path.exists(z) for z in zs):
-        zl = ["rosto: sobrancelhas em V, visor rachado", "peito: relevo, cicatrizes, cartucheiras", "costas: a lista dos malvados", "canhão: tambor-presente e fita de balas"]
+        zl = {"noel_vtaper": ["rosto: sobrancelhas em V, visor rachado", "peito: relevo, cicatrizes, cartucheiras", "costas: a lista dos malvados", "canhão: tambor-presente e fita de balas"],
+              "noel_arsenal": ["rosto: óculos escuros, bigode e barba", "peito: casaco aberto, abdômen, cinto", "o saco: bazuca, laser, lança-chamas, metralhadora", "a metralhadora e o tambor-presente"]}[ident]
         zw = (W - 40 - 3 * 16) // 4
         s2 = Image.new("RGB", (W, H + zw + 60), BG)
         s2.paste(s, (0, 0))
@@ -76,7 +78,7 @@ if WANT:
     raise SystemExit
 # overview: the three side by side
 cells = []
-for ident, title, _ in BOSSES[1:]:
+for ident, title, _ in BOSSES[2:]:
     im = Image.open(P + f"{ident}_frente34.png").convert("RGBA")
     cells.append((im.crop(im.getbbox()), title))
 h = 620

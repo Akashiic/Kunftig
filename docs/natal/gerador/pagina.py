@@ -5,6 +5,9 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 tmp = os.path.join(HERE, ".tmp")
 INFO = [
+    ("noel_arsenal", "Noel do Arsenal", "O Papai Noel parrudo e o seu saco de armas",
+     "Oito blocos de Papai Noel clássico e parrudo: casaco vermelho aberto com pelo branco, abdômen à mostra, sobrancelhas bravas, óculos escuros, bigode e barba grisalhos. Atira com uma metralhadora giratória na mão direita e, com a esquerda, segura por cima do ombro o saco de presentes onde guarda o arsenal: bazuca com ogiva de enfeite, lança-chamas com a chama-piloto acesa, laser de prótons e mais uma metralhadora.",
+     ["Rajada da metralhadora varrendo a arena", "Tira a bazuca do saco: foguete-enfeite que explode em fitas e neve", "Lança-chamas em leque quando o jogador chega perto", "Laser de prótons: carrega (os anéis acendem) e solta um feixe reto"]),
     ("noel_vtaper", "Noel V-Taper", "Alto, em V, com metralhadoras",
      "Oito blocos de altura, ombros 3,4 vezes mais largos que a cintura. Sobrancelhas em V sobre um visor tático rachado, com um olho cibernético vermelho brilhando atrás; charuto aceso num rosnado; barba trançada com anéis de aço. Cicatrizes, uma caveira de gorro tatuada no ombro e a lista dos malvados nas costas, com nomes riscados. Ombreira com marcas de abates, cartucheiras em X e um canhão giratório de sete canos em cada mão, alimentado por um tambor embrulhado de presente.",
      ["Rajada contínua girando a cintura: varre a arena em leque", "Para, aquece os canos (as bocas acendem) e solta uma rajada longa e reta", "Arranca a granada do gorro e joga", "Pose de fisiculturista: onda de choque que empurra quem está perto"]),
@@ -20,7 +23,7 @@ INFO = [
 ]
 models = {}
 import sys
-SHOW = sys.argv[1:] or ["noel_vtaper"]
+SHOW = sys.argv[1:] or ["noel_arsenal"]
 INFO = [i for i in INFO if i[0] in SHOW]
 for ident, *_ in INFO:
     with open(os.path.join(tmp, ident + ".json")) as f:

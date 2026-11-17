@@ -12,7 +12,7 @@ OUT = os.path.join(HERE, "..", "modelos")
 PREV = os.path.join(HERE, "..", "previas")
 THREE = os.environ.get("THREE_ROOT", os.path.join(HERE, "node_modules", ".."))
 BOSSES = {"noel_brutamontes": brutamontes}
-for name in ("sombrio", "gelo", "vtaper"):
+for name in ("sombrio", "gelo", "vtaper", "arsenal"):
     try:
         mod = __import__(name)
         BOSSES[mod.IDENT] = mod

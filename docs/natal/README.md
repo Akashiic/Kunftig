@@ -2,7 +2,28 @@
 
 Papai Noel chefe para o Natal do TEOF. São esboços: modelo, textura e pose parada, sem animações.
 
-## Noel V-Taper (versão 2, a atual)
+## Noel do Arsenal (o atual)
+
+![Noel do Arsenal](previas/noel_arsenal_folha.png)
+
+`noel_arsenal`: no estilo da imagem de referência, com a mesma resolução dela (1 pixel por unidade) e cerca de 8 blocos.
+
+* **Visual:** casaco vermelho aberto com pelo branco nas bordas, abdômen à mostra, cinto com fivela de ouro, calça com
+  pelo, botas e luvas marrons. Sobrancelhas bravas em V, óculos escuros, bigode e barba grisalhos, gorro com pompom.
+* **Mão direita:** a metralhadora giratória da versão V-Taper, com os materiais limpos.
+* **Mão esquerda:** o punho erguido na frente do ombro segura a corda dourada do saco, que passa por cima do ombro.
+* **O saco:** grande, nas costas, com barriga larga, boca franzida e amarrada e um remendo. De dentro saem em leque:
+  * a bazuca, com a ogiva vermelha e dourada de enfeite;
+  * o lança-chamas, com tanque, manômetro e chama-piloto acesa;
+  * o laser de prótons, branco com anéis ciano brilhando;
+  * mais uma metralhadora;
+  * dois presentes.
+
+Ossos: `saco`, `rpg`, `lanca_chamas`, `laser`, `metralhadora_reserva`, `presente_saco*`, `metralhadora_d`,
+`presente_cinto`, mais os do corpo. A corda do saco está presa ao `corpo` e foi traçada nesta pose; numa animação do
+braço esquerdo, ela precisa acompanhar.
+
+## Noel V-Taper (versão 2, descartada: "muito Metal Slug")
 
 ![Noel V-Taper](previas/noel_vtaper_folha.png)
 
