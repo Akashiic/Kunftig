@@ -59,6 +59,71 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
         Kunftig.LOG.info("Kunftig input: Bukkit API enabled (KunftigInput)");
     }
 
+    /** The classes on the stack, to tell which plugin is calling (no caller-sensitive API exists from Java 8 to 21). */
+    private static final class Stack extends SecurityManager {
+
+        Class<?>[] classes() {
+            return getClassContext();
+        }
+    }
+
+    private static Stack stack;
+    private final Map<ClassLoader, String> owners = new HashMap<>();
+
+    /**
+     * The plugin that is calling {@link KunftigInput}: the first class on the stack loaded by a plugin's class
+     * loader. Each plugin binds and reads its own actions. Unknown callers share the nameless owner.
+     */
+    private String caller() {
+        Class<?>[] classes;
+        try {
+            if (stack == null) {
+                stack = new Stack();
+            }
+            classes = stack.classes();
+        } catch (RuntimeException | Error e) {
+            return "";
+        }
+        ClassLoader own = BukkitInputBridge.class.getClassLoader();
+        for (int round = 0; round < 2; round++) {
+            for (Class<?> c : classes) {
+                ClassLoader l = c.getClassLoader();
+                if (l == null || l == own) {
+                    continue;
+                }
+                String name = owners.get(l);
+                if (name != null) {
+                    return name;
+                }
+            }
+            if (round == 0) {
+                owners.clear(); // a plugin loaded since the last look
+                for (Plugin p : Bukkit.getPluginManager()
+                    .getPlugins()) {
+                    owners.put(
+                        p.getClass()
+                            .getClassLoader(),
+                        p.getName());
+                }
+                owners.remove(own);
+            }
+        }
+        return "";
+    }
+
+    /** Plugins that were disabled no longer bind anything. */
+    private void prune() {
+        Set<String> alive = new HashSet<>();
+        alive.add("");
+        for (Plugin p : Bukkit.getPluginManager()
+            .getPlugins()) {
+            if (p.isEnabled()) {
+                alive.add(p.getName());
+            }
+        }
+        dirty.addAll(gate.retainOwners(alive));
+    }
+
     private static void mainThread() {
         if (!Bukkit.isPrimaryThread()) {
             throw new IllegalStateException("KunftigInput must be used on the main thread");
@@ -96,7 +161,7 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
     public void bind(Player player, Set<String> actions) {
         mainThread();
         Set<String> before = gate.bound(player.getUniqueId());
-        Set<String> now = gate.bind(player.getUniqueId(), actions);
+        Set<String> now = gate.bind(player.getUniqueId(), caller(), actions);
         if (!before.equals(now) || !told.containsKey(player.getUniqueId())) {
             dirty.add(player.getUniqueId());
             flush(player); // right away: the key may be pressed in this very tick
@@ -106,7 +171,8 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
     @Override
     public Set<String> getBound(Player player) {
         mainThread();
-        return gate.bound(player.getUniqueId());
+        // a plugin reads what it bound itself: "what was bound before" and "put it back" stay its own business
+        return gate.bound(player.getUniqueId(), caller());
     }
 
     @Override
@@ -209,6 +275,7 @@ public final class BukkitInputBridge implements KunftigInput.Provider, PluginMes
         tick++;
         if (!lenders.isEmpty() && (tick & 31) == 0) {
             ensureListening();
+            prune();
         }
         if (gate.players()
             .isEmpty()) {

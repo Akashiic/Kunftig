@@ -26,6 +26,8 @@ public final class InputGate<K> {
     private static final class Entry {
 
         Set<String> bound = Collections.emptySet();
+        /** What each owner (a plugin) bound; {@code bound} is the union. */
+        final Map<String, Set<String>> owners = new HashMap<>();
         final Set<String> held = new LinkedHashSet<>();
         boolean hasSequence;
         int lastSequence;
@@ -44,10 +46,23 @@ public final class InputGate<K> {
 
     /**
      * The actions a player's client should report from now (unknown names are left out); an empty set stops them.
+     * As {@link #bind(Object, String, Collection)} with a single, nameless owner.
      *
      * @return the clean set, as the client is told
      */
     public Set<String> bind(K player, Collection<String> actions) {
+        return bind(player, "", actions);
+    }
+
+    /**
+     * The actions one owner (a plugin) wants of a player from now; an empty set withdraws that owner's. The client
+     * reports the union of every owner's actions: a plugin that binds or unbinds its own never takes away what
+     * another one bound (a blade plugin that unbinds its keys when no blade is held used to take a ship's helm away
+     * from the helmsman).
+     *
+     * @return the union, as the client is told
+     */
+    public Set<String> bind(K player, String owner, Collection<String> actions) {
         Set<String> clean = new LinkedHashSet<>();
         if (actions != null) {
             for (String a : actions) {
@@ -57,12 +72,51 @@ public final class InputGate<K> {
             }
         }
         Entry e = entries.computeIfAbsent(player, k -> new Entry());
-        e.bound = Collections.unmodifiableSet(clean);
-        e.held.retainAll(clean);
-        if (!clean.contains(InputWire.KEYS_ACTION)) {
+        if (clean.isEmpty()) {
+            e.owners.remove(owner);
+        } else {
+            e.owners.put(owner, Collections.unmodifiableSet(clean));
+        }
+        return union(e);
+    }
+
+    private static Set<String> union(Entry e) {
+        Set<String> all = new LinkedHashSet<>();
+        for (Set<String> s : e.owners.values()) {
+            all.addAll(s);
+        }
+        e.bound = Collections.unmodifiableSet(all);
+        e.held.retainAll(all);
+        if (!all.contains(InputWire.KEYS_ACTION)) {
             e.keys = 0;
         }
         return e.bound;
+    }
+
+    /** What one owner bound for a player (empty when nothing). */
+    public Set<String> bound(K player, String owner) {
+        Entry e = entries.get(player);
+        Set<String> s = e == null ? null : e.owners.get(owner);
+        return s == null ? Collections.<String>emptySet() : s;
+    }
+
+    /**
+     * Withdraws everything bound by owners that are not in {@code alive} (plugins that were disabled).
+     *
+     * @return the players whose bound actions changed
+     */
+    public Set<K> retainOwners(Collection<String> alive) {
+        Set<K> changed = new LinkedHashSet<>();
+        for (Map.Entry<K, Entry> en : entries.entrySet()) {
+            if (en.getValue().owners.keySet()
+                .retainAll(alive)) {
+                Set<String> before = en.getValue().bound;
+                if (!before.equals(union(en.getValue()))) {
+                    changed.add(en.getKey());
+                }
+            }
+        }
+        return changed;
     }
 
     /** The actions bound for a player (empty when none). */

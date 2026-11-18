@@ -142,10 +142,13 @@ public final class KunftigInput {
     }
 
     /**
-     * The actions this player's client reports from now on, replacing those bound before (none: it reports nothing).
-     * Keys held when an action is unbound are not released with an event.
+     * The actions the calling plugin wants of this player's client from now on, replacing those the same plugin bound
+     * before (none: it wants nothing). Each plugin has its own: the client reports the union, and a plugin that
+     * unbinds its actions never takes away another plugin's. Keys held when an action is unbound are not released
+     * with an event.
      *
-     * @throws IllegalArgumentException for a name that is neither one of {@link #ACTIONS} nor {@link #KEYS}
+     * @throws IllegalArgumentException for a name that is not one of {@link #ACTIONS}, {@link #KEYS} or
+     *                                  {@link #STATION}
      */
     public static void bind(Player player, String... actions) {
         bind(player, Arrays.asList(actions == null ? new String[0] : actions));
@@ -159,9 +162,9 @@ public final class KunftigInput {
         Set<String> clean = new java.util.LinkedHashSet<>();
         if (actions != null) {
             for (String a : actions) {
-                if (!ACTIONS.contains(a) && !KEYS.equals(a)) {
+                if (!ACTIONS.contains(a) && !KEYS.equals(a) && !STATION.equals(a)) {
                     throw new IllegalArgumentException(
-                        "unknown input action: " + a + " (one of " + ACTIONS + ", or " + KEYS + ")");
+                        "unknown input action: " + a + " (one of " + ACTIONS + ", " + KEYS + " or " + STATION + ")");
                 }
                 clean.add(a);
             }
@@ -169,7 +172,7 @@ public final class KunftigInput {
         provider().bind(player, Collections.unmodifiableSet(clean));
     }
 
-    /** The actions bound for the player (empty when none). */
+    /** The actions the calling plugin bound for the player (empty when none). */
     public static Set<String> getBound(Player player) {
         return provider().getBound(player);
     }

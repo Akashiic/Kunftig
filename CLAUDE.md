@@ -47,6 +47,10 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   station in the first in-game test). Movement keys are held back and read at the key bindings themselves
   (`client/input/MoveKeys`), for stations and postures alike. Before calling a client feature done, check it against
   the modpack's jars. The server's CastleOfStone only admits mods whose jar SHA-256 is in its `WhitelistMods.yml`.
+* **Input binds are per plugin** (`InputGate` owners; `BukkitInputBridge.caller` finds the plugin on the stack): the
+  client is told the union, and `getBound` answers the caller's own. And a new pseudo-action has to be let through
+  `KunftigInput.bind`'s own check, not only `InputWire.isAction`: `STATION` was refused there with an
+  `IllegalArgumentException`, so no helm ever took the keys (`InputApiTest` binds it now).
 * **A swapped `movementInput` must not read as a double tap** (`client/input/InputCarry`): in TEOF 6.1 the pool
   table mod wraps the input at the start of every tick and the Aether replaces it at the end, so the player gets a
   blank object each tick and a held Space toggled creative flight. The new object receives what the last one held,

@@ -101,4 +101,27 @@ class InputGateTest {
         g.bind("p", java.util.Arrays.asList(InputWire.SPECIAL));
         assertEquals(0, g.keys("p"), "unbinding clears the keys");
     }
+
+    @Test
+    public void onePluginUnbindingDoesNotTakeAwayWhatAnotherBound() {
+        InputGate<String> g = new InputGate<>();
+        g.bind("p", "navios", java.util.Arrays.asList(InputWire.KEYS_ACTION, InputWire.STATION_ACTION));
+        // the blade plugin, every tick, with no blade in the hand
+        assertEquals(
+            new java.util.LinkedHashSet<>(java.util.Arrays.asList(InputWire.KEYS_ACTION, InputWire.STATION_ACTION)),
+            g.bind("p", "laminas", java.util.Collections.<String>emptySet()));
+        g.bind("p", "laminas", java.util.Arrays.asList(InputWire.SPECIAL));
+        assertEquals(
+            3,
+            g.bound("p")
+                .size());
+        assertEquals(java.util.Collections.singleton(InputWire.SPECIAL), g.bound("p", "laminas"));
+        g.bind("p", "navios", null);
+        assertEquals(java.util.Collections.singleton(InputWire.SPECIAL), g.bound("p"));
+        assertEquals(java.util.Collections.singleton("p"), g.retainOwners(java.util.Collections.<String>emptySet()));
+        assertEquals(
+            0,
+            g.bound("p")
+                .size());
+    }
 }
