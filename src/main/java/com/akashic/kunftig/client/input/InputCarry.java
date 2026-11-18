@@ -19,9 +19,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * the player gets a blank object every tick, so a held Space reads as a fresh press each tick and flight toggles on
  * and off for as long as it is held (and a held W as a double tap, which sprints by itself).
  * <p>
- * Here, at the start of the player's own tick (after every client tick handler), a new object receives what the last
- * one held. The values are only
- * the "before" of the comparison: the object's own update overwrites them in the same tick. Client thread.
+ * Here a new object receives what the last one held as soon as it is seen: at both ends of the client tick and at the
+ * start of the player's own tick (after every client tick handler). Inside a tick the values are only the "before"
+ * of the comparison (the object's own update overwrites them); between ticks they are what the frames read. Client
+ * thread.
  */
 public final class InputCarry {
 
@@ -35,15 +36,28 @@ public final class InputCarry {
     /** The start of the local player's own tick: after every client tick handler, right before the comparison. */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase != TickEvent.Phase.START) {
-            return;
+        if (event.phase == TickEvent.Phase.START) {
+            Minecraft mc = Minecraft.getMinecraft();
+            if (mc != null && event.player == mc.thePlayer) {
+                look(mc.thePlayer);
+            }
         }
+    }
+
+    /**
+     * Both ends of the client tick, after the other handlers: the object a mod has just put there is what the game
+     * reads until the next tick. Between ticks the frames are drawn, and {@code isSneaking()} of the local player is
+     * {@code movementInput.sneak}: with a blank object there, a player holding Shift was drawn standing (and sneaking
+     * again within each tick), and anything asking for his held keys between ticks was told "none".
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onClientTick(TickEvent.ClientTickEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || event.player != mc.thePlayer) {
-            return;
-        }
-        EntityClientPlayerMP player = mc.thePlayer;
-        MovementInput now = player.movementInput;
+        look(mc == null ? null : mc.thePlayer);
+    }
+
+    private void look(EntityClientPlayerMP player) {
+        MovementInput now = player == null ? null : player.movementInput;
         if (now == null) {
             owner = null;
             last = null;
