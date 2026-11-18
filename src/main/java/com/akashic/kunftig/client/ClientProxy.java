@@ -70,6 +70,10 @@ public final class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(com.akashic.kunftig.client.input.MoveKeys.INSTANCE);
+        // A mod that swaps the player's movement input every tick must not turn a held key into a double tap.
+        FMLCommonHandler.instance()
+            .bus()
+            .register(com.akashic.kunftig.client.input.InputCarry.INSTANCE);
         if (!com.akashic.kunftig.client.posture.PostureClient.disabled()) {
             // Postures (API 15): players the server sat or laid down are held at their point each tick.
             FMLCommonHandler.instance()
