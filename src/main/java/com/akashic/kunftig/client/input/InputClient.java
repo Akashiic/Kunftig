@@ -9,6 +9,7 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityClientPlayerMP;
 import net.minecraft.client.network.NetHandlerPlayClient;
+import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.network.play.client.C17PacketCustomPayload;
 
@@ -155,21 +156,19 @@ public final class InputClient {
     }
 
     /**
-     * At a station the movement keys do not move the player ({@link StationInput}) and the hotbar keys do not change
-     * the held item (it is put back at the end of the tick, before the client tells the server).
+     * At a station the movement keys do not move the player ({@link MoveKeys}: held back at the key bindings, so that
+     * it works whatever movement input another mod put on the player) and the hotbar keys do not change the held item
+     * (it is put back at the end of the tick, before the client tells the server).
      */
     private void station(Minecraft mc, EntityClientPlayerMP player, boolean playing) {
         if (player == null) {
             heldSlot = -1;
             wheel = 0;
+            MoveKeys.INSTANCE.hold(InputWire.STATION_ACTION, false, true);
             return;
         }
         boolean on = atStation();
-        if (on && !(player.movementInput instanceof StationInput) && player.movementInput != null) {
-            player.movementInput = new StationInput(player.movementInput);
-        } else if (!on && player.movementInput instanceof StationInput) {
-            player.movementInput = ((StationInput) player.movementInput).real;
-        }
+        MoveKeys.INSTANCE.hold(InputWire.STATION_ACTION, on, true);
         if (!on) {
             heldSlot = -1;
             wheel = 0;
@@ -262,11 +261,26 @@ public final class InputClient {
 
     private static int movement(EntityClientPlayerMP player) {
         int bits = 0;
-        if (player.movementInput != null) {
-            // at a station the keys are held back from the legs: what was pressed is what counts
-            StationInput s = player.movementInput instanceof StationInput ? (StationInput) player.movementInput : null;
-            float forward = s != null ? s.forward : player.movementInput.moveForward;
-            float strafe = s != null ? s.strafe : player.movementInput.moveStrafe;
+        if (MoveKeys.INSTANCE.holding()) {
+            // the keys are held back from the legs: what is really pressed is what counts
+            GameSettings g = Minecraft.getMinecraft().gameSettings;
+            boolean forward = MoveKeys.down(g.keyBindForward), back = MoveKeys.down(g.keyBindBack);
+            boolean left = MoveKeys.down(g.keyBindLeft), right = MoveKeys.down(g.keyBindRight);
+            if (forward != back) {
+                bits |= forward ? InputWire.FORWARD : InputWire.BACK;
+            }
+            if (left != right) {
+                bits |= left ? InputWire.LEFT : InputWire.RIGHT;
+            }
+            if (MoveKeys.down(g.keyBindJump)) {
+                bits |= InputWire.JUMP;
+            }
+            if (MoveKeys.down(g.keyBindSneak)) {
+                bits |= InputWire.SNEAK;
+            }
+        } else if (player.movementInput != null) {
+            float forward = player.movementInput.moveForward;
+            float strafe = player.movementInput.moveStrafe;
             if (forward > 0) {
                 bits |= InputWire.FORWARD;
             } else if (forward < 0) {
@@ -278,10 +292,10 @@ public final class InputClient {
             } else if (strafe < 0) {
                 bits |= InputWire.RIGHT;
             }
-            if (s != null ? s.jumping : player.movementInput.jump) {
+            if (player.movementInput.jump) {
                 bits |= InputWire.JUMP;
             }
-            if (s != null ? s.sneaking : player.movementInput.sneak) {
+            if (player.movementInput.sneak) {
                 bits |= InputWire.SNEAK;
             }
         }

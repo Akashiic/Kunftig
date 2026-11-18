@@ -28,7 +28,7 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * Postures on the client (API 15): at the end of each client tick, after the entities moved, every player the server
  * sat or laid down is put at his point (of the world, or of a display's frame, wherever the display is this tick: the
  * same interval the display is drawn over, so he does not tremble on a moving ship), with no speed of his own. The
- * local player's keys do not move him ({@link PostureInput}), the deck does not push him ({@code DeckClient} skips
+ * local player's keys do not move him ({@code MoveKeys}), the deck does not push him ({@code DeckClient} skips
  * him) and, lying, he is lowered so that his eyes are near the pillow, his model drawn as much higher. The biped is
  * posed by {@code ModelBipedPostureMixin} and laid down by {@code RenderPlayerPostureMixin}; a model of 3D Futura
  * Engine by its {@code posture} state (futura3d API 7). Client thread.
@@ -116,6 +116,7 @@ public final class PostureClient {
         if (mc.theWorld == null || mc.thePlayer == null) {
             held.clear();
             told.clear();
+            com.akashic.kunftig.client.input.MoveKeys.INSTANCE.hold("postura", false, false);
             return;
         }
         lock(mc.thePlayer, held.containsKey(mc.thePlayer.getEntityId()));
@@ -139,12 +140,9 @@ public final class PostureClient {
         }
     }
 
+    /** The local player's keys do not move him while he sits or lies; sneaking goes through (it is how he gets up). */
     private static void lock(EntityPlayerSP player, boolean on) {
-        if (on && player.movementInput != null && !(player.movementInput instanceof PostureInput)) {
-            player.movementInput = new PostureInput(player.movementInput);
-        } else if (!on && player.movementInput instanceof PostureInput) {
-            player.movementInput = ((PostureInput) player.movementInput).real;
-        }
+        com.akashic.kunftig.client.input.MoveKeys.INSTANCE.hold("postura", on, false);
     }
 
     private void place(EntityPlayer player, Held h, boolean local) {

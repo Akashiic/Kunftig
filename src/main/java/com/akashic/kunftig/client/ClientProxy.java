@@ -66,6 +66,10 @@ public final class ClientProxy extends CommonProxy {
                 .register(RodModels.INSTANCE);
             MinecraftForge.EVENT_BUS.register(RodModels.INSTANCE);
         }
+        // The movement keys held back at a station or in a posture (API 14 and 15): at the key bindings themselves.
+        FMLCommonHandler.instance()
+            .bus()
+            .register(com.akashic.kunftig.client.input.MoveKeys.INSTANCE);
         if (!com.akashic.kunftig.client.posture.PostureClient.disabled()) {
             // Postures (API 15): players the server sat or laid down are held at their point each tick.
             FMLCommonHandler.instance()

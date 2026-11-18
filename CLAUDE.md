@@ -42,6 +42,11 @@ of both projects (open PRs, merge order, what is still to be checked on the real
     `kunftig:camera`, `kunftig:blade`, `kunftig:effect` and `kunftig:pose`;
   * a client registers a channel only when it can draw it, so plugins know who needs a fallback
     (`drawsDisplays`, `drawsRodModels`...).
+* **The real client is the TEOF modpack (215 mods), and other mods touch the same player classes.** Never rely on
+  owning `player.movementInput`: the Aether replaces it with its own at the end of every client tick (it broke the
+  station in the first in-game test). Movement keys are held back and read at the key bindings themselves
+  (`client/input/MoveKeys`), for stations and postures alike. Before calling a client feature done, check it against
+  the modpack's jars. The server's CastleOfStone only admits mods whose jar SHA-256 is in its `WhitelistMods.yml`.
 * **Client rendering** of rods and displays goes through GeckoLib Unofficial 1.0.4, loaded reflectively; without it,
   nothing breaks.
 * **Displays are drawn from a compiled mesh**: `client/display/gecko/DisplayRenderer` transforms the bones that never

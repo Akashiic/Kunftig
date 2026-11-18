@@ -691,6 +691,12 @@ public void onTeclas(KunftigKeysEvent e) {
 * No cliente: `client/input/InputClient` (a roda é o `MouseEvent` do Forge; a barra, o `RenderGameOverlayEvent.Pre`
   de `HOTBAR`; as pernas, um `MovementInput` que guarda as teclas e zera o movimento). **No jogo, a verificar.**
 
+* **Como as teclas são seguradas (desde `MoveKeys`):** no posto e nas posturas, o cliente desfaz o estado
+  "pressionada" das teclas de andar do próprio jogo, nas duas pontas do tick e depois de cada evento de teclado e
+  de mouse, e lê o estado real direto do teclado. Antes punha um objeto seu em `player.movementInput`, e o Aether
+  do modpack TEOF, que troca esse objeto a cada tick, soltava o jogador e cegava as teclas (visto no jogo em
+  18/11/2026). A correção em si está **a verificar no jogo**.
+
 ## 17. HUD na tela (API 11)
 
 Elementos na tela de um jogador, desenhados depois do HUD do vanilla: texto (com `§` e quebras de linha), uma barra e
