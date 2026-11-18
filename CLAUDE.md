@@ -47,6 +47,10 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   station in the first in-game test). Movement keys are held back and read at the key bindings themselves
   (`client/input/MoveKeys`), for stations and postures alike. Before calling a client feature done, check it against
   the modpack's jars. The server's CastleOfStone only admits mods whose jar SHA-256 is in its `WhitelistMods.yml`.
+* **A swapped `movementInput` must not read as a double tap** (`client/input/InputCarry`): in TEOF 6.1 the pool
+  table mod wraps the input at the start of every tick and the Aether replaces it at the end, so the player gets a
+  blank object each tick and a held Space toggled creative flight. The new object receives what the last one held,
+  at the start of the player's tick. Read from both mods' bytecode; in game, to be verified.
 * **Displays follow the world's light**: they are drawn in `RenderWorldLastEvent`, when vanilla has already switched
   the light map off, so `DisplayClient` switches it on around them (a ship was as bright at midnight as at noon, seen
   in game); a display with a deck is lit by the brightest of three points up from its origin (the keel is under
