@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 
 import com.akashic.kunftig.Kunftig;
+import com.akashic.kunftig.client.compat.FuturaModels;
 import com.akashic.kunftig.display.DeckPose;
 import com.akashic.kunftig.display.DeckShape;
 import com.akashic.kunftig.display.DeckWalker;
@@ -192,6 +193,41 @@ public final class DeckClient {
         }
     }
 
+    /** futura3d API 8: how far what carries another player moved this tick, {@code "dx:dz"}. */
+    private static final String CARRIER = "carrier";
+    /** Blocks per tick: a player who moves less than this on the deck is standing (his position comes in steps). */
+    private static final double STANDING = 0.035;
+
+    /**
+     * Another player on a deck that moves does not walk unless he walks. A 1.7.10 client swings a player's limbs by
+     * how his position changed in the tick, and so does 3D Futura Engine with its models: on a ship that sails, that
+     * is the ship's motion, and everyone aboard walked on the spot (seen in game). The deck's motion at his feet
+     * is taken out: the limb swing vanilla just computed is computed again from what is left, and futura3d is told
+     * how much of the change carries him.
+     */
+    private static void still(EntityPlayer player, DisplayClient.Entry e, double fx, double fy, double fz) {
+        DeckPose now = pose(e.motion, 1);
+        double[] local = now.toLocal(fx, fy, fz);
+        double[] before = pose(e.motion, 0).toWorld(local[0], local[1], local[2]);
+        double dx = player.posX - player.prevPosX;
+        double dz = player.posZ - player.prevPosZ;
+        double ownX = dx - (fx - before[0]);
+        double ownZ = dz - (fz - before[2]);
+        if (ownX * ownX + ownZ * ownZ < STANDING * STANDING) {
+            ownX = 0;
+            ownZ = 0;
+        }
+        float f = (float) Math.min(1, Math.sqrt(ownX * ownX + ownZ * ownZ) * 4);
+        float vanilla = player.limbSwingAmount;
+        float amount = player.prevLimbSwingAmount + (f - player.prevLimbSwingAmount) * 0.4F;
+        player.limbSwing += amount - vanilla;
+        player.limbSwingAmount = amount;
+        FuturaModels.setExternalState(
+            player,
+            CARRIER,
+            Math.round((dx - ownX) * 1000) / 1000.0 + ":" + Math.round((dz - ownZ) * 1000) / 1000.0);
+    }
+
     /** Another player: drawn on the floor it stands on, wherever the display is this tick. */
     private void remote(EntityPlayer player) {
         double fx = player.posX;
@@ -206,6 +242,7 @@ public final class DeckClient {
             double y = DeckWalker.surface(e.deck, pose(e.motion, 1), fx, fy, fz, player.width / 2, reach);
             if (!Double.isNaN(y)) {
                 remoteOnDeck.put(player, Boolean.TRUE);
+                still(player, e, fx, y, fz);
                 player.setPosition(player.posX, player.posY + (y - fy), player.posZ);
                 player.onGround = true;
                 return;
@@ -213,6 +250,7 @@ public final class DeckClient {
         }
         if (remoteOnDeck.remove(player) != null) {
             player.onGround = false;
+            FuturaModels.setExternalState(player, CARRIER, null);
         }
     }
 }

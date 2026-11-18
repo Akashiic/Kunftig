@@ -145,6 +145,27 @@ public final class DeckWalker {
             double hz = c[2] + s * up[2];
             double[] free = pushOut(shape, hx, hz, ay + STEP, ay + height, radius, ax, az, Double.NaN, height);
             int floor = floorAt(shape, free[0], free[1], ay - DROP, ay + STEP, radius);
+            if (floor >= 0 && shape.maxY[floor] > ay + EPS
+                && blocked(shape, free[0], free[1], shape.maxY[floor], radius, height)) {
+                // A step up with no room to stand on it (a ledge under a deck, a gun port, the slices of a raked
+                // side one over the other up to the deck above): it is a wall, not a step. Without this a player
+                // walked up the inside of a ship's bow and out of the hull. Slide along it if one axis is free.
+                double[][] tries = { { free[0], az }, { ax, free[1] }, { ax, az } };
+                floor = -1;
+                for (double[] t : tries) {
+                    int f = floorAt(shape, t[0], t[1], ay - DROP, ay + STEP, radius);
+                    if (f >= 0
+                        && (shape.maxY[f] <= ay + EPS || !blocked(shape, t[0], t[1], shape.maxY[f], radius, height))) {
+                        free = t;
+                        floor = f;
+                        break;
+                    }
+                }
+                if (floor < 0) {
+                    free = tries[2];
+                    floor = floorAt(shape, ax, az, ay - DROP, ay + EPS, radius);
+                }
+            }
             if (floor >= 0) {
                 double top = shape.maxY[floor];
                 double s2 = (top - c[1]) / up[1];

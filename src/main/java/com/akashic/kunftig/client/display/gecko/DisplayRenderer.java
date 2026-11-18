@@ -402,6 +402,25 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
     }
 
     /**
+     * The world's light for a display: sky and block light a block and a half over its origin, as an entity's. A
+     * display players walk on (a ship) has its origin at the keel, under water and inside the hull, where the sky
+     * hardly reaches: the brightest of that and of two points higher, over the deck, is taken.
+     */
+    private static int lightAt(Minecraft mc, DisplayClient.Entry e, float partialTicks) {
+        int x = MathHelper.floor_double(e.motion.x(partialTicks));
+        double y = e.motion.y(partialTicks);
+        int z = MathHelper.floor_double(e.motion.z(partialTicks));
+        int light = mc.theWorld.getLightBrightnessForSkyBlocks(x, MathHelper.floor_double(y + 1.5), z, 0);
+        if (e.deck != null && !e.deck.isEmpty()) {
+            for (double up : new double[] { 9, 18 }) {
+                int more = mc.theWorld.getLightBrightnessForSkyBlocks(x, MathHelper.floor_double(y + up), z, 0);
+                light = Math.max(light & 0xFFFF, more & 0xFFFF) | Math.max(light >>> 16, more >>> 16) << 16;
+            }
+        }
+        return light;
+    }
+
+    /**
      * One pass of a display with a mesh: the buffer of its still bones, then a walk of the ones that move, inside the
      * state {@link IGeoRenderer#render} sets around its cubes.
      */
@@ -493,11 +512,7 @@ final class DisplayRenderer implements DisplayClient.Renderer, IGeoRenderer<Disp
         GeoModel model = a.model.getModel(a.model.geo); // also registers the bones for animation
         a.model.setLivingAnimations(a, Math.floorMod(e.id, KEYS), null);
         Minecraft mc = Minecraft.getMinecraft();
-        int light = mc.theWorld.getLightBrightnessForSkyBlocks(
-            MathHelper.floor_double(e.motion.x(partialTicks)),
-            MathHelper.floor_double(e.motion.y(partialTicks) + 1.5),
-            MathHelper.floor_double(e.motion.z(partialTicks)),
-            0);
+        int light = lightAt(mc, e, partialTicks);
         float lx = light % 65536;
         float ly = light / 65536f;
 

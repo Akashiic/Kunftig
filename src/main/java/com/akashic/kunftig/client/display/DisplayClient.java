@@ -408,9 +408,14 @@ public final class DisplayClient implements IResourceManagerReloadListener {
         DisplayModelIndex idx = index;
         long began = System.nanoTime();
         mc.mcProfiler.startSection("kunftigDisplays"); // shows in the debug pie (F3 + Shift) under "root.render"
+        // RenderWorldLastEvent comes after the world: vanilla has switched the light map off by then, and a display
+        // drawn without it is as bright at midnight and under a storm as at noon (seen in game: a ship that did
+        // not follow the world's light). It is switched on around the displays and left as it was found.
+        mc.entityRenderer.enableLightmap(t);
         try {
             drawAll(r, idx, cx, cy, cz, t);
         } finally {
+            mc.entityRenderer.disableLightmap(t);
             mc.mcProfiler.endSection();
             drawNanos += System.nanoTime() - began;
             drawFrames++;

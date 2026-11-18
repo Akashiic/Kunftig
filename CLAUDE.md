@@ -47,6 +47,13 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   station in the first in-game test). Movement keys are held back and read at the key bindings themselves
   (`client/input/MoveKeys`), for stations and postures alike. Before calling a client feature done, check it against
   the modpack's jars. The server's CastleOfStone only admits mods whose jar SHA-256 is in its `WhitelistMods.yml`.
+* **Displays follow the world's light**: they are drawn in `RenderWorldLastEvent`, when vanilla has already switched
+  the light map off, so `DisplayClient` switches it on around them (a ship was as bright at midnight as at noon, seen
+  in game); a display with a deck is lit by the brightest of three points up from its origin (the keel is under
+  water).
+* **A step is only a step with room to stand on it** (`DeckWalker`): a ledge under a deck, a gun port, the slices of
+  a raked side are walls. Other players on a deck that moves have the deck's motion taken out of their limb swing and
+  told to futura3d (`DeckClient.still`, the `carrier` state, futura3d API 8).
 * **Client rendering** of rods and displays goes through GeckoLib Unofficial 1.0.4, loaded reflectively; without it,
   nothing breaks.
 * **Displays are drawn from a compiled mesh**: `client/display/gecko/DisplayRenderer` transforms the bones that never

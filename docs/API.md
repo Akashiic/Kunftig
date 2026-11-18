@@ -931,6 +931,15 @@ navio.moveTo(origem, 2);
 * **Ainda não:** itens e criaturas no convés (caem através), agachar na borda sem cair, o balanço da câmera ao andar
   (o Minecraft o calcula antes de o Kunftig pôr o jogador no chão), som de passos, escadas de mão (subir aos cestos).
 
+* **Depois do primeiro teste no jogo (18/11/2026), três correções no cliente, a verificar de novo:**
+  * *um degrau só é degrau se o corpo couber em cima dele*: o andador subia degraus de até 0,6 bloco sem conferir a
+    altura livre, e dava para subir pelas fatias de um costado inclinado e sair do casco pela proa;
+  * *quem está parado num convés que anda não "anda"*: para os outros jogadores, o balanço das pernas (e a
+    velocidade que o 3D Futura Engine lê) vinha da mudança de posição no mundo, que é a do navio. O movimento do
+    convés debaixo dos pés é descontado, e o futura3d (API 8) é avisado pelo estado `carrier`;
+  * *a exibição segue a luz do mundo*: era desenhada com o mapa de luz desligado e ficava clara de noite e na
+    chuva.
+
 ## 22. Girar um osso pelo servidor (API 13)
 
 `Display#setBoneRotation(osso, x, y, z, ticks)` gira um osso do modelo, e tudo o que está debaixo dele, em torno do

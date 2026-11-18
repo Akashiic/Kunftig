@@ -400,6 +400,46 @@ class DeckTest {
         assertEquals(-6 + R, s.local()[2], 1e-3);
     }
 
+    /**
+     * A step is only a step with room to stand on it. A ledge half a block up under a low deck, and three slices of
+     * a raked side one over the other up to the deck above, are walls: Expeditions' frigate was walked out of
+     * through the bow this way.
+     */
+    @Test
+    void aStepWithNoHeadroomIsAWall() {
+        DeckShape low = DeckShape.of(
+            DeckShape.pack(
+                new double[][] { { -4, 3.5, -10, 4, 4, 10 }, { -4, 4, 2, 4, 4.5, 6 }, // a ledge, 0.5 up
+                    { -4, 5.5, 2, 4, 6, 6 } })); // a deck 1 over the ledge: nobody 1.8 tall stands on it
+        Sim s = standing(low, still(), 0, 0);
+        for (int i = 0; i < 40; i++) {
+            s.tick(0, 0.2, false, still());
+        }
+        assertEquals(4, s.local()[1], 1e-9, "still on the floor");
+        assertTrue(s.local()[2] < 2 - R + 0.01, "stopped at the ledge: " + s.local()[2]);
+        // the same ledge under the open sky is a step
+        DeckShape open = DeckShape
+            .of(DeckShape.pack(new double[][] { { -4, 3.5, -10, 4, 4, 10 }, { -4, 4, 2, 4, 4.5, 6 } }));
+        Sim t = standing(open, still(), 0, 0);
+        for (int i = 0; i < 20; i++) {
+            t.tick(0, 0.2, false, still());
+        }
+        assertEquals(4.5, t.local()[1], 1e-9, "up the step");
+        // a raked side in slices 0.5 high, each 0.3 farther out, under a deck 2.2 over the floor: the first slice has
+        // room over it (1.7 is not 1.8: it has not), so none is climbed
+        DeckShape rake = DeckShape.of(
+            DeckShape.pack(
+                new double[][] { { -6, 3.5, -10, 6, 4, 10 }, { 3, 4, -10, 6, 4.5, 10 }, { 3.3, 4.5, -10, 6, 5, 10 },
+                    { 3.6, 5, -10, 6, 5.5, 10 }, { -6, 6.2, -10, 6, 6.5, 10 } }));
+        Sim u = standing(rake, still(), 0, 0);
+        for (int i = 0; i < 60; i++) {
+            u.tick(0.2, 0.05, false, still());
+        }
+        assertEquals(4, u.local()[1], 1e-9, "not up the side");
+        assertTrue(u.local()[0] < 3 - R + 0.01, "inside the hull: " + u.local()[0]);
+        assertTrue(u.local()[2] > 1, "and it slid along the side: " + u.local()[2]);
+    }
+
     @Test
     void stepsOnFromTheGroundBeside() {
         // a gangplank's end, 0.4 over the ground a player walks on
