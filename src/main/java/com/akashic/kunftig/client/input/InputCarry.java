@@ -30,6 +30,11 @@ public final class InputCarry {
 
     private EntityClientPlayerMP owner;
     private MovementInput last;
+    /** The object left on the player when the last client tick ended, and for how many ticks it has been replaced. */
+    private MovementInput settled;
+    private int churn;
+    /** Ticks in a row with a replaced object before this class steps in (a mod that wraps once is left alone). */
+    private static final int CHURN = 3;
 
     private InputCarry() {}
 
@@ -45,15 +50,52 @@ public final class InputCarry {
     }
 
     /**
-     * Both ends of the client tick, after the other handlers: the object a mod has just put there is what the game
-     * reads until the next tick. Between ticks the frames are drawn, and {@code isSneaking()} of the local player is
-     * {@code movementInput.sneak}: with a blank object there, a player holding Shift was drawn standing (and sneaking
-     * again within each tick), and anything asking for his held keys between ticks was told "none".
+     * The start of the client tick, after the other handlers: the object a mod has just put there (the pool table's
+     * wrapper) is what handlers of the player's tick read.
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onClientTick(TickEvent.ClientTickEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
-        look(mc == null ? null : mc.thePlayer);
+        EntityClientPlayerMP player = mc == null ? null : mc.thePlayer;
+        look(player);
+        if (event.phase == TickEvent.Phase.END) {
+            settled = player == null ? null : player.movementInput;
+        }
+    }
+
+    /**
+     * The end of the client tick, before the other handlers. Mods that act on a key going down read the input here
+     * (EnderIO's travel anchors and OpenBlocks' elevators: jump and sneak), and some run after the mod that swaps
+     * the object at this very moment (the Aether): they were handed a blank one, tick after tick, and Shift and
+     * Space did nothing on an anchor or an elevator.
+     * <p>
+     * So once the object is seen to change every tick, the one that was there when the last tick ended goes back
+     * before anybody else looks, with the state of the one being taken out. If the mod that swaps at the end of the
+     * tick finds its own object, it leaves it alone, and everyone after it reads real keys; if it swaps it anyway,
+     * nothing was lost ({@link #onClientTick} carries the state over as before). The wrapper comes back at the start
+     * of the next tick, from its own mod.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void beforeClientTickEnds(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityClientPlayerMP player = mc == null ? null : mc.thePlayer;
+        MovementInput now = player == null ? null : player.movementInput;
+        if (now == null || player != owner || settled == null) {
+            churn = 0;
+            return;
+        }
+        if (now == settled) {
+            churn = 0;
+            return;
+        }
+        if (++churn > CHURN) {
+            carry(now, settled);
+            player.movementInput = settled;
+            last = settled;
+        }
     }
 
     private void look(EntityClientPlayerMP player) {
@@ -61,9 +103,12 @@ public final class InputCarry {
         if (now == null) {
             owner = null;
             last = null;
+            settled = null;
             return;
         }
-        if (player == owner && last != null && now != last) {
+        if (player != owner) {
+            settled = null;
+        } else if (last != null && now != last) {
             carry(last, now);
         }
         owner = player;

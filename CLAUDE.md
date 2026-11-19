@@ -51,6 +51,10 @@ of both projects (open PRs, merge order, what is still to be checked on the real
   client is told the union, and `getBound` answers the caller's own. And a new pseudo-action has to be let through
   `KunftigInput.bind`'s own check, not only `InputWire.isAction`: `STATION` was refused there with an
   `IllegalArgumentException`, so no helm ever took the keys (`InputApiTest` binds it now).
+* **Mods read the input at the end of the client tick** (EnderIO's travel anchors, OpenBlocks' elevators): with the
+  pool table and the Aether swapping the object, they were handed a blank one and Shift/Space did nothing there.
+  `InputCarry.beforeClientTickEnds` puts the settled object back first (after 3 ticks of churn), so the Aether
+  finds its own and stops swapping. In game, to be verified.
 * **A swapped `movementInput` must not read as a double tap** (`client/input/InputCarry`): in TEOF 6.1 the pool
   table mod wraps the input at the start of every tick and the Aether replaces it at the end, so the player gets a
   blank object each tick and a held Space toggled creative flight. The new object receives what the last one held,
