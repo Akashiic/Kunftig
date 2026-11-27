@@ -59,6 +59,14 @@ are carried along while the display moves, turns, pitches and rolls. It is the d
 plugin. It runs on each player's client, against the pose the client draws. See [docs/API.md](docs/API.md),
 section 21 (Portuguese).
 
+## Feature 10: modern primitives for Forge mods
+
+For porting mods from current Minecraft without rewriting their logic: DataFixerUpper-style NBT codecs
+(`Codec`, `RecordCodecBuilder`), the modern `StreamCodec`/`ByteBufCodecs`, item data components
+(`DataComponentType`), NeoForge-style entity data attachments (`AttachmentType`) and the modern `Mth`, `Vec3` and
+`BlockPos`, in `com.akashic.kunftig.modern`. Java 8, Forge only, no wire protocol. Guide (Portuguese):
+[docs/modern/API.md](docs/modern/API.md).
+
 ## Mods that get in the way on Crucible
 
 **PlayerContainerFix (BQ3-Thermos-patch): remove it on Crucible.** It fixes BetterQuesting's `ClassCastException` in

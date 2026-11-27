@@ -84,6 +84,13 @@ Uma exibição pode ter **caixas sólidas** (`Display#setCollision`): o jogador 
 e é levado junto enquanto a exibição se move, gira, caturra e balança. É o convés dos navios do plugin Expeditions.
 Roda no cliente de cada jogador, contra a pose que ele desenha. Veja a seção 21 de [docs/API.md](docs/API.md).
 
+## Recurso 10: primitivas modernas para mods Forge
+
+Para portar mods do Minecraft atual sem reescrever a lógica: codecs NBT no formato do DataFixerUpper (`Codec`,
+`RecordCodecBuilder`), o `StreamCodec`/`ByteBufCodecs` modernos, dados em itens (`DataComponentType`), dados em
+entidades como os *attachments* do NeoForge (`AttachmentType`) e o `Mth`, `Vec3` e `BlockPos` modernos, em
+`com.akashic.kunftig.modern`. Java 8, só Forge, sem protocolo de rede. Guia: [docs/modern/API.md](docs/modern/API.md).
+
 ## Instalação
 
 | Onde | Jar | Requisitos |
