@@ -46,6 +46,9 @@ public final class Kunftig {
         cpw.mods.fml.common.FMLCommonHandler.instance()
             .bus()
             .register(com.akashic.kunftig.posture.PostureServer.INSTANCE);
+        // Modern primitives for mods: entity attachments are created with players and copied on respawn.
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS
+            .register(new com.akashic.kunftig.modern.entity.EntityAttachments.Events());
         if (Boolean.getBoolean("kunftig.devHarness")) {
             install("com.akashic.kunftig.dev.FishingHarness"); // development only, absent from release jars
         }
